@@ -21,8 +21,6 @@ Limites connues :
 - Certains réseaux (4G, réseaux d'entreprise) bloquent la connexion directe. Il faudrait alors un serveur TURN.
 - Le navigateur de l'hôte, qui arbitre la partie, connaît toutes les mains. Les autres joueurs ne reçoivent que leurs propres cartes : chaque main est chiffrée (ECDH + AES-GCM, [js/secret.js](js/secret.js)) pour son seul destinataire, les autres mains arrivent sous forme de `?`. Si l'hôte part, le suivant redemande à chacun ses cartes et redistribue au hasard celles des robots et des absents parmi les cartes encore cachées.
 
-La page sait aussi tourner en Artifact claude.ai : elle utilise alors le salon temps réel de claude.ai au lieu de WebRTC. La version publiée (https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv) est l'ancien prototype ; la republier demande d'envoyer aussi les fichiers de `js/`.
-
 ## Stack
 
 HTML, CSS et JavaScript sans build, en modules ES (import map). Rendu 3D avec [three.js](https://threejs.org/) 0.186 (ombrage toon, contours via `OutlineEffect`, ombres de la lampe), réseau avec Trystero 0.26, tous deux chargés depuis jsDelivr. Polices Baloo 2 et Nunito via Google Fonts.
