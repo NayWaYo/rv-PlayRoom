@@ -28,6 +28,8 @@ La page sait aussi tourner en Artifact claude.ai : elle utilise alors le salon t
 HTML, CSS et JavaScript sans build, en modules ES (import map). Rendu 3D avec [three.js](https://threejs.org/) 0.186 (ombrage toon, contours via `OutlineEffect`, ombres de la lampe), réseau avec Trystero 0.26, tous deux chargés depuis jsDelivr. Polices Baloo 2 et Nunito via Google Fonts.
 
 - [index.html](index.html) : interface, règles du Papayoo, scène, avatars et réseau.
+- [js/avatar.js](js/avatar.js) : personnages personnalisables (corps articulé, visage dessiné, vêtements, coiffures, chapeaux, accessoires) et leurs animations.
+- [js/editor.js](js/editor.js) : éditeur de personnage avec aperçu 3D.
 - [js/fx.js](js/fx.js) : matériaux cartoon, halos lumineux, poussière, confettis.
 - [js/sfx.js](js/sfx.js) : bruitages et musique lounge générés avec la Web Audio API (aucun fichier audio).
 

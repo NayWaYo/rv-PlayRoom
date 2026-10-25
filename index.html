@@ -118,6 +118,39 @@ table.res tr.win td{color:var(--marigold)}
 .help{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:16px 0 18px;font-size:14px;color:var(--muted);align-items:center}
 .help kbd{justify-self:start}
 #enter{width:100%;font-size:19px;padding:12px}
+#customize{width:100%;margin-bottom:10px}
+#lookBtn{cursor:pointer}
+#emotes{pointer-events:auto;position:fixed;right:calc(12px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
+.emote{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:rgba(28,21,36,.82);font-size:22px;line-height:1;cursor:pointer;padding:0;transition:transform .1s}
+.emote:hover{transform:scale(1.12)}
+.emote:active{transform:scale(.92)}
+.emote:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+#selfEmote{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);font-size:64px;pointer-events:none;animation:emoteUp 1.4s ease-out forwards}
+@keyframes emoteUp{0%{transform:translate(-50%,-30%) scale(.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.15);opacity:1}70%{opacity:1}100%{transform:translate(-50%,-110%) scale(1);opacity:0}}
+#editor{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:rgba(20,14,27,.78);backdrop-filter:blur(3px);overflow:auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.ed-card{width:min(860px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);background:var(--plum);border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.ed-preview{position:relative;background:radial-gradient(circle at 50% 40%,#4a3760,#241a2e);min-height:420px}
+#edCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.ed-hint{position:absolute;left:0;right:0;bottom:10px;margin:0;text-align:center;font-size:12px;color:var(--muted)}
+.ed-side{padding:20px 22px;display:flex;flex-direction:column;min-width:0}
+.ed-side h2{margin:0 0 10px;font-family:var(--display);font-size:26px;font-weight:800}
+.ed-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ed-tabs button{border:0;border-radius:999px;padding:6px 14px;background:var(--plum-2);font-weight:800;cursor:pointer}
+.ed-tabs button[aria-selected="true"]{background:var(--marigold);color:#2a1a08}
+.ed-opts{flex:1;overflow:auto;max-height:52vh}
+.ed-row{padding:8px 0;border-top:1px solid var(--line)}
+.ed-label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;color:var(--muted);margin-bottom:6px}
+.ed-chips,.ed-swatches{display:flex;flex-wrap:wrap;gap:6px}
+.ed-chip{border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--night);font-weight:700;font-size:13px;cursor:pointer}
+.ed-chip[aria-pressed="true"]{border-color:var(--marigold);background:var(--marigold);color:#2a1a08}
+.ed-swatches .sw{width:30px;height:30px}
+.ed-chip:focus-visible,.ed-tabs button:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+@media (max-width:700px){
+  .ed-card{grid-template-columns:1fr}
+  .ed-preview{min-height:0;height:36vh}
+  .ed-opts{max-height:none}
+}
 .status-line{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
 .invite{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .invite b{font-family:var(--display);font-size:20px;letter-spacing:.08em;color:var(--marigold)}
@@ -151,6 +184,7 @@ table.res tr.win td{color:var(--marigold)}
       <div class="chip" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></div>
       <div class="row-chips">
         <button class="chip" id="inviteBtn" type="button" hidden>Inviter</button>
+        <button class="chip" id="lookBtn" type="button" hidden>Mon perso</button>
         <button class="chip toggle" id="sfxBtn" type="button" hidden aria-pressed="true">Sons</button>
         <button class="chip toggle" id="musicBtn" type="button" hidden aria-pressed="true">Musique</button>
       </div>
@@ -168,6 +202,8 @@ table.res tr.win td{color:var(--marigold)}
 <div id="toast" hidden></div>
 <div id="panel" hidden></div>
 <div id="joy" hidden><div id="knob"></div></div>
+<div id="emotes" hidden aria-label="Expressions"></div>
+<div id="selfEmote" hidden></div>
 <button id="actBtn" class="btn" hidden></button>
 
 <div id="intro">
@@ -182,6 +218,7 @@ table.res tr.win td{color:var(--marigold)}
       <kbd>E</kbd><span>s'asseoir ou se lever</span>
       <kbd>Échap</kbd><span>libérer la souris</span>
     </div>
+    <button class="btn ghost" id="customize" type="button">Personnaliser mon perso</button>
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
     <div class="status-line" id="introStatus">Connexion au salon…</div>
     <div class="invite" id="invite" hidden>
@@ -189,6 +226,18 @@ table.res tr.win td{color:var(--marigold)}
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
   </form>
+</div>
+
+<div id="editor" hidden>
+  <div class="ed-card" role="dialog" aria-label="Personnaliser ton perso">
+    <div class="ed-preview"><canvas id="edCanvas" aria-label="Aperçu de ton perso"></canvas><p class="ed-hint">Glisse pour le faire tourner</p></div>
+    <div class="ed-side">
+      <h2>Ton perso</h2>
+      <div class="ed-tabs" role="tablist"></div>
+      <div class="ed-opts"></div>
+      <div class="actions"><button class="btn ghost" id="edRandom" type="button">Au hasard</button><button class="btn" id="edDone" type="button">Terminé</button></div>
+    </div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -338,6 +387,8 @@ import * as THREE from 'three';
 import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { toon, noOutline, roundedBox, makeGlow, Dust, Confetti } from './js/fx.js';
 import { initAudio, setPrefs, getPrefs, sfx } from './js/sfx.js';
+import { buildAvatar, animateAvatar, react, disposeAvatar, cleanLook, lookKey, randomLook, seededRand, CLOTH, EXPRESSIONS } from './js/avatar.js';
+import { createEditor } from './js/editor.js';
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -363,7 +414,8 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 /* ---------------- state ---------------- */
 let room = null, booting = true, online = false, myKey = null, peers = [];
 let G = { phase: 'idle', epoch: '', v: 0 };
-const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: 0, z: 4.4, yaw: 0, pitch: -0.08, seat: -1, entered: false };
+const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: 0, z: 4.4, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0 };
+const botLook = col => { const l = randomLook(); l.tc = Math.max(0, CLOTH.indexOf(col)); return cleanLook(l); };
 let passPick = new Set(), pending = null, pendingAt = 0, dismissedEnd = '', botsWanted = 0, roundsWanted = 0, roundsTouched = false;
 const absentSince = {};
 let lastBroadcast = 0;
@@ -411,7 +463,7 @@ function onState(m) {
   const d = m.data;
   if (!validState(d) || d.host !== peerKey(m)) return;
   if (!accepts(d)) return;
-  d.players.forEach(p => { p.nick = cleanNick(p.nick); p.col = cleanCol(p.col); p.seat = Math.max(0, Math.min(7, p.seat | 0)); });
+  d.players.forEach(p => { p.nick = cleanNick(p.nick); p.col = cleanCol(p.col); p.seat = Math.max(0, Math.min(7, p.seat | 0)); if (p.bot) p.l = cleanLook(p.l); });
   G = d;
   stateChanged();
   hostStep();
@@ -760,7 +812,7 @@ const cardGeo = new THREE.PlaneGeometry(CARD_W, CARD_H);
 const miniGeo = new THREE.PlaneGeometry(0.1, 0.145);
 const backMat = noOutline(toon('#ffffff', { map: cardTex('back'), side: THREE.DoubleSide, alphaTest: 0.5 }));
 
-/* avatars: chubby capsules with a face, arms and feet, animated in code */
+/* avatars: built and animated by js/avatar.js */
 const avatars = new Map();
 function nameTex(nick, col) {
   return canvasTex(320, 80, (x) => {
@@ -771,114 +823,24 @@ function nameTex(nick, col) {
     x.fillStyle = '#fbf3e4'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(nick, (320 - w) / 2 + 46, 41, w - 56);
   });
 }
-const darkMat = noOutline(new THREE.MeshBasicMaterial({ color: '#1b1420' }));
-const whiteMat = noOutline(new THREE.MeshBasicMaterial({ color: '#ffffff' }));
-const blushMat = noOutline(new THREE.MeshBasicMaterial({ color: '#ff7f8e', transparent: true, opacity: 0.6 }));
-const eyeGeo = new THREE.SphereGeometry(0.045, 12, 10), glintGeo = new THREE.SphereGeometry(0.014, 6, 6);
-const smileGeo = new THREE.TorusGeometry(0.055, 0.014, 6, 16, Math.PI), oGeo = new THREE.SphereGeometry(0.045, 12, 10);
-function makeAvatar(nick, col, isBot) {
-  const g = new THREE.Group();
-  const hop = new THREE.Group(); g.add(hop); // squash, stretch and jumps pivot at the feet
-  const bodyMat = toon(col);
-  const body = mesh(new THREE.CapsuleGeometry(0.3, 0.55, 8, 20), bodyMat, 0, 0.72, 0, hop);
-  const face = new THREE.Group(); face.position.set(0, 0.3, -0.285); body.add(face);
-  const eyes = [-0.1, 0.1].map(sx => {
-    const e = new THREE.Mesh(eyeGeo, darkMat); e.scale.set(1, 1.5, 0.6); e.position.set(sx, 0.02, 0); face.add(e);
-    const gl = new THREE.Mesh(glintGeo, whiteMat); gl.position.set(0.015, 0.02, -0.04); e.add(gl);
-    return e;
-  });
-  const smile = new THREE.Mesh(smileGeo, darkMat); smile.position.set(0, -0.09, -0.02); smile.rotation.z = Math.PI; face.add(smile);
-  const mouthO = new THREE.Mesh(oGeo, darkMat); mouthO.scale.set(0.8, 1.1, 0.4); mouthO.position.set(0, -0.1, -0.015); mouthO.visible = false; face.add(mouthO);
-  const blush = [-0.17, 0.17].map(sx => { const b = new THREE.Mesh(oGeo, blushMat); b.scale.set(1, 0.6, 0.2); b.position.set(sx, -0.06, 0.02); b.visible = false; face.add(b); return b; });
-  const hatCol = new THREE.Color(col).offsetHSL(0.5, -0.1, -0.08);
-  const hat = mesh(new THREE.SphereGeometry(0.315, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2.1), toon(isBot ? '#d9d4de' : hatCol), 0, 0.42, 0, body);
-  hat.scale.y = 0.8;
-  const band = mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 28), toon(isBot ? '#bfb6c7' : hatCol.clone().offsetHSL(0, 0, -0.1)), 0, 0.44, 0, body);
-  band.rotation.x = Math.PI / 2;
-  const pom = mesh(new THREE.SphereGeometry(0.07, 12, 8), toon(isBot ? '#8bd3ff' : '#fbf3e4'), 0, 0.7, 0, body);
-  if (isBot) { const ant = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 6), toon('#bfb6c7'), 0, 0.62, 0, body); ant.castShadow = false; }
-  const arms = [-1, 1].map(sx => {
-    const pivot = new THREE.Group(); pivot.position.set(sx * 0.29, 0.1, -0.02); body.add(pivot);
-    const arm = mesh(new THREE.CapsuleGeometry(0.075, 0.24, 4, 10), bodyMat, 0, -0.17, 0, pivot);
-    pivot.userData.sx = sx; pivot.rotation.z = sx * 0.3;
-    return pivot;
-  });
-  const footMat = toon(new THREE.Color(col).offsetHSL(0, 0, -0.18));
-  const feet = [-1, 1].map(sx => { const f = mesh(new THREE.SphereGeometry(0.09, 12, 8), footMat, sx * 0.13, 0.06, -0.04, hop); f.scale.set(1, 0.6, 1.3); return f; });
-  const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTex(nick, col), depthWrite: false }));
-  tag.scale.set(1.0, 0.25, 1); tag.position.y = 1.78; g.add(tag);
-  scene.add(g);
-  return { g, hop, body, eyes, smile, mouthO, blush, arms, feet, tag, nick, col, x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, seat: -1, walk: 0, init: false,
-    expr: 'idle', exprUntil: 0, blinkAt: 1 + Math.random() * 3, blinkEnd: 0, jump: 0, jumpV: 0, land: 0, lean: 0 };
-}
-function syncAvatar(id, nick, col, isBot, x, z, yaw, seat) {
+function syncAvatar(id, nick, col, look, x, z, yaw, seat) {
   let a = avatars.get(id);
-  if (a && (a.nick !== nick || a.col !== col)) { dropAvatar(id); a = null; }
-  if (!a) { a = makeAvatar(nick, col, isBot); avatars.set(id, a); }
+  const key = lookKey(cleanLook(look));
+  if (a && (a.nick !== nick || a.col !== col || a.key !== key)) { dropAvatar(id); a = null; }
+  if (!a) {
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTex(nick, col), depthWrite: false }));
+    tag.scale.set(1.0, 0.25, 1);
+    a = buildAvatar(look, tag); a.nick = nick; a.col = col;
+    scene.add(a.g); avatars.set(id, a);
+  }
   a.tx = x; a.tz = z; a.tyaw = yaw; a.seat = seat; a.seen = frameNo;
   if (!a.init) { a.x = x; a.z = z; a.yaw = yaw; a.init = true; }
+  return a;
 }
 function dropAvatar(id) {
   const a = avatars.get(id); if (!a) return;
-  scene.remove(a.g);
-  a.g.traverse(o => {
-    if (o.isSprite) { o.material.map.dispose(); o.material.dispose(); return; }
-    if (o.geometry && o.geometry !== eyeGeo && o.geometry !== glintGeo && o.geometry !== smileGeo && o.geometry !== oGeo) o.geometry.dispose();
-    if (o.material && o.material !== darkMat && o.material !== whiteMat && o.material !== blushMat) o.material.dispose();
-  });
+  scene.remove(a.g); disposeAvatar(a);
   avatars.delete(id);
-}
-// expressions: idle, happy, cheer, laugh, sad, shock
-function react(a, expr, secs = 2.2) {
-  if (!a) return;
-  a.expr = expr; a.exprUntil = performance.now() / 1000 + secs;
-  if ((expr === 'cheer' || expr === 'happy') && a.jump === 0) a.jumpV = expr === 'cheer' ? 3.4 : 2.4;
-  if (expr === 'shock' && a.jump === 0) a.jumpV = 1.8;
-}
-const ARM_POSE = { idle: [0.3, 0], happy: [0.9, 0], cheer: [2.7, 0], laugh: [0.7, -0.3], sad: [0.08, 0.15], shock: [2.2, -0.9] };
-function animateAvatar(a, dt, t, moving) {
-  if (a.exprUntil && t > a.exprUntil) { a.expr = 'idle'; a.exprUntil = 0; }
-  const ex = a.expr;
-  if (t > a.blinkAt) { a.blinkEnd = t + 0.12; a.blinkAt = t + 2 + Math.random() * 3.5; }
-  const wide = ex === 'shock' ? 1.35 : 1, closed = t < a.blinkEnd || ex === 'laugh';
-  for (const e of a.eyes) e.scale.set(wide, closed ? 0.18 : 1.5 * wide, 0.6);
-  a.smile.visible = ex !== 'shock'; a.mouthO.visible = ex === 'shock';
-  a.smile.rotation.z = ex === 'sad' ? 0 : Math.PI;
-  a.smile.position.y = ex === 'sad' ? -0.13 : -0.09;
-  a.smile.scale.setScalar(ex === 'happy' || ex === 'cheer' || ex === 'laugh' ? 1.45 : ex === 'sad' ? 0.8 : 1);
-  for (const b of a.blush) b.visible = ex !== 'idle' && ex !== 'sad';
-  // jumps
-  if (a.jumpV !== 0 || a.jump > 0) {
-    a.jumpV -= 9.8 * dt; a.jump += a.jumpV * dt;
-    if (a.jump <= 0) { a.jump = 0; a.jumpV = 0; a.land = 0.16; }
-  }
-  // squash and stretch
-  let sy = 1 + Math.sin(t * 2.1 + a.x * 3) * 0.018;
-  if (moving) sy += Math.abs(Math.sin(a.walk)) * 0.08 - 0.03;
-  if (a.land > 0) { a.land = Math.max(0, a.land - dt); sy -= a.land * 1.1; }
-  if (a.jumpV > 0) sy += 0.1;
-  const sx = 1 / Math.sqrt(sy);
-  a.hop.scale.set(sx, sy, sx);
-  a.hop.position.y = a.jump + (ex === 'laugh' ? Math.abs(Math.sin(t * 26)) * 0.025 : 0) + (moving ? Math.abs(Math.sin(a.walk)) * 0.05 : 0);
-  // body lean and sway
-  a.lean = Math.max(0, a.lean - dt * 2.2);
-  const k = 1 - Math.exp(-dt * 12);
-  const tx = -a.lean * 0.5 + (ex === 'sad' ? 0.18 : 0) + (ex === 'shock' ? -0.12 : 0);
-  a.body.rotation.x += (tx - a.body.rotation.x) * k;
-  a.body.rotation.z = moving ? Math.sin(a.walk) * 0.07 : (a.seat >= 0 ? Math.sin(t * 1.2 + a.x) * 0.025 : 0);
-  // arms
-  const [up, fwd] = ARM_POSE[ex] || ARM_POSE.idle;
-  for (const p of a.arms) {
-    const s = p.userData.sx;
-    let rz = s * up, rx = fwd;
-    if (ex === 'cheer') rz += s * Math.sin(t * 14) * 0.25;
-    if (moving) rx += Math.sin(a.walk) * 0.7 * s;
-    if (a.lean > 0) rx -= a.lean * 1.1;
-    p.rotation.z += (rz - p.rotation.z) * k;
-    p.rotation.x += (rx - p.rotation.x) * k;
-  }
-  // feet
-  a.feet.forEach((f, i) => { f.position.z = -0.04 + (moving ? Math.sin(a.walk + i * Math.PI) * 0.1 : 0); f.visible = a.seat < 0; });
 }
 
 /* table pieces: trick cards, others' hands, the die */
@@ -894,8 +856,8 @@ let dieRollUntil = 0;
 function setHandFan(g, seat, count) {
   while (g.children.length > count) g.remove(g.children[g.children.length - 1]);
   while (g.children.length < count) { const m = new THREE.Mesh(miniGeo, backMat); m.castShadow = true; g.add(m); }
-  const p = seatXZ(seat, 1.6);
-  g.position.set(p.x, 1.02, p.z); g.rotation.set(0, ang(seat), 0);
+  const p = seatXZ(seat, 1.52);
+  g.position.set(p.x, 0.93, p.z); g.rotation.set(0, ang(seat), 0);
   g.children.forEach((m, k) => {
     const o = k - (count - 1) / 2;
     m.position.set(o * 0.022, 0, -0.002 * k);
@@ -990,6 +952,8 @@ const keys = {};
 let joy = { x: 0, y: 0 }, locked = false, drag = null;
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
+  if (editor.isOpen()) return;
+  if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) emote(+e.code.slice(5) - 1);
   keys[e.code] = true;
   if (e.code === 'KeyE' && me.entered && !e.repeat) toggleSit();
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -1135,12 +1099,19 @@ function updateAvatars(dt, t) {
     const seat = Number.isInteger(a[4]) && a[4] >= 0 && a[4] < SEATS ? a[4] : -1;
     let x = +a[0] || 0, z = +a[1] || 0, yaw = +a[2] || 0;
     if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
-    syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), false, x, z, yaw, seat);
+    const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), pr.l, x, z, yaw, seat);
+    // an expression the player pulled on purpose: [index, counter]
+    const ex = Array.isArray(pr.x) ? pr.x : null;
+    if (av.lastEmote === undefined) av.lastEmote = ex ? ex[1] : 0; // don't replay an old one on arrival
+    else if (ex && ex[1] !== av.lastEmote) {
+      if (EXPRESSIONS[ex[0]]) react(av, EXPRESSIONS[ex[0]].id, 2.6);
+      av.lastEmote = ex[1];
+    }
   }
   if (isActive()) G.players.forEach(p => {
     if (!p.bot) return;
     const s = seatXZ(p.seat, CHAIR_R);
-    syncAvatar('b:' + p.seat, p.nick, p.col, true, s.x, s.z, ang(p.seat), p.seat);
+    syncAvatar('b:' + p.seat, p.nick, p.col, p.l, s.x, s.z, ang(p.seat), p.seat);
   });
   for (const [id, a] of avatars) {
     if (a.seen !== frameNo) { dropAvatar(id); continue; }
@@ -1150,7 +1121,7 @@ function updateAvatars(dt, t) {
     let dy = a.tyaw - a.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); a.yaw += dy * k;
     const moving = Math.hypot(a.x - ox, a.z - oz) / Math.max(dt, 1e-3) > 0.3;
     a.walk = moving ? a.walk + dt * 11 : a.walk * 0.9;
-    a.g.position.set(a.x, a.seat >= 0 ? 0.36 : 0, a.z);
+    a.g.position.set(a.x, 0, a.z);
     a.g.rotation.y = a.yaw;
     animateAvatar(a, dt, t, moving);
   }
@@ -1366,7 +1337,7 @@ function launch() {
   let b = botsWanted;
   const usedCols = new Set(list.map(p => p.col));
   const freeCols = COLORS.filter(c => !usedCols.has(c));
-  for (let s = 0; s < SEATS && b > 0; s++) if (!taken.has(s)) { list.push({ k: 'bot-' + s, seat: s, nick: BOTN[s], col: freeCols.shift() || COLORS[(s + 3) % 8], bot: true }); b--; }
+  for (let s = 0; s < SEATS && b > 0; s++) if (!taken.has(s)) { list.push({ k: 'bot-' + s, seat: s, nick: BOTN[s], col: freeCols.shift() || COLORS[(s + 3) % 8], bot: true }); list[list.length - 1].l = botLook(list[list.length - 1].col); b--; }
   list.sort((a, b2) => a.seat - b2.seat);
   if (list.length < 3 || !myKey) return;
   G = PY.newGame(list, roundsWanted, myKey);
@@ -1468,12 +1439,52 @@ const sw = $('#swatches');
 COLORS.forEach(c => {
   const b = el('button', 'sw'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', 'Couleur ' + c);
   b.setAttribute('aria-pressed', String(c === me.col));
-  b.onclick = () => { me.col = c; sw.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', String(x === b))); };
+  b.onclick = () => {
+    me.col = c; sw.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    saveLook(cleanLook(Object.assign({}, me.look, { tc: CLOTH.indexOf(c) }))); // your colour dresses your top
+  };
   sw.append(b);
 });
 const savedNick = store.get('papayoo-nick'), savedCol = store.get('papayoo-col');
 if (savedNick) $('#nick').value = savedNick;
 if (savedCol && COLORS.includes(savedCol)) { me.col = savedCol; sw.querySelectorAll('.sw').forEach((x, k) => x.setAttribute('aria-pressed', String(COLORS[k] === savedCol))); }
+// your character: the saved look, or a random one wearing your colour
+try { me.look = cleanLook(JSON.parse(store.get('playroom-look') || 'null') || botLook(me.col)); } catch (e) { me.look = botLook(me.col); }
+store.set('playroom-look', JSON.stringify(me.look));
+function saveLook(l) {
+  me.look = l; store.set('playroom-look', JSON.stringify(l));
+  if (room && me.entered) room.presence({ l }).catch(() => {});
+}
+const editor = createEditor({
+  root: $('#editor'), canvas: $('#edCanvas'),
+  onChange: l => saveLook(l),
+  onClose: () => { if (me.entered) canvas.focus(); else $('#customize').focus(); refreshUI(); }
+});
+function openEditor() {
+  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  for (const k in keys) keys[k] = false;
+  editor.open(me.look); refreshUI();
+}
+$('#customize').addEventListener('click', openEditor);
+$('#lookBtn').addEventListener('click', openEditor);
+// expressions on purpose: keys 1 to 6 or the buttons on the right
+const emotesEl = $('#emotes');
+EXPRESSIONS.forEach((x, i) => {
+  const b = el('button', 'emote', x.icon); b.type = 'button';
+  b.title = `${x.label} (${i + 1})`; b.setAttribute('aria-label', `${x.label}, touche ${i + 1}`);
+  b.onclick = () => emote(i);
+  emotesEl.append(b);
+});
+let emoteTimer = null;
+function emote(i) {
+  if (!me.entered || !EXPRESSIONS[i]) return;
+  me.emote++;
+  if (room) room.presence({ x: [i, me.emote] }).catch(() => {});
+  sfx.pop();
+  const s = $('#selfEmote'); s.textContent = EXPRESSIONS[i].icon; s.hidden = false;
+  s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
+  clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
+}
 if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span><kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>';
 $('#introForm').addEventListener('submit', e => {
   e.preventDefault();
@@ -1483,7 +1494,7 @@ $('#introForm').addEventListener('submit', e => {
   $('#intro').hidden = true;
   initAudio(); // browsers only allow sound after a click
   sfx.poof();
-  if (room) room.presence({ n: me.nick, c: me.col }).catch(() => {});
+  if (room) room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {});
   pushPresence(true);
   canvas.focus();
   refreshUI();
@@ -1494,7 +1505,8 @@ function renderAudioBtns() {
   const p = getPrefs();
   $('#sfxBtn').setAttribute('aria-pressed', String(p.sfx));
   $('#musicBtn').setAttribute('aria-pressed', String(p.music));
-  $('#sfxBtn').hidden = $('#musicBtn').hidden = !me.entered;
+  $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = !me.entered;
+  $('#emotes').hidden = !me.entered || editor.isOpen();
 }
 $('#sfxBtn').addEventListener('click', () => { const v = !getPrefs().sfx; setPrefs({ sfx: v }); store.set('playroom-sfx', v ? '1' : '0'); renderAudioBtns(); });
 $('#musicBtn').addEventListener('click', () => { const v = !getPrefs().music; setPrefs({ music: v }); store.set('playroom-music', v ? '1' : '0'); renderAudioBtns(); });
@@ -1638,7 +1650,7 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
   }, () => {});
   room.on('state', onState, () => {});
   room.on('act', m => { if (isHost()) handleAct(m.data, peerKey(m)); }, () => {});
-  if (me.entered) { room.presence({ n: me.nick, c: me.col }).catch(() => {}); pushPresence(true); }
+  if (me.entered) { room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {}); pushPresence(true); }
   refreshUI();
 })();
 })();
