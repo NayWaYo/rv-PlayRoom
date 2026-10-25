@@ -635,7 +635,7 @@ const ls = mesh(new THREE.CylinderGeometry(0.18, 0.26, 0.3, 24, 1, true), toon('
 ls.castShadow = false;
 const lsGlow = makeGlow('#ffb36b', 1.5, 0.5); lsGlow.position.set(4.6, 1.6, -4.6); scene.add(lsGlow);
 // sofa
-const sofa = new THREE.Group(); sofa.position.set(5.3, 0, 0); sofa.rotation.y = -Math.PI / 2; scene.add(sofa);
+const sofa = new THREE.Group(); sofa.position.set(5.3, 0, 0); sofa.rotation.y = Math.PI / 2; scene.add(sofa);
 const sofaMat = toon('#8f73e3'), sofaDark = toon('#7559c9');
 box(2.2, 0.42, 0.9, sofaDark, 0, 0.25, 0, sofa);
 box(1.0, 0.16, 0.72, sofaMat, -0.52, 0.53, -0.06, sofa); box(1.0, 0.16, 0.72, sofaMat, 0.52, 0.53, -0.06, sofa);
@@ -755,7 +755,7 @@ function cardTex(c) {
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
   for (const c in texCache) { drawCard(texCache[c].cv.getContext('2d'), c); texCache[c].t.needsUpdate = true; }
 });
-const CARD_W = 0.3, CARD_H = 0.435;
+const CARD_W = 0.34, CARD_H = 0.493;
 const cardGeo = new THREE.PlaneGeometry(CARD_W, CARD_H);
 const miniGeo = new THREE.PlaneGeometry(0.1, 0.145);
 const backMat = noOutline(toon('#ffffff', { map: cardTex('back'), side: THREE.DoubleSide, alphaTest: 0.5 }));
@@ -887,7 +887,7 @@ const handGroups = [];
 for (let i = 0; i < SEATS; i++) { const g = new THREE.Group(); scene.add(g); handGroups.push(g); }
 const dieMats = [0, 1, 2, 3, 4, 5].map(() => toon('#ffffff', { map: cardTex('S') }));
 const die = new THREE.Mesh(roundedBox(0.2, 0.2, 0.2), dieMats);
-die.castShadow = true;
+die.castShadow = true; die.scale.setScalar(0.7);
 die.position.set(0, TOP_Y + 0.1, 0); die.visible = false; scene.add(die);
 let dieRollUntil = 0;
 
@@ -969,15 +969,18 @@ function updateTable(dt) {
   const showDie = (G.phase === 'play' || G.phase === 'roundEnd') && G.payoo;
   die.visible = !!showDie;
   if (showDie) {
+    // each viewer sees the die near their own seat, so it never hides a card played across the table
+    const dp = me.seat >= 0 ? { x: Math.sin(ang(me.seat) + 0.8) * 1.0, z: Math.cos(ang(me.seat) + 0.8) * 1.0 } : { x: 0, z: 0 };
+    die.position.x = dp.x; die.position.z = dp.z;
     if (now < dieRollUntil) {
       const left = (dieRollUntil - now) / 1500;
       die.rotation.x += dt * 9 * left + dt; die.rotation.y += dt * 7 * left;
-      die.position.y = TOP_Y + 0.1 + Math.abs(Math.sin(now / 110)) * 0.35 * left;
+      die.position.y = TOP_Y + 0.07 + Math.abs(Math.sin(now / 110)) * 0.35 * left;
       if (Math.random() < 0.25) dieMats.forEach(mm => { mm.map = cardTex('SHCD'[Math.floor(Math.random() * 4)]); });
     } else {
       dieMats.forEach(mm => { mm.map = cardTex(G.payoo); });
       die.rotation.x *= 0.85; die.rotation.z *= 0.85; die.rotation.y += dt * 0.6;
-      die.position.y = TOP_Y + 0.1 + Math.sin(now / 600) * 0.015;
+      die.position.y = TOP_Y + 0.07 + Math.sin(now / 600) * 0.015;
     }
   }
 }
@@ -1063,7 +1066,7 @@ function toggleSit() {
     me.x = p.x; me.z = p.z; me.seat = -1; me.pitch = -0.08;
   } else {
     const s = nearestFreeSeat(); if (s < 0) return;
-    me.seat = s; me.yaw = ang(s); me.pitch = -0.62;
+    me.seat = s; me.yaw = ang(s); me.pitch = -0.46;
     if (locked) { try { document.exitPointerLock(); } catch (e) {} }
   }
   sfx.poof();
@@ -1084,9 +1087,9 @@ function pushPresence(force) {
 let stepDist = 0, bob = 0, shake = 0;
 function updateMe(dt) {
   if (me.seat >= 0) {
-    const p = seatXZ(me.seat, CHAIR_R - 0.02);
+    const p = seatXZ(me.seat, CHAIR_R + 0.12);
     me.x = p.x; me.z = p.z;
-    camera.position.set(p.x, 1.24, p.z);
+    camera.position.set(p.x, 1.7, p.z);
   } else if (me.entered) {
     const ox = me.x, oz = me.z;
     let f = 0, r = 0;
@@ -1098,7 +1101,7 @@ function updateMe(dt) {
     if (keys.ArrowRight) me.yaw -= dt * 2.2;
     f -= joy.y; r += joy.x;
     const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
-    const sp = (keys.ShiftLeft ? 4.2 : 2.7) * dt;
+    const sp = (keys.ShiftLeft ? 6.5 : 4.2) * dt;
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     me.x += (-sy * f + cy * r) * sp;
     me.z += (-cy * f - sy * r) * sp;
