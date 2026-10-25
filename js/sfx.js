@@ -24,6 +24,7 @@ export function initAudio() {
   applyPrefs();
 }
 
+export const audioCtx = () => ctx;
 export function setPrefs(p) { Object.assign(prefs, p); applyPrefs(); }
 export function getPrefs() { return Object.assign({}, prefs); }
 
@@ -124,6 +125,25 @@ export const sfx = {
     if (!ready()) return; const t = ctx.currentTime;
     [55, 54, 53].forEach((m, i) => tone(mtof(m), t + i * 0.32, 0.3, { type: 'sawtooth', gain: 0.12, lowpass: 1100, attack: 0.03 }));
     tone(mtof(52), t + 0.96, 0.9, { type: 'sawtooth', gain: 0.12, lowpass: 1000, attack: 0.03, vibrato: 6 });
+  },
+  bonk() {
+    // something soft lands on someone's head
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(520, t, 0.18, { type: 'triangle', gain: 0.22, slideTo: 180 });
+    noise(t, 0.08, { filter: 'lowpass', freq: 1400, gain: 0.25 });
+  },
+  toss() {
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.18, { freq: 900, slideTo: 2200, q: 1.5, gain: 0.14, attack: 0.04 });
+  },
+  land(kind, power) {
+    if (!ready()) return; const t = ctx.currentTime, g = Math.min(1, power / 6);
+    if (kind === 'paper') noise(t, 0.05, { freq: 3000, q: 0.8, gain: 0.12 * g + 0.03 });
+    else noise(t, 0.12, { filter: 'lowpass', freq: 500, gain: 0.3 * g + 0.05 });
+  },
+  chat() {
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(990, t, 0.12, { gain: 0.08 }); tone(1320, t + 0.06, 0.14, { gain: 0.06 });
   },
   confetti() {
     if (!ready()) return; const t = ctx.currentTime;

@@ -125,6 +125,17 @@ table.res tr.win td{color:var(--marigold)}
 .emote:hover{transform:scale(1.12)}
 .emote:active{transform:scale(.92)}
 .emote:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+#social{pointer-events:auto;position:fixed;left:calc(12px + env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
+#social .emote.off{opacity:.55}
+#social .emote.holding{border-color:var(--marigold);box-shadow:0 0 0 3px rgba(244,182,63,.45)}
+#chat{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(340px,calc(100% - 24px));pointer-events:none;display:flex;flex-direction:column;gap:6px}
+#chatLog{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:13px}
+#chatLog li{background:rgba(28,21,36,.78);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;overflow-wrap:anywhere;transition:opacity 1s}
+#chatLog li.old{opacity:0}
+#chatForm{pointer-events:auto;display:flex;gap:6px}
+#chatInput{flex:1;min-width:0;background:var(--night);border:1.5px solid var(--marigold);border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;color:var(--cream);-webkit-user-select:text;user-select:text}
+#chatForm .btn{padding:8px 14px;font-size:14px}
+@media (pointer:coarse){ #chat{bottom:calc(160px + env(safe-area-inset-bottom,0px))} }
 #selfEmote{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);font-size:64px;pointer-events:none;animation:emoteUp 1.4s ease-out forwards}
 @keyframes emoteUp{0%{transform:translate(-50%,-30%) scale(.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.15);opacity:1}70%{opacity:1}100%{transform:translate(-50%,-110%) scale(1);opacity:0}}
 #editor{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:rgba(20,14,27,.78);backdrop-filter:blur(3px);overflow:auto;
@@ -202,6 +213,11 @@ table.res tr.win td{color:var(--marigold)}
 <div id="panel" hidden></div>
 <div id="joy" hidden><div id="knob"></div></div>
 <div id="emotes" hidden aria-label="Expressions"></div>
+<div id="social" hidden aria-label="Parler et jouer"></div>
+<div id="chat" hidden>
+  <ul id="chatLog" aria-live="polite"></ul>
+  <form id="chatForm" hidden><input id="chatInput" maxlength="100" placeholder="Écris un message…" autocomplete="off" aria-label="Message"><button class="btn" type="submit">Envoyer</button></form>
+</div>
 <div id="selfEmote" hidden></div>
 <button id="actBtn" class="btn" hidden></button>
 
@@ -216,6 +232,9 @@ table.res tr.win td{color:var(--marigold)}
       <kbd>Souris</kbd><span>regarder autour (clique dans la pièce)</span>
       <kbd>E</kbd><span>s'asseoir ou se lever</span>
       <kbd>Échap</kbd><span>libérer la souris</span>
+      <kbd>T</kbd><span>écrire un message (M : micro)</span>
+      <kbd>G</kbd><span>lancer une boule de papier (F : coussin)</span>
+      <kbd>1 à 6</kbd><span>faire une tête</span>
     </div>
     <button class="btn ghost" id="customize" type="button">Personnaliser mon perso</button>
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
@@ -390,6 +409,8 @@ import { initAudio, setPrefs, getPrefs, sfx } from './js/sfx.js';
 import { buildAvatar, animateAvatar, react, disposeAvatar, cleanLook, lookKey, randomLook, seededRand, CLOTH, EXPRESSIONS } from './js/avatar.js';
 import { createEditor } from './js/editor.js';
 import { initKeys, myPublicKey, seal, open } from './js/secret.js';
+import { addVoice, dropVoice, updateVoices, levelOf, micLevel, micActive, toggleMic } from './js/voice.js';
+import { Toys } from './js/toys.js';
 const keysReady = initKeys().catch(() => null);
 (() => {
 'use strict';
@@ -1047,6 +1068,12 @@ addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
   if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) emote(+e.code.slice(5) - 1);
+  if (me.entered && !e.repeat) {
+    if (e.code === 'KeyT' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
+    if (e.code === 'KeyG') throwPaper();
+    if (e.code === 'KeyF') { cushionAction(); renderSocial(); }
+    if (e.code === 'KeyM') micToggle();
+  }
   keys[e.code] = true;
   if (e.code === 'KeyE' && me.entered && !e.repeat) toggleSit();
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -1193,6 +1220,8 @@ function updateAvatars(dt, t) {
     let x = +a[0] || 0, z = +a[1] || 0, yaw = +a[2] || 0;
     if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
     const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), pr.l, x, z, yaw, seat);
+    av.who = peerKey(p); av.talk = levelOf(p.peer);
+    readSocial(p, av, av.who, cleanNick(pr.n), cleanCol(pr.c));
     // an expression the player pulled on purpose: [index, counter]
     const ex = Array.isArray(pr.x) ? pr.x : null;
     if (av.lastEmote === undefined) av.lastEmote = ex ? ex[1] : 0; // don't replay an old one on arrival
@@ -1204,7 +1233,7 @@ function updateAvatars(dt, t) {
   if (isActive()) G.players.forEach(p => {
     if (!p.bot) return;
     const s = seatXZ(p.seat, CHAIR_R);
-    syncAvatar('b:' + p.seat, p.nick, p.col, p.l, s.x, s.z, ang(p.seat), p.seat);
+    syncAvatar('b:' + p.seat, p.nick, p.col, p.l, s.x, s.z, ang(p.seat), p.seat).who = p.k;
   });
   for (const [id, a] of avatars) {
     if (a.seen !== frameNo) { dropAvatar(id); continue; }
@@ -1464,7 +1493,7 @@ function renderStatus() {
   $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? booting ? 'Connexion au salon…' : 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
-function refreshUI() { renderAudioBtns(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); }
+function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); }
 
 let seenRoll = '', seenPhase = '', prevEv = null;
 function stateChanged() {
@@ -1604,6 +1633,186 @@ function renderAudioBtns() {
 $('#sfxBtn').addEventListener('click', () => { const v = !getPrefs().sfx; setPrefs({ sfx: v }); store.set('playroom-sfx', v ? '1' : '0'); renderAudioBtns(); });
 $('#musicBtn').addEventListener('click', () => { const v = !getPrefs().music; setPrefs({ music: v }); store.set('playroom-music', v ? '1' : '0'); renderAudioBtns(); });
 
+/* ---------------- social: voice, chat bubbles, things to throw ---------------- */
+// Chat lines and throws travel in presence as [counter, ...] so a newcomer
+// doesn't replay them; voice uses the p2p room's audio streams.
+const toys = new Toys(scene, {
+  tableR: TABLE_R, tableY: TOP_Y,
+  onHit: t => {
+    sfx.bonk();
+    if (t.key === myKey) shake = Math.max(shake, 0.35);
+    else if (t.av) react(t.av, 'shock', 1.2);
+  },
+  onBounce: (o, speed) => sfx.land(o.kind || 'paper', speed / (1 + o.mesh.position.distanceTo(camera.position) * 0.5))
+});
+const socialSeen = new Map();
+let socialSeq = 0;
+const r2 = v => Math.round(v * 100) / 100;
+const finite = (a, n) => Array.isArray(a) && a.length === n && a.every(Number.isFinite);
+const clampPos = p => [Math.max(-5.8, Math.min(5.8, p[0])), Math.max(0, Math.min(3.1, p[1])), Math.max(-5.8, Math.min(5.8, p[2]))];
+const clampVel = v => v.map(x => Math.max(-14, Math.min(14, x)));
+function aim(speed, lift) {
+  const d = camera.getWorldDirection(new THREE.Vector3());
+  const p = camera.position.clone().addScaledVector(d, 0.45); p.y -= 0.15;
+  return { p: [r2(p.x), r2(p.y), r2(p.z)], v: [r2(d.x * speed), r2(d.y * speed + lift), r2(d.z * speed)] };
+}
+function throwPaper() {
+  if (!me.entered || editor.isOpen()) return;
+  const { p, v } = aim(7.5, 1.2);
+  toys.throwBall(p, v, myKey); sfx.toss();
+  if (room) room.presence({ pb: [++socialSeq, ...p, ...v] }).catch(() => {});
+}
+function cushionAction() {
+  if (!me.entered || editor.isOpen()) return;
+  const held = toys.cushions.find(c => c.held === myKey);
+  if (held) {
+    const { p, v } = aim(6, 1.6);
+    toys.throwCushion(held.id, p, v, myKey); sfx.toss();
+    if (room) room.presence({ cu: [++socialSeq, held.id, 1, ...p, ...v] }).catch(() => {});
+    return;
+  }
+  const c = toys.nearestCushion(me.x, me.z, me.seat >= 0 ? 1.5 : 1.7);
+  if (!c) { toast('Approche-toi d\'un coussin pour l\'attraper', 1800); return; }
+  toys.hold(c.id, myKey); sfx.pop();
+  if (room) room.presence({ cu: [++socialSeq, c.id, 0, 0, 0, 0, 0, 0, 0] }).catch(() => {});
+}
+// where a held cushion sits: in front of your camera, or in someone's arms
+function holdPos(key) {
+  if (key === myKey) {
+    const d = camera.getWorldDirection(new THREE.Vector3());
+    const p = camera.position.clone().addScaledVector(d, 0.6); p.y -= 0.3;
+    return { pos: p, yaw: me.yaw };
+  }
+  for (const a of avatars.values()) if (a.who === key) {
+    return { pos: new THREE.Vector3(a.x - Math.sin(a.yaw) * 0.33, a.seat >= 0 ? 1.0 : 1.08, a.z - Math.cos(a.yaw) * 0.33), yaw: a.yaw };
+  }
+  return null;
+}
+function hitTargets() {
+  const out = [];
+  if (me.entered) out.push({ key: myKey, x: me.x, z: me.z, y0: me.seat >= 0 ? 0.5 : 0, y1: me.seat >= 0 ? 1.6 : 1.8 });
+  for (const a of avatars.values()) out.push({ key: a.who, av: a, x: a.x, z: a.z, y0: a.seat >= 0 ? 0.5 : 0, y1: a.seat >= 0 ? 1.65 : 1.85 });
+  return out;
+}
+// what a friend did since we last looked at their presence
+function readSocial(p, av, key, nick, col) {
+  const pr = p.presence || {};
+  let s = socialSeen.get(p.peer);
+  const say = Array.isArray(pr.say) && Number.isFinite(pr.say[0]) && typeof pr.say[1] === 'string' ? pr.say : null;
+  const pb = finite(pr.pb, 7) ? pr.pb : null, cu = finite(pr.cu, 9) ? pr.cu : null;
+  if (!s) { socialSeen.set(p.peer, { say: say && say[0], pb: pb && pb[0], cu: cu && cu[0] }); return; }
+  if (say && say[0] !== s.say) { s.say = say[0]; const text = cleanText(say[1]); if (text) { showBubble(av, text); addChatLine(nick, col, text); sfx.chat(); } }
+  if (pb && pb[0] !== s.pb) { s.pb = pb[0]; toys.throwBall(clampPos(pb.slice(1, 4)), clampVel(pb.slice(4, 7)), key); }
+  if (cu && cu[0] !== s.cu) {
+    s.cu = cu[0];
+    if (cu[2] === 1) toys.throwCushion(cu[1] | 0, clampPos(cu.slice(3, 6)), clampVel(cu.slice(6, 9)), key);
+    else toys.hold(cu[1] | 0, key);
+  }
+}
+// chat
+const cleanText = t => String(t || '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').trim().slice(0, 100);
+function bubbleTex(text) {
+  const cv = document.createElement('canvas'); cv.width = 512;
+  const x = cv.getContext('2d'), font = '700 34px Nunito, sans-serif';
+  x.font = font;
+  const words = text.split(/\s+/), lines = [];
+  let line = '';
+  for (const w of words) {
+    const t = line ? line + ' ' + w : w;
+    if (x.measureText(t).width > 440 && line) { lines.push(line); line = w; } else line = t;
+  }
+  if (line) lines.push(line);
+  if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].slice(0, 30) + '…'; }
+  const w = Math.min(480, Math.max(...lines.map(l => x.measureText(l).width)) + 48), h = lines.length * 42 + 36;
+  cv.height = h + 24;
+  x.font = font;
+  rr(x, (512 - w) / 2, 4, w, h, 26); x.fillStyle = '#fbf3e4'; x.fill(); x.lineWidth = 5; x.strokeStyle = '#2a1d2e'; x.stroke();
+  x.beginPath(); x.moveTo(236, h + 2); x.lineTo(256, h + 22); x.lineTo(276, h + 2); x.fill();
+  x.fillStyle = '#1c1524'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  lines.forEach((l, i) => x.fillText(l, 256, 4 + 18 + 21 + i * 42));
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return { t, aspect: cv.height / 512 };
+}
+function showBubble(a, text) {
+  if (!a) return;
+  if (a.bubble) { a.g.remove(a.bubble.s); a.bubble.s.material.map.dispose(); a.bubble.s.material.dispose(); }
+  const { t, aspect } = bubbleTex(text);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false }));
+  s.scale.set(1.5, 1.5 * aspect, 1); s.position.y = 2.25 + 0.75 * aspect; s.renderOrder = 2;
+  a.g.add(s);
+  a.bubble = { s, until: performance.now() + 5000 + text.length * 60 };
+}
+function updateBubbles(now) {
+  for (const a of avatars.values()) if (a.bubble && now > a.bubble.until) {
+    a.g.remove(a.bubble.s); a.bubble.s.material.map.dispose(); a.bubble.s.material.dispose(); a.bubble = null;
+  }
+}
+function addChatLine(nick, col, text) {
+  const li = el('li'); const n = el('b', null, nick + ' '); n.style.color = col;
+  li.append(n, document.createTextNode(text));
+  const log = $('#chatLog'); log.append(li);
+  while (log.children.length > 6) log.firstChild.remove();
+  setTimeout(() => li.classList.add('old'), 12000);
+}
+let lastSay = 0;
+function openChat() {
+  if (!me.entered || editor.isOpen()) return;
+  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  for (const k in keys) keys[k] = false;
+  $('#chatForm').hidden = false; $('#chatInput').focus();
+}
+function closeChat() { $('#chatForm').hidden = true; $('#chatInput').value = ''; canvas.focus(); }
+$('#chatForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = cleanText($('#chatInput').value);
+  if (text && Date.now() - lastSay > 700) {
+    lastSay = Date.now();
+    addChatLine('Toi', me.col, text);
+    if (room) room.presence({ say: [++socialSeq, text] }).catch(() => {});
+  }
+  closeChat();
+});
+$('#chatInput').addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
+// microphone
+async function micToggle() {
+  if (!room || !room.setStream) return;
+  try {
+    initAudio();
+    const r = await toggleMic();
+    if (r.fresh) room.setStream(r.stream);
+    toast(r.on ? 'Micro activé : les joueurs proches t\'entendent' : 'Micro coupé', 2000);
+  } catch (e) { toast('Micro refusé ou indisponible', 2600); }
+  renderSocial();
+}
+const socialBtns = [
+  { id: 'micBtn', icon: '🎤', label: 'Micro', key: 'M', act: micToggle },
+  { id: 'chatBtn', icon: '💬', label: 'Écrire un message', key: 'T', act: openChat },
+  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: 'G', act: throwPaper },
+  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: 'F', act: cushionAction }
+];
+socialBtns.forEach(b => {
+  const x = el('button', 'emote', b.icon); x.type = 'button'; x.id = b.id;
+  x.title = `${b.label} (${b.key})`; x.setAttribute('aria-label', `${b.label}, touche ${b.key}`);
+  x.onclick = () => { b.act(); canvas.focus(); };
+  $('#social').append(x);
+});
+function renderSocial() {
+  $('#social').hidden = !me.entered || editor.isOpen();
+  $('#chat').hidden = !me.entered;
+  const mic = $('#micBtn');
+  mic.hidden = !(room && room.setStream);
+  mic.setAttribute('aria-pressed', String(micActive()));
+  mic.classList.toggle('off', !micActive());
+  $('#cushionBtn').classList.toggle('holding', toys.cushions.some(c => c.held === myKey));
+}
+function updateSocial(dt, now) {
+  toys.update(dt, hitTargets(), holdPos);
+  updateVoices(camera, peer => { const a = avatars.get('p:' + peer); return a ? { x: a.x, y: a.seat >= 0 ? 1.45 : 1.55, z: a.z } : null; });
+  updateBubbles(now);
+  const lv = micLevel();
+  $('#micBtn').style.boxShadow = micActive() ? `0 0 0 ${Math.min(8, 2 + lv * 60).toFixed(1)}px rgba(127,199,122,.55)` : '';
+}
+
 /* ---------------- boot ---------------- */
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -1617,6 +1826,7 @@ function loop(now) {
   updateAvatars(dt, now / 1000);
   updateTable(dt);
   updateDecor(dt, now / 1000);
+  updateSocial(dt, now);
   if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); }
   outlines.render(scene, camera);
   requestAnimationFrame(loop);
@@ -1676,7 +1886,9 @@ async function p2pRoom() {
     return p;
   }
   const deliver = m => (subs[m.topic] || []).forEach(f => f(m));
-  t.onPeerJoin = id => { upsert(id, null); sendPres(id); };
+  let localStream = null; const streamFns = [];
+  t.onPeerJoin = id => { upsert(id, null); sendPres(id); if (localStream) t.addStream(localStream, { target: id }); };
+  t.onPeerStream = (stream, id) => streamFns.forEach(f => f(stream, id));
   t.onPeerLeave = id => { const p = others.get(id); if (p) { others.delete(id); queue('left', p); } };
   pres.onMessage = (d, { peerId }) => { if (d && d.pr && typeof d.pr === 'object' && !Array.isArray(d.pr)) upsert(peerId, d.k, d.pr); };
   msg.onMessage = (d, { peerId }) => {
@@ -1688,6 +1900,9 @@ async function p2pRoom() {
   return {
     code,
     onConnection(fn) { setTimeout(() => fn(true), 0); return () => {}; },
+    // voice: only this transport can carry audio
+    setStream(s) { localStream = s; if (s) t.addStream(s); },
+    onStream(fn) { streamFns.push(fn); },
     onPeers(fn) { peerFns.push(fn); setTimeout(() => fn({ peers: snap, joined: snap.slice(), left: [], updated: [] }), 0); return () => {}; },
     on(topic, fn) { (subs[topic] = subs[topic] || []).push(fn); return () => {}; },
     emit(topic, data) {
@@ -1731,6 +1946,7 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
   booting = false;
   if (!r) { myKey = 'local'; refreshUI(); return; }
   room = r;
+  if (room.onStream) room.onStream((s, peer) => addVoice(peer, s));
   keysReady.then(pk => { if (pk) room.presence({ pk }).catch(() => {}); }); // so the host can seal my cards for me
   if (room.code) { $('#roomCode').textContent = room.code; $('#invite').hidden = false; }
   room.onConnection(c => { online = c; renderStatus(); }, () => { online = false; renderStatus(); });
@@ -1739,7 +1955,7 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
     const mine = ch.peers.find(p => p.sameTab);
     if (mine && !myKey) { myKey = peerKey(mine); refreshUI(); }
     if (isHost() && ch.joined.some(p => !p.sameTab)) broadcast();
-    for (const p of ch.left) if (!p.sameTab) dropAvatar('p:' + p.peer);
+    for (const p of ch.left) if (!p.sameTab) { dropAvatar('p:' + p.peer); dropVoice(p.peer); }
     renderStatus(); renderScores(); renderPanel();
   }, () => {});
   room.on('state', onState, () => {});

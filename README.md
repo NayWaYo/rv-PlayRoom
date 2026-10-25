@@ -29,6 +29,9 @@ HTML, CSS et JavaScript sans build, en modules ES (import map). Rendu 3D avec [t
 - [js/avatar.js](js/avatar.js) : personnages personnalisables (corps articulé, visage dessiné, vêtements, coiffures, chapeaux, accessoires) et leurs animations.
 - [js/editor.js](js/editor.js) : éditeur de personnage avec aperçu 3D.
 - [js/fx.js](js/fx.js) : matériaux cartoon, halos lumineux, poussière, confettis.
+- [js/voice.js](js/voice.js) : chat vocal de proximité (micro via WebRTC, son spatialisé sur l'avatar).
+- [js/toys.js](js/toys.js) : boules de papier et coussins à lancer, petite physique rejouée à l'identique chez chacun.
+- [js/secret.js](js/secret.js) : chiffrement des mains pour chaque joueur.
 - [js/sfx.js](js/sfx.js) : bruitages et musique lounge générés avec la Web Audio API (aucun fichier audio).
 
 ## Lancer en local

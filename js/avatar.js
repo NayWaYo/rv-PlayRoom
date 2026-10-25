@@ -244,12 +244,14 @@ function mouth(x, kind, my) {
       tongue(140, my + 14, 10, 12); x.lineWidth = 3; x.beginPath(); x.moveTo(140, my + 8); x.lineTo(140, my + 20); x.stroke(); break;
     case 'frown': x.beginPath(); x.moveTo(104, my + 14); x.quadraticCurveTo(128, my - 8, 152, my + 14); x.stroke(); break;
     case 'o': x.beginPath(); x.ellipse(128, my + 4, 12, 16, 0, 0, Math.PI * 2); x.fill(); break;
+    case 'talk1': x.beginPath(); x.ellipse(128, my + 4, 16, 7, 0, 0, Math.PI * 2); x.fill(); break;
+    case 'talk2': x.beginPath(); x.ellipse(128, my + 6, 19, 15, 0, 0, Math.PI * 2); x.fill(); x.save(); x.clip(); tongue(128, my + 18, 12, 7); x.restore(); break;
     case 'grumpy': x.beginPath(); x.moveTo(106, my + 10); x.quadraticCurveTo(128, my - 2, 150, my + 10); x.stroke(); break;
     default: x.beginPath(); x.moveTo(98, my); x.quadraticCurveTo(128, my + 22, 158, my); x.stroke();
   }
 }
 const MOUTHS = ['smile', 'grin', 'flat', 'cat', 'teeth', 'tongue'];
-export function drawFace(x, L, expr, blink) {
+export function drawFace(x, L, expr, blink, talk = 0) {
   x.clearRect(0, 0, 256, 256);
   const EY = 112, EX = [88, 168], MY = 172;
   const blushy = L.x === 1 || ['happy', 'cheer', 'laugh', 'shock', 'wink'].includes(expr);
@@ -264,7 +266,8 @@ export function drawFace(x, L, expr, blink) {
   if (bw) EX.forEach((cx, i) => brow(x, bw, cx, EY, shape, i ? 1 : -1));
   if (expr === 'sad') { x.fillStyle = '#7fc8ff'; x.beginPath(); x.moveTo(EX[0] - 6, EY + 18); x.quadraticCurveTo(EX[0] - 16, EY + 40, EX[0] - 6, EY + 42); x.quadraticCurveTo(EX[0] + 4, EY + 40, EX[0] - 6, EY + 18); x.fill(); }
   // mouth
-  const kind = { happy: 'grin', cheer: 'open', laugh: 'laugh', sad: 'frown', shock: 'o', angry: 'grumpy', wink: 'tongue' }[expr] || MOUTHS[L.m];
+  let kind = { happy: 'grin', cheer: 'open', laugh: 'laugh', sad: 'frown', shock: 'o', angry: 'grumpy', wink: 'tongue' }[expr] || MOUTHS[L.m];
+  if (talk && expr === 'idle') kind = talk > 1 ? 'talk2' : 'talk1'; // speaking into the microphone
   mouth(x, kind, MY);
   if (L.x === 3) { x.fillStyle = DARK; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(128 + s * 18, MY - 16, 20, 8, s * 0.35, 0, Math.PI * 2); x.fill(); } }
 }
@@ -288,8 +291,9 @@ export function animateAvatar(a, dt, t, moving) {
   const ex = a.expr, seated = a.seat >= 0;
   if (t > a.blinkAt) { a.blinkEnd = t + 0.12; a.blinkAt = t + 2 + Math.random() * 3.5; }
   const blink = t < a.blinkEnd;
-  const fk = ex + (blink ? ':b' : '');
-  if (fk !== a.face.key) { a.face.key = fk; drawFace(a.face.ctx, a.look, ex, blink); a.face.tex.needsUpdate = true; }
+  const talk = a.talk > 0.11 ? 2 : a.talk > 0.04 ? 1 : 0;
+  const fk = ex + (blink ? ':b' : '') + ':' + talk;
+  if (fk !== a.face.key) { a.face.key = fk; drawFace(a.face.ctx, a.look, ex, blink, talk); a.face.tex.needsUpdate = true; }
   // jumps
   if (a.jumpV !== 0 || a.jump > 0) {
     a.jumpV -= 9.8 * dt; a.jump += a.jumpV * dt;
