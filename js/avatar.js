@@ -135,7 +135,7 @@ export function buildAvatar(look, tag) {
 function buildHair(L, head, c) {
   const m = mat(c);
   if (L.h === 0) return;
-  if (L.h === 5) { const a = part(cap(0.27, 0.56), m, 0, -0.02, 0.05, head); a.rotation.x = 0.35; return; }
+  if (L.h === 5) { const a = part(cap(0.27, 0.52), m, 0, -0.01, 0.06, head); a.rotation.x = 0.62; return; }
   const top = part(cap(0.213, 0.42), m, 0, 0, 0, head); top.rotation.x = 0.32;
   if (L.h === 2) { const b = part(geo('hairMid', () => new THREE.SphereGeometry(0.218, 22, 12, 0, Math.PI, 0.1 * Math.PI, 0.62 * Math.PI)), m, 0, 0, 0, head); b.rotation.y = 0; }
   if (L.h === 3) { part(cap(0.218, 0.5), m, 0, 0, 0.01, head).rotation.x = 0.9; part(roundedBox(0.36, 0.42, 0.09), m, 0, -0.17, 0.12, head); }
