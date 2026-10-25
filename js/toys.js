@@ -6,7 +6,7 @@ import { toon, roundedBox } from './fx.js';
 
 const G = 9.8, HALF = 5.85, CEIL = 3.15;
 const paperGeo = new THREE.IcosahedronGeometry(0.07, 0);
-const paperMat = toon('#fbf6ea', { flatShading: true });
+const paperMat = toon('#fbf6ea');
 const CUSHIONS = [
   { id: 0, col: '#f0b84f', pos: [5.0, 0.72, -0.2] },
   { id: 1, col: '#ea6a4f', pos: [4.2, 0.07, 1.5] },

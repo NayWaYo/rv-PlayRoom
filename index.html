@@ -230,10 +230,10 @@ table.res tr.win td{color:var(--marigold)}
     <div class="help" id="help">
       <kbd>Z Q S D</kbd><span>se déplacer (ou W A S D, ou les flèches)</span>
       <kbd>Souris</kbd><span>regarder autour (clique dans la pièce)</span>
-      <kbd>E</kbd><span>s'asseoir ou se lever</span>
+      <kbd>E</kbd><span>s'asseoir, attraper ou lancer un coussin</span>
       <kbd>Échap</kbd><span>libérer la souris</span>
       <kbd>T</kbd><span>écrire un message (M : micro)</span>
-      <kbd>G</kbd><span>lancer une boule de papier (F : coussin)</span>
+      <kbd>Clic droit</kbd><span>lancer une boule de papier</span>
       <kbd>1 à 6</kbd><span>faire une tête</span>
     </div>
     <button class="btn ghost" id="customize" type="button">Personnaliser mon perso</button>
@@ -437,7 +437,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 /* ---------------- state ---------------- */
 let room = null, booting = true, online = false, myKey = null, peers = [];
 let G = { phase: 'idle', epoch: '', v: 0 };
-const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: 0, z: 4.4, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0 };
+const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: (Math.random() - 0.5) * 4, z: 3.7 + Math.random() * 1.2, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0 };
 const botLook = col => { const l = randomLook(); l.tc = Math.max(0, CLOTH.indexOf(col)); return cleanLook(l); };
 let passPick = new Set(), pending = null, pendingAt = 0, dismissedEnd = '', botsWanted = 0, roundsWanted = 0, roundsTouched = false;
 const absentSince = {};
@@ -1075,7 +1075,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyM') micToggle();
   }
   keys[e.code] = true;
-  if (e.code === 'KeyE' && me.entered && !e.repeat) toggleSit();
+  if (e.code === 'KeyE' && me.entered && !e.repeat) useKey();
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -1090,9 +1090,11 @@ function look(dx, dy, s) {
     me.yaw = base + Math.max(-1.5, Math.min(1.5, d));
   }
 }
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   if (!me.entered) return;
   canvas.focus();
+  if (e.button === 2) { throwPaper(); return; } // right click: paper ball
   if (!coarse && me.seat < 0 && e.pointerType === 'mouse' && !locked) {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
   }
@@ -1120,7 +1122,7 @@ function moveJoy(e) {
   const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
   joy = { x, y }; knob.style.transform = `translate(${x * 34}px,${y * 34}px)`;
 }
-$('#actBtn').addEventListener('click', toggleSit);
+$('#actBtn').addEventListener('click', useKey);
 
 function seatTakenBy(i) {
   for (const p of peers) {
@@ -1193,6 +1195,12 @@ function updateMe(dt) {
     const d = Math.hypot(me.x, me.z), minD = TABLE_R + 0.35;
     if (d < minD) { me.x *= minD / (d || 1); me.z *= minD / (d || 1); }
     if (me.x > 4.7 && Math.abs(me.z) < 1.3) me.x = 4.7; // sofa
+    // friends are solid: don't walk into them
+    for (const a of avatars.values()) {
+      if (a.seat >= 0) continue;
+      const dx = me.x - a.x, dz = me.z - a.z, dd = Math.hypot(dx, dz);
+      if (dd < 0.6) { const k = (0.6 - dd) / (dd || 1); me.x += (dd ? dx : 0.6) * k; me.z += (dd ? dz : 0) * k; }
+    }
     // footsteps and a gentle head bob
     const moved = Math.hypot(me.x - ox, me.z - oz);
     stepDist += moved;
@@ -1244,6 +1252,7 @@ function updateAvatars(dt, t) {
     const moving = Math.hypot(a.x - ox, a.z - oz) / Math.max(dt, 1e-3) > 0.3;
     a.walk = moving ? a.walk + dt * 11 : a.walk * 0.9;
     a.g.position.set(a.x, 0, a.z);
+    a.g.visible = a.seat >= 0 || Math.hypot(a.x - camera.position.x, a.z - camera.position.z) > 0.4; // never film from inside someone
     a.g.rotation.y = a.yaw;
     animateAvatar(a, dt, t, moving);
   }
@@ -1466,10 +1475,32 @@ function launch() {
   passPick = new Set(); dismissedEnd = '';
   commit();
 }
+// E (or the action button) does the most useful thing within reach:
+// throw the cushion you hold, grab a cushion nearer than any chair, else sit or stand
+function useTarget() {
+  if (toys.cushions.some(c => c.held === myKey)) return 'throw';
+  const c = toys.nearestCushion(me.x, me.z, me.seat >= 0 ? 1.0 : 1.7);
+  if (!c) return 'sit';
+  if (me.seat >= 0) return 'grab';
+  const s = nearestFreeSeat(), sp = s >= 0 ? seatXZ(s, CHAIR_R) : null;
+  const cd = Math.hypot(c.mesh.position.x - me.x, c.mesh.position.z - me.z);
+  return !sp || cd < Math.hypot(sp.x - me.x, sp.z - me.z) ? 'grab' : 'sit';
+}
+function useKey() {
+  if (useTarget() === 'sit') toggleSit();
+  else { cushionAction(); renderSocial(); }
+}
 function renderPrompt() {
   const p = $('#prompt'), act = $('#actBtn');
   p.hidden = true; act.hidden = true;
   if (!me.entered || !$('#panel').hidden && me.seat < 0) return;
+  const use = useTarget();
+  if (use !== 'sit') {
+    const txt = use === 'throw' ? 'lancer le coussin' : 'attraper le coussin';
+    if (coarse) { act.hidden = false; act.textContent = txt[0].toUpperCase() + txt.slice(1); }
+    else { p.hidden = false; p.innerHTML = '<kbd>E</kbd><span>' + txt + '</span>'; }
+    return;
+  }
   if (me.seat >= 0) {
     if (!coarse) { if (!isActive() || myIdx() < 0) { p.hidden = false; p.innerHTML = '<kbd>E</kbd><span>se lever</span>'; } }
     else { act.hidden = false; act.textContent = 'Se lever'; }
@@ -1787,8 +1818,8 @@ async function micToggle() {
 const socialBtns = [
   { id: 'micBtn', icon: '🎤', label: 'Micro', key: 'M', act: micToggle },
   { id: 'chatBtn', icon: '💬', label: 'Écrire un message', key: 'T', act: openChat },
-  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: 'G', act: throwPaper },
-  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: 'F', act: cushionAction }
+  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: 'clic droit', act: throwPaper },
+  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: 'E', act: cushionAction }
 ];
 socialBtns.forEach(b => {
   const x = el('button', 'emote', b.icon); x.type = 'button'; x.id = b.id;
