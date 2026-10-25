@@ -21,11 +21,15 @@ Limites connues :
 - Certains réseaux (4G, réseaux d'entreprise) bloquent la connexion directe. Il faudrait alors un serveur TURN.
 - L'état diffusé contient toutes les mains : un joueur qui ouvre les outils du navigateur peut voir les cartes des autres.
 
-La même page fonctionne aussi en Artifact claude.ai : elle utilise alors le salon temps réel de claude.ai au lieu de WebRTC. Version publiée : https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv
+La page sait aussi tourner en Artifact claude.ai : elle utilise alors le salon temps réel de claude.ai au lieu de WebRTC. La version publiée (https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv) est l'ancien prototype ; la republier demande d'envoyer aussi les fichiers de `js/`.
 
 ## Stack
 
-HTML, CSS et JavaScript sans build. Rendu 3D avec [three.js](https://threejs.org/) 0.149, réseau avec Trystero 0.26, tous deux chargés depuis jsDelivr. Polices Baloo 2 et Nunito via Google Fonts.
+HTML, CSS et JavaScript sans build, en modules ES (import map). Rendu 3D avec [three.js](https://threejs.org/) 0.186 (ombrage toon, contours via `OutlineEffect`, ombres de la lampe), réseau avec Trystero 0.26, tous deux chargés depuis jsDelivr. Polices Baloo 2 et Nunito via Google Fonts.
+
+- [index.html](index.html) : interface, règles du Papayoo, scène, avatars et réseau.
+- [js/fx.js](js/fx.js) : matériaux cartoon, halos lumineux, poussière, confettis.
+- [js/sfx.js](js/sfx.js) : bruitages et musique lounge générés avec la Web Audio API (aucun fichier audio).
 
 ## Lancer en local
 
