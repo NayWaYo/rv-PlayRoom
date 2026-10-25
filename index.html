@@ -289,7 +289,7 @@ const PY = (() => {
     S.passSel = S.players.map(() => null);
     S.recv = S.players.map(() => null);
     S.roundPts = S.players.map(() => 0);
-    S.trick = []; S.done = null; S.last = null; S.payoo = null; S.turn = -1;
+    S.trick = []; S.done = null; S.last = null; S.payoo = null; S.turn = -1; S.played = [];
     S.phase = 'pass';
   }
   function setPass(S, i, cs) {
@@ -328,6 +328,7 @@ const PY = (() => {
   function finishTrick(S) {
     if (!S.done) return false;
     S.last = { t: S.trick, w: S.done.w, p: S.done.p };
+    (S.played = S.played || []).push(...S.trick.map(t => t[1])); // public: lets a new host rebuild hidden hands
     S.turn = S.done.w;
     S.trick = []; S.done = null;
     if (S.hands.every(h => !h.length)) {
@@ -377,7 +378,7 @@ const PY = (() => {
     }
     return L.slice().sort((a, b) => danger(S, b) - danger(S, a))[0];
   }
-  return { DEAL, su, rk, cmp, pts, legal, newGame, startRound, setPass, play, finishTrick, next, botPass, botPlay };
+  return { DEAL, su, rk, cmp, pts, legal, deck, newGame, startRound, setPass, play, finishTrick, next, botPass, botPlay };
 })();
 
 </script>
@@ -388,6 +389,8 @@ import { toon, noOutline, roundedBox, makeGlow, Dust, Confetti } from './js/fx.j
 import { initAudio, setPrefs, getPrefs, sfx } from './js/sfx.js';
 import { buildAvatar, animateAvatar, react, disposeAvatar, cleanLook, lookKey, randomLook, seededRand, CLOTH, EXPRESSIONS } from './js/avatar.js';
 import { createEditor } from './js/editor.js';
+import { initKeys, myPublicKey, seal, open } from './js/secret.js';
+const keysReady = initKeys().catch(() => null);
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -429,10 +432,32 @@ function present(k) {
 }
 
 /* ---------------- networking ---------------- */
-function broadcast() {
+// Hands stay private: the host keeps the full state and broadcasts a public view
+// where other players' cards are '?', plus each player's own cards sealed for them
+// (js/secret.js). Only the host's browser, which referees the game, sees every hand.
+let recovering = null, mine = null, recSent = '';
+const pkOf = k => { const p = peers.find(x => peerKey(x) === k && x.presence && typeof x.presence.pk === 'string'); return p ? p.presence.pk : null; };
+async function publicView(S0) {
+  if (!S0.players || !S0.hands) return S0;
+  const S = JSON.parse(JSON.stringify(S0)); // snapshot: the host may move on while we encrypt
+  const v = Object.assign({}, S, {
+    hands: S.hands.map(h => h.map(() => '?')),
+    passSel: S.passSel.map(p => (p ? 1 : null)),
+    recv: S.recv.map(() => null),
+    hpk: myPublicKey(), sec: {}
+  });
+  if (!recovering) await Promise.all(S.players.map(async (p, i) => {
+    if (p.bot || p.k === myKey) return;
+    const box = await seal(pkOf(p.k), { h: S.hands[i], p: S.passSel[i], r: S.recv[i] }).catch(() => null);
+    if (box) v.sec[i] = box;
+  }));
+  return v;
+}
+async function broadcast() {
   lastBroadcast = Date.now();
   if (!room) return;
-  room.emit('state', G).catch(e => { if (e && e.code === 'not_permitted') toast('Ton accès est en lecture seule : tu peux regarder mais pas jouer.'); });
+  const view = await publicView(G);
+  room.emit('state', view).catch(e => { if (e && e.code === 'not_permitted') toast('Ton accès est en lecture seule : tu peux regarder mais pas jouer.'); });
 }
 function sendAct(a) {
   a.e = G.epoch;
@@ -453,30 +478,99 @@ function accepts(d) {
   if (!G.epoch || G.phase === 'idle' || G.phase === 'gameEnd') return true;
   return d.epoch < G.epoch;
 }
+const isCard = c => typeof c === 'string' && /^[SHCDP]\d{1,2}$/.test(c);
 function validState(d) {
   if (!d || typeof d !== 'object' || typeof d.epoch !== 'string' || typeof d.v !== 'number' || typeof d.phase !== 'string') return false;
   if (d.phase === 'idle') return true;
-  return Array.isArray(d.players) && d.players.length >= 3 && d.players.length <= 8 && Array.isArray(d.hands) && Array.isArray(d.total);
+  return Array.isArray(d.players) && d.players.length >= 3 && d.players.length <= 8 && Array.isArray(d.hands) && Array.isArray(d.total)
+    && Array.isArray(d.passSel) && Array.isArray(d.recv);
 }
-function onState(m) {
+// put my own cards into a public view: from the sealed box, or kept from the last state
+async function revealMine(d) {
+  const mi = d.players.findIndex(p => p.k === myKey);
+  if (mi < 0 || !Array.isArray(d.hands[mi])) return;
+  const s = d.sec && d.sec[mi] ? await open(d.hpk, d.sec[mi]) : null;
+  if (s && Array.isArray(s.h) && s.h.every(isCard) && s.h.length === d.hands[mi].length) {
+    d.hands[mi] = s.h;
+    d.passSel[mi] = Array.isArray(s.p) && s.p.every(isCard) ? s.p : d.passSel[mi];
+    d.recv[mi] = Array.isArray(s.r) && s.r.every(isCard) ? s.r : null;
+    mine = { epoch: d.epoch, round: d.round, h: d.hands[mi], p: d.passSel[mi], r: d.recv[mi] };
+  } else if (mine && mine.epoch === d.epoch && mine.round === d.round && mine.h.length === d.hands[mi].length) {
+    d.hands[mi] = mine.h; d.recv[mi] = mine.r; if (d.passSel[mi]) d.passSel[mi] = mine.p || d.passSel[mi];
+  }
+}
+async function onState(m) {
   const d = m.data;
   if (!validState(d) || d.host !== peerKey(m)) return;
   if (!accepts(d)) return;
-  d.players.forEach(p => { p.nick = cleanNick(p.nick); p.col = cleanCol(p.col); p.seat = Math.max(0, Math.min(7, p.seat | 0)); if (p.bot) p.l = cleanLook(p.l); });
+  if (d.players) {
+    d.players.forEach(p => { p.nick = cleanNick(p.nick); p.col = cleanCol(p.col); p.seat = Math.max(0, Math.min(7, p.seat | 0)); if (p.bot) p.l = cleanLook(p.l); });
+    await revealMine(d);
+    if (!accepts(d)) return; // a newer state arrived while decrypting
+  }
   G = d;
   stateChanged();
   hostStep();
+  // a new host is rebuilding the table: hand it my cards, sealed for it
+  const mi = myIdx();
+  if (d.rec && d.host !== myKey && mi >= 0 && mine && mine.epoch === d.epoch && mine.round === d.round) {
+    const tag = d.epoch + ':' + d.host + ':' + d.rec;
+    if (recSent !== tag) {
+      recSent = tag;
+      const box = await seal(d.hpk, { h: mine.h, p: mine.p, r: mine.r }).catch(() => null);
+      if (box) sendAct({ t: 'hand', rec: d.rec, box });
+    }
+  }
 }
-function handleAct(a, key) {
+async function handleAct(a, key) {
   if (!a || typeof a !== 'object' || a.e !== G.epoch || !isHost()) return;
   const i = G.players.findIndex(p => p.k === key);
   if (i < 0) return;
+  if (a.t === 'hand') {
+    if (!recovering || a.rec !== G.rec) return;
+    const s = await open(pkOf(key), a.box);
+    if (!recovering || !s || !Array.isArray(s.h) || !s.h.every(isCard) || s.h.length !== G.hands[i].length) return;
+    G.hands[i] = s.h;
+    if (Array.isArray(s.p) && s.p.every(isCard) && G.passSel[i]) G.passSel[i] = s.p;
+    G.recv[i] = Array.isArray(s.r) && s.r.every(isCard) ? s.r : null;
+    recovering.got.add(i);
+    if (G.players.every((p, j) => p.bot || recovering.got.has(j) || !present(p.k))) finishRecovery();
+    return;
+  }
+  if (recovering) return;
   let ok = false;
   if (a.t === 'quit') { G.phase = 'idle'; ok = true; }
   else if (a.t === 'next') ok = PY.next(G);
   else if (a.t === 'pass') ok = PY.setPass(G, i, a.c);
   else if (a.t === 'play') ok = PY.play(G, i, a.c);
   if (ok) commit();
+}
+// the host left mid-game: I only have the public view, so ask everyone for their
+// cards, then deal what nobody claimed (bots, absent players) from the unseen ones
+function startRecovery() {
+  G.host = myKey; G.rec = (G.rec | 0) + 1;
+  const mi = myIdx();
+  recovering = { got: new Set(mi >= 0 && !G.hands[mi].includes('?') ? [mi] : []) };
+  setTimeout(finishRecovery, 2500);
+  commit();
+  toast('Tu reprends la main pour faire tourner la partie.');
+}
+function finishRecovery() {
+  if (!recovering) return;
+  recovering = null;
+  if (G.hands) {
+    const known = new Set([...(G.played || []), ...(G.trick || []).map(t => t[1])]);
+    G.hands.forEach(h => h.forEach(c => { if (c !== '?') known.add(c); }));
+    const pool = PY.deck(G.players.length).filter(c => !known.has(c));
+    G.hands.forEach((h, i) => {
+      if (!h.includes('?')) return;
+      G.hands[i] = pool.splice(0, h.length).sort(PY.cmp);
+      if (G.passSel[i] && G.passSel[i] === 1) G.passSel[i] = null; // their pass is lost: choose again
+      G.recv[i] = null;
+    });
+    G.passSel = G.passSel.map(p => (p === 1 ? null : p));
+  }
+  commit();
 }
 
 /* host: robots, absent players, trick pacing */
@@ -490,7 +584,7 @@ function schedule(key, ms, fn) {
 const awayLong = k => absentSince[k] && Date.now() - absentSince[k] > 15000;
 function autoFor(p) { return p.bot || awayLong(p.k); }
 function hostStep() {
-  if (!isHost()) { clearTimeout(hostTimer); hostTimerKey = ''; return; }
+  if (!isHost() || recovering) { clearTimeout(hostTimer); hostTimerKey = ''; return; }
   if (G.phase === 'pass') {
     const todo = G.players.map((p, i) => i).filter(i => !G.passSel[i] && autoFor(G.players[i]));
     if (todo.length) schedule(G.v + ':pass:' + todo.join(','), 900, () => {
@@ -518,7 +612,7 @@ setInterval(() => {
     // host left: the first present human (by seat) takes over from the last state
     if (G.host !== myKey && absentSince[G.host] && now - absentSince[G.host] > 6000) {
       const heir = G.players.find(p => !p.bot && present(p.k));
-      if (heir && heir.k === myKey) { G.host = myKey; commit(); toast('Tu reprends la main pour faire tourner la partie.'); }
+      if (heir && heir.k === myKey) startRecovery();
     }
   }
   if (isHost()) {
@@ -1154,7 +1248,7 @@ function cardEl(c, extra) {
 function renderHand() {
   const handEl = $('#hand'), inner = handEl.querySelector('.inner'), passBtn = $('#passBtn');
   const i = myIdx();
-  const show = me.entered && i >= 0 && (G.phase === 'pass' || G.phase === 'play');
+  const show = me.entered && i >= 0 && (G.phase === 'pass' || G.phase === 'play') && !G.hands[i].includes('?'); // '?' = my cards haven't arrived yet
   handEl.hidden = !show; passBtn.hidden = true;
   inner.textContent = '';
   if (!show) return;
@@ -1637,6 +1731,7 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
   booting = false;
   if (!r) { myKey = 'local'; refreshUI(); return; }
   room = r;
+  keysReady.then(pk => { if (pk) room.presence({ pk }).catch(() => {}); }); // so the host can seal my cards for me
   if (room.code) { $('#roomCode').textContent = room.code; $('#invite').hidden = false; }
   room.onConnection(c => { online = c; renderStatus(); }, () => { online = false; renderStatus(); });
   room.onPeers(ch => {

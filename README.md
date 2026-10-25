@@ -19,7 +19,7 @@ Il n'y a pas de serveur de jeu. Les navigateurs se trouvent grâce à des relais
 Limites connues :
 
 - Certains réseaux (4G, réseaux d'entreprise) bloquent la connexion directe. Il faudrait alors un serveur TURN.
-- L'état diffusé contient toutes les mains : un joueur qui ouvre les outils du navigateur peut voir les cartes des autres.
+- Le navigateur de l'hôte, qui arbitre la partie, connaît toutes les mains. Les autres joueurs ne reçoivent que leurs propres cartes : chaque main est chiffrée (ECDH + AES-GCM, [js/secret.js](js/secret.js)) pour son seul destinataire, les autres mains arrivent sous forme de `?`. Si l'hôte part, le suivant redemande à chacun ses cartes et redistribue au hasard celles des robots et des absents parmi les cartes encore cachées.
 
 La page sait aussi tourner en Artifact claude.ai : elle utilise alors le salon temps réel de claude.ai au lieu de WebRTC. La version publiée (https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv) est l'ancien prototype ; la republier demande d'envoyer aussi les fichiers de `js/`.
 
