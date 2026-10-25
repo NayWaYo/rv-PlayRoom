@@ -1,27 +1,34 @@
 # PlayRoom
 
-Jeu de cartes Papayoo dans un salon en 3D, joué dans le navigateur. Nom de travail : PlayRoom.
+Jeu de cartes Papayoo dans un salon en 3D, joué dans le navigateur à plusieurs. Nom de travail : PlayRoom.
 
-Le point de départ est un prototype en un seul fichier ([index.html](index.html)), à améliorer au fil des itérations.
+Tout le jeu tient dans un seul fichier, [index.html](index.html).
 
-## Jouer en ligne
+## Jouer entre amis
 
-Le jeu est publié en Artifact claude.ai : https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv
+Ouvrir la page : un code de salon est créé et ajouté à l'adresse (par exemple `…/#K7MPQ`). Le bouton « Copier le lien d'invitation » copie cette adresse ; les amis qui l'ouvrent arrivent dans le même salon. Aucun compte n'est nécessaire.
 
-Le multijoueur passe par la capacité `room` du runtime Artifact (événements `state` et `act` ouverts au niveau Contributeur), et le pseudo est prérempli via `user`. Pour que des amis jouent, il faut les inviter depuis le menu Partager avec un accès qui permet d'interagir ; un simple lecteur peut regarder mais pas jouer. Ouvert hors de claude.ai, le jeu passe en solo contre des robots.
+Il faut au moins 3 joueurs assis ; des robots peuvent compléter la table.
 
-Pour republier après une modification, demander à Claude de republier `index.html` sur la même URL.
+## Comment marche le multijoueur
+
+Il n'y a pas de serveur de jeu. Les navigateurs se trouvent grâce à des relais Nostr publics (via [Trystero](https://github.com/dmotz/trystero) 0.26), puis échangent directement en WebRTC. Le joueur qui lance la partie fait office d'hôte : il valide chaque coup et diffuse l'état ; s'il part, un autre joueur reprend la main.
+
+Limites connues :
+
+- Certains réseaux (4G, réseaux d'entreprise) bloquent la connexion directe. Il faudrait alors un serveur TURN.
+- L'état diffusé contient toutes les mains : un joueur qui ouvre les outils du navigateur peut voir les cartes des autres.
+
+La même page fonctionne aussi en Artifact claude.ai : elle utilise alors le salon temps réel de claude.ai au lieu de WebRTC. Version publiée : https://claude.ai/artifact/YVH5N3YyUJcum1d3jZ8xqv
 
 ## Stack
 
-HTML, CSS et JavaScript sans build. Rendu 3D avec [three.js](https://threejs.org/) 0.149 chargé depuis jsDelivr, polices Baloo 2 et Nunito via Google Fonts.
+HTML, CSS et JavaScript sans build. Rendu 3D avec [three.js](https://threejs.org/) 0.149, réseau avec Trystero 0.26, tous deux chargés depuis jsDelivr. Polices Baloo 2 et Nunito via Google Fonts.
 
-## Lancer
-
-Ouvrir `index.html` dans un navigateur, ou servir le dossier en local :
+## Lancer en local
 
 ```bash
-python -m http.server 8000
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/serve.ps1
 ```
 
-puis aller sur http://localhost:8000.
+puis ouvrir http://localhost:8642. Pour tester à plusieurs, ouvrir la même adresse (avec le même `#code`) dans plusieurs onglets.

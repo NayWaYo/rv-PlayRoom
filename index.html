@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Salon Papayoo</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +18,8 @@
   --body:Nunito,"Segoe UI",system-ui,sans-serif;
   color-scheme:dark;
 }
-html,body{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
 [hidden]{display:none!important}
 body{background:var(--night);color:var(--cream);font-family:var(--body);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none}
 #scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
@@ -113,6 +119,11 @@ table.res tr.win td{color:var(--marigold)}
 .help kbd{justify-self:start}
 #enter{width:100%;font-size:19px;padding:12px}
 .status-line{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+.invite{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.invite b{font-family:var(--display);font-size:20px;letter-spacing:.08em;color:var(--marigold)}
+.invite .btn{font-size:14px;padding:8px 14px}
+.top-left{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#inviteBtn{cursor:pointer;border-color:var(--marigold)}
 @media (max-width:560px){
   #scores{min-width:0;max-width:190px;padding:8px 10px;font-size:12px}
   #banner{font-size:15px;top:calc(56px + env(safe-area-inset-top,0px))}
@@ -122,11 +133,16 @@ table.res tr.win td{color:var(--marigold)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+</head>
+<body>
 
 <canvas id="scene" tabindex="0" aria-label="Salon en 3D"></canvas>
 <div id="hud">
   <div class="top">
-    <div class="chip" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></div>
+    <div class="top-left">
+      <div class="chip" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></div>
+      <button class="chip" id="inviteBtn" type="button" hidden>Inviter des amis</button>
+    </div>
     <aside id="scores" hidden></aside>
   </div>
   <div id="banner" hidden></div>
@@ -156,6 +172,10 @@ table.res tr.win td{color:var(--marigold)}
     </div>
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
     <div class="status-line" id="introStatus">Connexion au salon…</div>
+    <div class="invite" id="invite" hidden>
+      <span>Salon <b id="roomCode"></b></span>
+      <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
+    </div>
   </form>
 </div>
 
@@ -1065,7 +1085,7 @@ function renderPanel() {
     const best = G.total[order[0]];
     if (end) {
       const winners = order.filter(i => G.total[i] === best).map(i => G.players[i].k === myKey ? 'Toi' : G.players[i].nick);
-      panel.append(el('h2', null, winners.length > 1 ? `Égalité : ${winners.join(' et ')}` : `${winners[0]} ${winners[0] === 'Toi' ? 'gagnes' : 'gagne'} la partie !`));
+      panel.append(el('h2', null, winners.length > 1 ? `Égalité : ${winners.join(' et ')}` : winners[0] === 'Toi' ? 'Tu gagnes la partie !' : `${winners[0]} gagne la partie !`));
       panel.append(el('p', null, `${G.rounds} manche${G.rounds > 1 ? 's' : ''} jouée${G.rounds > 1 ? 's' : ''}. Le plus petit total l'emporte.`));
     } else {
       panel.append(el('h2', null, `Fin de la manche ${G.round}`));
@@ -1128,7 +1148,8 @@ function renderStatus() {
   chip.classList.toggle('on', !!room && online);
   if (!room) t.textContent = 'Hors ligne : partie solo avec robots';
   else if (!online) t.textContent = 'Reconnexion…';
-  else t.textContent = n <= 1 ? 'Seul dans le salon' : `${n} dans le salon`;
+  else t.textContent = (room.code ? `Salon ${room.code} · ` : '') + (n <= 1 ? 'seul pour l\'instant' : `${n} dans le salon`);
+  $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
 function refreshUI() { renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); }
@@ -1196,15 +1217,112 @@ camera.position.set(me.x, 1.55, me.z);
 requestAnimationFrame(loop);
 refreshUI();
 
+/* ---------------- peer-to-peer room (hosted version) ----------------
+   Outside claude.ai there is no room capability: this builds the same small
+   interface (emit/on/presence/onPeers/onConnection) on WebRTC via Trystero.
+   Peers find each other through public Nostr relays using the room code in the
+   URL hash, then talk directly. Identities are claimed, not verified: fine
+   between friends, and the host still checks every move. */
+const ROOM_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function roomCodeFromUrl() {
+  let c = location.hash.replace(/^#/, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (c.length < 4) {
+    c = Array.from({ length: 5 }, () => ROOM_ALPHA[Math.floor(Math.random() * ROOM_ALPHA.length)]).join('');
+    history.replaceState(null, '', '#' + c);
+  }
+  return c;
+}
+async function p2pRoom() {
+  const { joinRoom, selfId } = await import('https://cdn.jsdelivr.net/npm/trystero@0.26.0/+esm');
+  const code = roomCodeFromUrl();
+  // per-tab key that survives a reload, so a player who refreshes gets their seat back
+  let key = null;
+  try { key = sessionStorage.getItem('playroom-key'); } catch (e) {}
+  if (!key) { key = 'u' + Math.random().toString(36).slice(2, 12); try { sessionStorage.setItem('playroom-key', key); } catch (e) {} }
+  const t = joinRoom({ appId: 'rv-playroom' }, 'salon-' + code, {
+    onJoinError: () => toast('Impossible de rejoindre un joueur : son réseau bloque peut-être la connexion directe.', 4000)
+  });
+  const subs = {}, peerFns = [];
+  const self = { peer: selfId, by: key, isMe: true, sameTab: true, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() };
+  const others = new Map();
+  let snap = [self], change = { joined: [], left: [], updated: [] }, flushing = false;
+  function queue(kind, p) {
+    change[kind].push(p);
+    if (!flushing) { flushing = true; setTimeout(flush, 0); }
+  }
+  function flush() {
+    flushing = false;
+    snap = [self, ...others.values()];
+    const c = Object.assign({ peers: snap }, change);
+    change = { joined: [], left: [], updated: [] };
+    peerFns.forEach(f => f(c));
+  }
+  const msg = t.makeAction('m'), pres = t.makeAction('p');
+  const sendPres = target => pres.send({ k: key, pr: self.presence }, target ? { target } : undefined).catch(() => {});
+  function upsert(id, k, pr) {
+    const old = others.get(id);
+    const by = typeof k === 'string' && k ? k.slice(0, 40) : (old ? old.by : null);
+    if (old && pr === undefined && old.by === by) return old;
+    const p = { peer: id, by, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: pr !== undefined ? pr : (old ? old.presence : {}), updatedAt: Date.now() };
+    others.set(id, p); queue(old ? 'updated' : 'joined', p);
+    return p;
+  }
+  const deliver = m => (subs[m.topic] || []).forEach(f => f(m));
+  t.onPeerJoin = id => { upsert(id, null); sendPres(id); };
+  t.onPeerLeave = id => { const p = others.get(id); if (p) { others.delete(id); queue('left', p); } };
+  pres.onMessage = (d, { peerId }) => { if (d && d.pr && typeof d.pr === 'object' && !Array.isArray(d.pr)) upsert(peerId, d.k, d.pr); };
+  msg.onMessage = (d, { peerId }) => {
+    if (!d || typeof d.t !== 'string') return;
+    const p = upsert(peerId, d.k);
+    deliver({ peer: peerId, by: p.by, isMe: false, sameTab: false, kind: 'viewer', guest: false, topic: d.t, data: d.d });
+  };
+  let presTimer = null;
+  return {
+    code,
+    onConnection(fn) { setTimeout(() => fn(true), 0); return () => {}; },
+    onPeers(fn) { peerFns.push(fn); setTimeout(() => fn({ peers: snap, joined: snap.slice(), left: [], updated: [] }), 0); return () => {}; },
+    on(topic, fn) { (subs[topic] = subs[topic] || []).push(fn); return () => {}; },
+    emit(topic, data) {
+      msg.send({ t: topic, d: data, k: key }).catch(() => {});
+      // the claude.ai room echoes your own emits back to you; keep that behaviour
+      const copy = data === undefined ? undefined : JSON.parse(JSON.stringify(data));
+      setTimeout(() => deliver({ peer: selfId, by: key, isMe: true, sameTab: true, kind: 'viewer', guest: false, topic, data: copy }), 0);
+      return Promise.resolve();
+    },
+    presence(patch) {
+      const pr = Object.assign({}, self.presence);
+      for (const k in patch) { if (patch[k] === null) delete pr[k]; else pr[k] = patch[k]; }
+      self.presence = pr; self.updatedAt = Date.now();
+      queue('updated', self);
+      if (!presTimer) presTimer = setTimeout(() => { presTimer = null; sendPres(); }, 50);
+      return Promise.resolve();
+    }
+  };
+}
+async function copyInvite() {
+  const url = location.href;
+  try { await navigator.clipboard.writeText(url); toast('Lien copié : envoie-le à tes amis'); }
+  catch (e) { toast(url, 6000); }
+}
+$('#copyLink').addEventListener('click', copyInvite);
+$('#inviteBtn').addEventListener('click', copyInvite);
+addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl() !== room.code) location.reload(); });
+
 (async () => {
   const cl = window.claude;
-  if (!cl || !cl.use) { myKey = 'local'; refreshUI(); return; }
-  const [r, u] = await Promise.all([cl.use('room').catch(() => null), cl.use('user').catch(() => null)]);
-  if (u && !$('#nick').value) {
-    try { const m = await u.me(); if (m && m.name) $('#nick').value = cleanNick(m.name.split(' ')[0]); } catch (e) {}
+  let r = null;
+  if (cl && cl.use) {
+    const [r0, u] = await Promise.all([cl.use('room').catch(() => null), cl.use('user').catch(() => null)]);
+    if (u && !$('#nick').value) {
+      try { const m = await u.me(); if (m && m.name) $('#nick').value = cleanNick(m.name.split(' ')[0]); } catch (e) {}
+    }
+    r = r0;
+  } else {
+    r = await p2pRoom().catch(e => { console.warn('p2p room unavailable', e); return null; });
   }
   if (!r) { myKey = 'local'; refreshUI(); return; }
   room = r;
+  if (room.code) { $('#roomCode').textContent = room.code; $('#invite').hidden = false; }
   room.onConnection(c => { online = c; renderStatus(); }, () => { online = false; renderStatus(); });
   room.onPeers(ch => {
     peers = ch.peers;
@@ -1221,3 +1339,5 @@ refreshUI();
 })();
 })();
 </script>
+</body>
+</html>
