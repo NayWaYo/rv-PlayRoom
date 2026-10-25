@@ -6,6 +6,8 @@ Tout le jeu tient dans un seul fichier, [index.html](index.html).
 
 ## Jouer entre amis
 
+**https://naywayo.github.io/rv-PlayRoom/** (hébergé par GitHub Pages, mis à jour à chaque push sur `main`)
+
 Ouvrir la page : un code de salon est créé et ajouté à l'adresse (par exemple `…/#K7MPQ`). Le bouton « Copier le lien d'invitation » copie cette adresse ; les amis qui l'ouvrent arrivent dans le même salon. Aucun compte n'est nécessaire.
 
 Il faut au moins 3 joueurs assis ; des robots peuvent compléter la table.
