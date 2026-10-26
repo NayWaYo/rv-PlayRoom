@@ -118,7 +118,24 @@ table.res tr.win td{color:var(--marigold)}
 .help{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:16px 0 18px;font-size:14px;color:var(--muted);align-items:center}
 .help kbd{justify-self:start}
 #enter{width:100%;font-size:19px;padding:12px}
-#customize{width:100%;margin-bottom:10px}
+.intro-btns{display:flex;gap:8px;margin-bottom:10px}
+.intro-btns .btn{flex:1;padding-inline:12px}
+#rules{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+#rules::backdrop{background:rgba(20,14,27,.72);backdrop-filter:blur(3px)}
+#rules[open]{display:flex;flex-direction:column}
+.rules-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px 10px}
+.rules-head h2{margin:0;font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
+.rules-head h2 span{color:var(--payoo)}
+.rules-close{width:36px;height:36px;flex:none;border-radius:50%;border:0;background:var(--plum-2);color:var(--cream);font-size:22px;font-weight:800;line-height:1;cursor:pointer}
+.rules-body{overflow:auto;padding:0 22px 20px;line-height:1.5;font-size:15px}
+.rules-body h3{margin:16px 0 4px;font-family:var(--display);font-weight:800;font-size:18px;color:var(--marigold)}
+.rules-body p,.rules-body ul{margin:0 0 6px}
+.rules-body ul{padding-left:20px}
+.rules-body b{color:var(--cream)}
+.rules-body .muted{color:var(--muted)}
+.deal{width:100%;border-collapse:collapse;margin:6px 0;font-size:14px;text-align:center}
+.deal th,.deal td{padding:4px 6px;border-bottom:1px solid var(--line)}
+.deal th:first-child,.deal td:first-child{text-align:left;color:var(--muted);font-weight:700}
 #lookBtn{cursor:pointer}
 #emotes{pointer-events:auto;position:fixed;right:calc(12px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
 .emote{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:rgba(28,21,36,.82);font-size:22px;line-height:1;cursor:pointer;padding:0;transition:transform .1s}
@@ -195,6 +212,7 @@ table.res tr.win td{color:var(--marigold)}
       <div class="row-chips">
         <button class="chip" id="inviteBtn" type="button" hidden>Inviter</button>
         <button class="chip" id="lookBtn" type="button" hidden>Mon perso</button>
+        <button class="chip" id="rulesBtn" type="button" hidden>Règles</button>
         <button class="chip toggle" id="sfxBtn" type="button" hidden aria-pressed="true">Sons</button>
         <button class="chip toggle" id="musicBtn" type="button" hidden aria-pressed="true">Musique</button>
       </div>
@@ -236,7 +254,10 @@ table.res tr.win td{color:var(--marigold)}
       <kbd>Clic droit</kbd><span>lancer une boule de papier</span>
       <kbd>1 à 6</kbd><span>faire une tête</span>
     </div>
-    <button class="btn ghost" id="customize" type="button">Personnaliser mon perso</button>
+    <div class="intro-btns">
+      <button class="btn ghost" id="customize" type="button">Mon perso</button>
+      <button class="btn ghost" id="rulesIntro" type="button">Les règles</button>
+    </div>
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
     <div class="status-line" id="introStatus">Connexion au salon…</div>
     <div class="invite" id="invite" hidden>
@@ -245,6 +266,41 @@ table.res tr.win td{color:var(--marigold)}
     </div>
   </form>
 </div>
+
+<dialog id="rules" aria-labelledby="rulesTitle">
+  <div class="rules-head">
+    <h2 id="rulesTitle">Règles du <span>Papayoo</span></h2>
+    <button class="rules-close" type="button" aria-label="Fermer les règles">×</button>
+  </div>
+  <div class="rules-body">
+    <p><b>But du jeu : ramasser le moins de points possible.</b> Le joueur qui a le plus petit total à la fin des manches gagne.</p>
+    <h3>Les cartes</h3>
+    <ul>
+      <li>Quatre couleurs classiques (♠ ♥ ♣ ♦), de 1 à 10. Elles ne valent rien… sauf une.</li>
+      <li>Vingt cartes <b>Payoo</b> (✦), de 1 à 20 : chacune vaut sa valeur en points.</li>
+      <li>Le <b>Papayoo</b> est le 7 d'une couleur tirée au dé à chaque manche. Il vaut <b>40 points</b> et porte la pastille « 40 » dans ta main.</li>
+    </ul>
+    <h3>1. Donner des cartes</h3>
+    <p>Au début de chaque manche, chacun choisit des cartes à donner au joueur suivant, en même temps. Débarrasse-toi des gros Payoo et des cartes dangereuses ! Les cartes reçues sont marquées d'un point rouge.</p>
+    <table class="deal">
+      <tr><th>Joueurs</th><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td></tr>
+      <tr><th>Cartes en main</th><td>20</td><td>15</td><td>12</td><td>10</td><td>8</td><td>7</td></tr>
+      <tr><th>Cartes à donner</th><td>5</td><td>5</td><td>4</td><td>3</td><td>3</td><td>3</td></tr>
+    </table>
+    <p class="muted">À 7 et 8 joueurs, on retire les 1 des quatre couleurs classiques.</p>
+    <h3>2. Le dé</h3>
+    <p>Une fois les cartes données, le dé désigne la couleur du Papayoo pour cette manche : ♠, ♥, ♣ ou ♦.</p>
+    <h3>3. Les levées</h3>
+    <ul>
+      <li>Le premier joueur pose la carte de son choix : sa couleur est la couleur demandée.</li>
+      <li>Chacun doit <b>fournir la couleur demandée</b> s'il en a. Sinon, il pose n'importe quelle carte : c'est le moment de se défausser d'un Payoo ou du Papayoo !</li>
+      <li>La plus forte carte de la couleur demandée remporte la levée et tous ses points. Son joueur commence la levée suivante.</li>
+      <li>Il n'y a pas d'atout : les Payoo ne gagnent que si c'est la couleur demandée.</li>
+    </ul>
+    <h3>4. Les points</h3>
+    <p>Quand toutes les cartes sont jouées, chacun ajoute à son total les points de ses levées (250 points par manche en tout). Après la dernière manche, le plus petit total l'emporte.</p>
+  </div>
+</dialog>
 
 <div id="editor" hidden>
   <div class="ed-card" role="dialog" aria-label="Personnaliser ton perso">
@@ -1067,6 +1123,7 @@ let joy = { x: 0, y: 0 }, locked = false, drag = null;
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
+  if ($('#rules').open) return;
   if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) emote(+e.code.slice(5) - 1);
   if (me.entered && !e.repeat) {
     if (e.code === 'KeyT' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
@@ -1638,6 +1695,18 @@ function openEditor() {
 }
 $('#customize').addEventListener('click', openEditor);
 $('#lookBtn').addEventListener('click', openEditor);
+// the rules, from the intro card or the room
+const rules = $('#rules');
+function openRules() {
+  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  for (const k in keys) keys[k] = false;
+  rules.showModal();
+}
+rules.addEventListener('close', () => { if (me.entered) canvas.focus(); });
+rules.addEventListener('click', e => { if (e.target === rules) rules.close(); }); // click on the backdrop
+rules.querySelector('.rules-close').addEventListener('click', () => rules.close());
+$('#rulesBtn').addEventListener('click', openRules);
+$('#rulesIntro').addEventListener('click', openRules);
 // expressions on purpose: keys 1 to 6 or the buttons on the right
 const emotesEl = $('#emotes');
 EXPRESSIONS.forEach((x, i) => {
@@ -1676,7 +1745,7 @@ function renderAudioBtns() {
   const p = getPrefs();
   $('#sfxBtn').setAttribute('aria-pressed', String(p.sfx));
   $('#musicBtn').setAttribute('aria-pressed', String(p.music));
-  $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = !me.entered;
+  $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = $('#rulesBtn').hidden = !me.entered;
   $('#emotes').hidden = !me.entered || editor.isOpen();
 }
 $('#sfxBtn').addEventListener('click', () => { const v = !getPrefs().sfx; setPrefs({ sfx: v }); store.set('playroom-sfx', v ? '1' : '0'); renderAudioBtns(); });
