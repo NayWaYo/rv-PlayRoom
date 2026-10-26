@@ -58,7 +58,24 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 
 ## Pistes en attente
 
-- Bataille de fléchettes : d'autres armes (mitraillette, sniper) à ajouter dans `WEAPONS`.
+### Bataille de fléchettes : prochains ajouts (demandés)
+
+1. Bonus au sol qui réapparaissent : points de vie, armure, armes lourdes. Lance-roquettes (dégâts de zone), railgun qui se charge 1 seconde et élimine en un tir.
+2. Une seconde carte, à choisir à la création du salon.
+3. Modes de jeu : capture du drapeau, poser la bombe. Ils supposent des équipes (aujourd'hui c'est chacun pour soi).
+4. D'autres armes dans `WEAPONS` : mitraillette, sniper.
+
+Idées en plus, à discuter :
+
+- Équipes (rouge et bleu) avec couleur sur l'avatar, nécessaires aux modes ci-dessus.
+- Manches chronométrées ou à score cible, avec un écran de fin et une revanche.
+- Tableau des scores complet en maintenant Tab.
+- Indicateur de la direction d'où vient un tir reçu, et bruits de tirs spatialisés.
+- Niveau des robots réglable (facile, normal, difficile).
+- Tremplins et passages en hauteur sur les cartes.
+- Mode spectateur pour qui arrive en cours de partie.
+
+### Autres pistes
 - Valider en vrai la reprise quand l'hôte quitte en pleine manche (`startRecovery()`) : chacun doit retrouver sa main sans voir celles des autres.
 - Serveur relais TURN si des joueurs (4G, réseaux d'entreprise) ne se connectent pas.
 - Limite assumée : le navigateur de l'hôte connaît toutes les mains.
