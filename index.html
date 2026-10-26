@@ -1245,7 +1245,7 @@ function pushPresence(force) {
   lastSent = s; lastPres = now;
   room.presence({ a }).catch(() => {});
 }
-let stepDist = 0, bob = 0, shake = 0, crouchLatch = false;
+let stepDist = 0, shake = 0, crouchLatch = false;
 const JUMP_V = 3.2;
 function jump() {
   if (!me.entered || me.seat >= 0 || me.jy > 0) return;
@@ -1290,13 +1290,12 @@ function updateMe(dt) {
       const dx = me.x - a.x, dz = me.z - a.z, dd = Math.hypot(dx, dz);
       if (dd < 0.6) { const k = (0.6 - dd) / (dd || 1); me.x += (dd ? dx : 0.6) * k; me.z += (dd ? dz : 0) * k; }
     }
-    // footsteps and a gentle head bob
+    // footsteps
     const moved = Math.hypot(me.x - ox, me.z - oz);
     const grounded = me.jy === 0;
     if (grounded) stepDist += moved;
     if (stepDist > 0.62) { stepDist = 0; sfx.step(); }
-    bob = moved > 0 && grounded ? bob + moved * 9 : bob * 0.9;
-    camera.position.set(me.x, 1.55 - me.crouch * 0.5 + me.jy + (moved > 0 && grounded ? Math.abs(Math.sin(bob)) * 0.035 : 0), me.z);
+    camera.position.set(me.x, 1.55 - me.crouch * 0.5 + me.jy, me.z);
   }
   camera.rotation.set(me.pitch, me.yaw, 0);
   if (shake > 0) {
