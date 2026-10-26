@@ -1390,7 +1390,7 @@ function updateAvatars(dt, t) {
     if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
     const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), pr.l, x, z, yaw, seat);
     av.who = peerKey(p); av.talk = levelOf(p.peer);
-    av.crouchT = a[5] === 1 ? 1 : 0;
+    av.crouchT = a[5] === 1 ? 1 : 0; av.pitch = Math.max(-1.25, Math.min(1.1, +a[3] || 0));
     av.ty = seat < 0 ? Math.max(0, Math.min(8, +a[6] || 0)) : 0; // feet height: mid-jump, or up on the furniture
     if (fps) fps.peerAvatar(av, pr);
     readSocial(p, av, av.who, cleanNick(pr.n), cleanCol(pr.c));

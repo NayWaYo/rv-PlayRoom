@@ -335,6 +335,13 @@ export function animateAvatar(a, dt, t, moving) {
     if (moving && ex === 'idle') { fwd = -Math.sin(a.walk) * 0.55 * r.sx; bend = 0.35; }
     if (a.lean > 0) { fwd += a.lean * 1.2; bend += a.lean * 0.3; }
     fwd += c * 0.6; bend += c * 0.4;
+    // holding a blaster: right arm straight out where they look, left hand under it
+    if (a.armed && !seated) {
+      const p = a.aimPitch || 0;
+      const lv = Math.PI / 2 + p - a.spine.rotation.x; // level with the eyes, whatever the back does
+      if (r.sx > 0) { up = 0.05; fwd = lv; bend = 0.05; fold = 0; }
+      else { up = 0.1; fwd = lv - 0.15; bend = 0.55; fold = 0.95; }
+    }
     lerp(r.sh.rotation, 'z', r.sx * up, k); lerp(r.sh.rotation, 'x', fwd, k);
     lerp(r.el.rotation, 'x', bend, k); lerp(r.el.rotation, 'z', -r.sx * fold, k);
   }

@@ -16,6 +16,7 @@ const WEAPONS = {
 const SLOTS = ['pistol', 'rifle'];
 const FOV = 70;
 const BODY_R = 0.32, EYE = 1.5;
+const HEAD_Y = 1.38, HEAD_R = 0.27; // where a standing head sits, and how big a target it is (generous: cartoon heads)
 const BOT_NAMES = ['Zip', 'Bolt', 'Pixel', 'Turbo', 'Nova', 'Gizmo', 'Rivet', 'Volt'];
 const BOT_COLS = ['#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5a', '#f08a3c', '#f4b63f'];
 
@@ -36,6 +37,7 @@ const CSS = `
 #fpsFeed{position:fixed;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;font-weight:800;font-size:14px}
 #fpsFeed div{background:rgba(28,21,36,.82);border-radius:999px;padding:3px 12px;transition:opacity .6s}
 #cross.hit{width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--coral);box-shadow:0 0 0 3px rgba(0,0,0,.4)}
+#cross.hit.head{width:22px;height:22px;margin:-11px 0 0 -11px;background:var(--marigold);box-shadow:0 0 0 3px rgba(0,0,0,.4),0 0 16px 4px rgba(244,182,63,.7)}
 #fireBtn{pointer-events:auto;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(172px + env(safe-area-inset-bottom,0px));width:76px;height:76px;border-radius:50%;border:3px solid var(--cream);background:var(--coral);font-size:32px;touch-action:none;box-shadow:0 4px 0 rgba(0,0,0,.35)}
 #aimBtn,#swapBtn{pointer-events:auto;position:fixed;width:52px;height:52px;font-size:24px;touch-action:none}
 #aimBtn{right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(184px + env(safe-area-inset-bottom,0px))}
@@ -102,14 +104,27 @@ export function startFps(ctx) {
 
   /* ---------- who can be shot ---------- */
   // every fighter but the one asking: { id, x, z, base, height, eye, alive }
+  // the body is a cylinder up to the neck, the head a ball on top (it follows crouching and jumping)
   function fighters() {
     const out = [];
-    if (me.entered) out.push({ id: ctx.myKey(), x: me.x, z: me.z, base: me.jy, height: 1.8 - me.crouch * 0.5, alive: alive(), self: true });
+    if (me.entered) {
+      const hy = me.jy + HEAD_Y - me.crouch * 0.3;
+      out.push({ id: ctx.myKey(), x: me.x, z: me.z, base: me.jy, height: 1.8 - me.crouch * 0.5, neck: hy - 0.2, head: new THREE.Vector3(me.x, hy, me.z), alive: alive(), self: true });
+    }
     for (const a of avatars.values()) {
       if (!a.who || a.seat >= 0) continue;
-      out.push({ id: a.who, x: a.x, z: a.z, base: a.y || 0, height: 1.85 - (a.crouch || 0) * 0.5, alive: !a.fpDown && !a.fpShield, av: a });
+      const head = a.head.getWorldPosition(new THREE.Vector3());
+      out.push({ id: a.who, x: a.x, z: a.z, base: a.y || 0, height: 1.85 - (a.crouch || 0) * 0.5, neck: head.y - 0.2, head, alive: !a.fpDown && !a.fpShield, av: a });
     }
     return out;
+  }
+  // a ray against a ball
+  function ballHit(o, d, c, r) {
+    const ox = o.x - c.x, oy = o.y - c.y, oz = o.z - c.z;
+    const b = ox * d.x + oy * d.y + oz * d.z, cc = ox * ox + oy * oy + oz * oz - r * r, disc = b * b - cc;
+    if (disc < 0) return null;
+    const t = -b - Math.sqrt(disc);
+    return t > 0.05 && t < RANGE ? t : null;
   }
 
   /* ---------- the blasters in your hands ---------- */
@@ -117,22 +132,36 @@ export function startFps(ctx) {
   const gun = new THREE.Group();
   // held at half size, close to the eye, so it never pokes through a wall you stand against
   const orange = toon('#f08a3c'), blue = toon('#5b9bd5'), yellow = toon('#f4b63f'), grey = toon('#3a3340'), teal = toon('#4fb3a9');
-  const models = {};
-  function model(parts) {
+  // each blaster as blocks: size, colour, place, tilt; drawn in your hands and in everyone else's
+  const PARTS = {
+    pistol: [
+      [0.09, 0.1, 0.3, orange, 0, 0, 0], [0.06, 0.06, 0.2, blue, 0, 0.02, -0.22], [0.07, 0.07, 0.03, yellow, 0, 0.02, -0.33],
+      [0.07, 0.15, 0.08, blue, 0, -0.11, 0.08, -0.25], [0.035, 0.05, 0.1, grey, 0, 0.075, 0.02]
+    ],
+    rifle: [
+      [0.1, 0.12, 0.46, blue, 0, 0, -0.06], [0.06, 0.06, 0.22, yellow, 0, 0.02, -0.4], [0.075, 0.075, 0.03, orange, 0, 0.02, -0.52],
+      [0.06, 0.18, 0.09, teal, 0, -0.13, -0.08, 0.25], [0.07, 0.14, 0.08, grey, 0, -0.1, 0.12, -0.25],
+      [0.08, 0.1, 0.2, teal, 0, -0.02, 0.26], [0.045, 0.06, 0.16, grey, 0, 0.09, -0.04]
+    ]
+  };
+  function model(kind, parent) {
     const g = new THREE.Group();
-    for (const [w, h, d, mat, x, y, z, rx] of parts) { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; g.add(m); }
-    gun.add(g); return g;
+    for (const [w, h, d, mat, x, y, z, rx] of PARTS[kind]) { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; g.add(m); }
+    parent.add(g); return g;
   }
-  models.pistol = model([
-    [0.09, 0.1, 0.3, orange, 0, 0, 0], [0.06, 0.06, 0.2, blue, 0, 0.02, -0.22], [0.07, 0.07, 0.03, yellow, 0, 0.02, -0.33],
-    [0.07, 0.15, 0.08, blue, 0, -0.11, 0.08, -0.25], [0.035, 0.05, 0.1, grey, 0, 0.075, 0.02]
-  ]);
-  models.rifle = model([ // held a little further out than the pistol, so the stock stays out of your face
-    [0.1, 0.12, 0.46, blue, 0, 0, -0.06], [0.06, 0.06, 0.22, yellow, 0, 0.02, -0.4], [0.075, 0.075, 0.03, orange, 0, 0.02, -0.52],
-    [0.06, 0.18, 0.09, teal, 0, -0.13, -0.08, 0.25], [0.07, 0.14, 0.08, grey, 0, -0.1, 0.12, -0.25],
-    [0.08, 0.1, 0.2, teal, 0, -0.02, 0.26], [0.045, 0.06, 0.16, grey, 0, 0.09, -0.04]
-  ]);
-  models.rifle.position.z = -0.16;
+  const models = { pistol: model('pistol', gun), rifle: model('rifle', gun) };
+  models.rifle.position.z = -0.16; // held a little further out than the pistol, so the stock stays out of your face
+  // a blaster in someone else's hands: grip in the right palm, barrel along the forearm
+  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12] };
+  function holdGun(a, kind) {
+    if (a.heldKind === kind) return;
+    if (a.held) a.held.parent.remove(a.held);
+    const forearm = a.arms.find(r => r.sx > 0).el, [gy, gz] = GRIP[kind];
+    const g = model(kind, forearm);
+    g.scale.setScalar(HELD); g.rotation.x = -Math.PI / 2;
+    g.position.set(0, -0.21 - gz * HELD, -0.01 + gy * HELD); // the hand sits at (0, -0.21, -0.01) on the forearm
+    a.held = g; a.heldKind = kind;
+  }
   const gunRest = new THREE.Vector3(0.1, -0.1, -0.21), gunAim = new THREE.Vector3(0, -0.075, -0.2);
   gun.scale.setScalar(0.5);
   gun.position.copy(gunRest);
@@ -180,19 +209,20 @@ export function startFps(ctx) {
     d.x += (Math.random() - 0.5) * 2 * spread; d.y += (Math.random() - 0.5) * 2 * spread; d.z += (Math.random() - 0.5) * 2 * spread;
     d.normalize();
     const w = worldHit(o, d);
-    let best = w ? w.dist : RANGE, target = null;
+    let best = w ? w.dist : RANGE, target = null, head = false;
     for (const f of fighters()) {
       if (f.id === from || !f.alive) continue;
-      const t = bodyHit(o, d, f.x, f.base, f.z, f.height);
-      if (t !== null && t < best) { best = t; target = f.id; }
+      const tb = bodyHit(o, d, f.x, f.base, f.z, f.neck - f.base), th = ballHit(o, d, f.head, HEAD_R);
+      if (tb !== null && tb < best) { best = tb; target = f.id; head = false; }
+      if (th !== null && th < best) { best = th; target = f.id; head = true; }
     }
     const h = o.clone().addScaledVector(d, best);
-    return { h, target, stuck: !target && !!w };
+    return { h, target, head, stuck: !target && !!w };
   }
   const r2 = v => Math.round(v * 100) / 100;
   function sendDart(o, res, from, w) {
     const room = ctx.room();
-    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w }).catch(() => {});
+    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w, hs: res.head ? 1 : 0 }).catch(() => {});
   }
 
   // your weapons: which one is out, what's left in each, reloading, switching, aiming
@@ -218,7 +248,11 @@ export function startFps(ctx) {
     kick = w.auto ? 0.6 : 1;
     if (w.auto) { me.pitch += 0.006; me.yaw += (Math.random() - 0.5) * 0.006; } // a little climb on a long burst
     sendDart(muzzle, res, ctx.myKey(), k);
-    if (res.target) { hitMarker(); damage(res.target, ctx.myKey(), w.damage); }
+    if (res.target) {
+      hitMarker(res.head);
+      if (res.head) { const a = [...avatars.values()].find(v => v.who === res.target); if (a) ctx.react(a, 'shock', 0.6); }
+      damage(res.target, ctx.myKey(), w.damage * (res.head ? 2 : 1), res.head); // the head counts double
+    }
     if (ammo[k] === 0) reload();
     renderBar();
   }
@@ -235,45 +269,45 @@ export function startFps(ctx) {
     if (!SLOTS[i]) return false;
     if (i !== slot && me.entered && alive()) {
       slot = i; reloadSeq++; reloadUntil = 0; switchUntil = now() + 0.35; triggerDown = false;
-      sfx.reload(); renderBar();
+      sfx.reload(); renderBar(); pushMine(); // the others see the new blaster in your hands
     }
     return true;
   }
   function aim(on) { aiming = on && me.entered && alive(); }
   let markTimer = null;
-  function hitMarker() {
-    sfx.pock();
-    const c = $('#cross'); c.classList.add('hit');
-    clearTimeout(markTimer); markTimer = setTimeout(() => c.classList.remove('hit'), 140);
+  function hitMarker(head) {
+    if (head) sfx.ding(); else sfx.pock();
+    const c = $('#cross'); c.classList.add('hit'); c.classList.toggle('head', !!head);
+    clearTimeout(markTimer); markTimer = setTimeout(() => c.classList.remove('hit', 'head'), head ? 260 : 140);
   }
 
   /* ---------- health, knock-outs, scores ---------- */
   let hp = MAX_HP, kills = 0, deaths = 0, downUntil = 0, shieldUntil = 0, downBy = '';
   const alive = () => hp > 0;
-  function pushMine() { const room = ctx.room(); if (room) room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0] }).catch(() => {}); }
+  function pushMine() { const room = ctx.room(); if (room) room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot] }).catch(() => {}); }
   // a dart landed on `target`, fired by `from`: only the target's owner applies it
-  function damage(target, from, dmg) {
-    if (target === ctx.myKey()) hurtMe(from, dmg);
-    else { const b = bots.get(target); if (b) hurtBot(b, from, dmg); }
+  function damage(target, from, dmg, head) {
+    if (target === ctx.myKey()) hurtMe(from, dmg, head);
+    else { const b = bots.get(target); if (b) hurtBot(b, from, dmg, head); }
   }
-  function hurtMe(from, dmg) {
+  function hurtMe(from, dmg, head) {
     if (!alive() || now() < shieldUntil) return;
     hp = Math.max(0, hp - dmg); sfx.bonk();
     hurtEl.classList.add('on'); setTimeout(() => hurtEl.classList.remove('on'), 60);
-    if (hp <= 0) { deaths++; downUntil = now() + RESPAWN; downBy = nameOf(from); knockedOut(ctx.myKey(), from); }
+    if (hp <= 0) { deaths++; downUntil = now() + RESPAWN; downBy = nameOf(from) + (head ? ', en pleine tête' : ''); knockedOut(ctx.myKey(), from, head); }
     pushMine(); renderBar();
   }
-  function knockedOut(victim, by) {
+  function knockedOut(victim, by, head) {
     if (by === ctx.myKey()) kills++;
     else { const b = bots.get(by); if (b) b.kills++; }
     const room = ctx.room();
-    if (room) room.emit('ko', { v: victim, k: by }).catch(() => {});
-    announce(victim, by);
+    if (room) room.emit('ko', { v: victim, k: by, h: head ? 1 : 0 }).catch(() => {});
+    announce(victim, by, head);
   }
-  function announce(victim, by) {
+  function announce(victim, by, head) {
     const me_ = ctx.myKey();
     const v = victim === me_ ? 'toi' : nameOf(victim), k = by === me_ ? 'Tu' : nameOf(by);
-    const line = el('div', null, by === me_ ? `Tu as éliminé ${v} 🎯` : victim === me_ ? `${k} t'a éliminé` : `${k} a éliminé ${v}`);
+    const line = el('div', null, (by === me_ ? `Tu as éliminé ${v} 🎯` : victim === me_ ? `${k} t'a éliminé` : `${k} a éliminé ${v}`) + (head ? ' 💥 dans la tête !' : ''));
     feed.append(line);
     setTimeout(() => { line.style.opacity = '0'; setTimeout(() => line.remove(), 700); }, 3000);
     while (feed.children.length > 4) feed.firstChild.remove();
@@ -322,11 +356,11 @@ export function startFps(ctx) {
     const last = [...bots.keys()].pop(); if (!last) return;
     bots.delete(last); renderBoard();
   }
-  function hurtBot(b, from, dmg) {
+  function hurtBot(b, from, dmg, head) {
     if (b.hp <= 0 || now() < b.shieldUntil) return;
     b.hp = Math.max(0, b.hp - dmg);
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
-    if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from); }
+    if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from, head); }
     else if (!b.target) b.think = 0; // look around for whoever did that
   }
   function canSee(o, x, base, z, height) {
@@ -372,6 +406,7 @@ export function startFps(ctx) {
       b.lastSeen = { x: f.x, y: f.base, z: f.z, t };
       const dx = f.x - b.x, dz = f.z - b.z, d = Math.hypot(dx, dz) || 1;
       face = Math.atan2(-dx, -dz);
+      b.pitch = Math.atan2(f.base + f.height * 0.6 - botO.y, d); // arms follow the aim
       if (t > b.strafeUntil) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeUntil = t + 0.8 + Math.random() * 1.4; }
       const fwd = Math.abs(f.base - b.y) > 1 ? 0 : d > 7 ? 1 : d < 3 ? -1 : 0;
       mx = dx / d * fwd + (-dz / d) * b.strafe * 0.8; mz = dz / d * fwd + (dx / d) * b.strafe * 0.8;
@@ -388,11 +423,12 @@ export function startFps(ctx) {
         spawnDart(o, res.h, res.stuck);
         playNear(o, 'dart');
         sendDart(o, res, b.id, b.weapon);
-        if (res.target) damage(res.target, b.id, WEAPONS[b.weapon].damage);
+        if (res.target) damage(res.target, b.id, WEAPONS[b.weapon].damage * (res.head ? 2 : 1), res.head);
       }
       if (Math.random() < dt * 0.25 && b.vy === 0 && ceilingAt(b.x, b.z, b.y) > b.y + 3) b.vy = 3.6; // the odd hop
     } else {
       // follow the path, a standing spot at a time
+      b.pitch = 0;
       if (t > b.repath || (b.path.length && b.step >= b.path.length)) planWalk(b, t);
       const p = b.path && b.path[b.step];
       if (p) {
@@ -423,7 +459,7 @@ export function startFps(ctx) {
   function streamBots() {
     const room = ctx.room(); if (!room || !bots.size) return;
     const t = now(); if (t - botSend < 0.1) return; botSend = t;
-    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0, b.crouch ? 1 : 0])).catch(() => {});
+    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0, b.crouch ? 1 : 0, b.weapon === 'rifle' ? 1 : 0, r2(b.pitch || 0)])).catch(() => {});
   }
 
   /* ---------- network ---------- */
@@ -435,22 +471,22 @@ export function startFps(ctx) {
     if (o.distanceTo(h) > RANGE + 1) return;
     spawnDart(o, h, d.k === 1);
     playNear(o, 'dart');
-    if (typeof d.t === 'string' && shooter) damage(d.t, shooter, WEAPONS[d.w] ? WEAPONS[d.w].damage : 2);
+    if (typeof d.t === 'string' && shooter) damage(d.t, shooter, (WEAPONS[d.w] ? WEAPONS[d.w].damage : 2) * (d.hs === 1 ? 2 : 1), d.hs === 1);
   }
   function onKo(m) {
     if (m.isMe) return;
     const d = m.data || {};
     if (typeof d.v !== 'string' || typeof d.k !== 'string') return;
-    if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(); }
+    if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
     else { const b = bots.get(d.k); if (b) b.kills++; }
-    announce(d.v, d.k);
+    announce(d.v, d.k, d.h === 1);
   }
   function onBots(m) {
     if (m.isMe || !Array.isArray(m.data)) return;
     const owner = m.by;
     for (const r of m.data.slice(0, 12)) {
       if (!Array.isArray(r) || typeof r[0] !== 'string' || !r[0].startsWith('bot:' + owner + ':')) continue;
-      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, seen: now(), owner });
+      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, weapon: r[13] === 1 ? 'rifle' : 'pistol', pitch: Math.max(-1.2, Math.min(1.2, +r[14] || 0)), seen: now(), owner });
     }
   }
   const room0 = ctx.room();
@@ -504,7 +540,7 @@ export function startFps(ctx) {
     const all = [...bots.values(), ...remoteBots.values()];
     for (const b of all) {
       const a = syncAvatar('f:' + b.id, b.nick, b.col, b.look || randomLook(seededRand(b.seed)), b.x, b.z, b.yaw, -1);
-      a.who = b.id; a.ty = b.y; a.crouchT = b.crouch ? 1 : 0; a.fpDown = b.hp <= 0; a.fpShield = b.shield !== undefined ? b.shield : t < b.shieldUntil;
+      a.who = b.id; a.ty = b.y; a.fpWeapon = b.weapon; a.aimPitch = b.pitch || 0; a.crouchT = b.crouch ? 1 : 0; a.fpDown = b.hp <= 0; a.fpShield = b.shield !== undefined ? b.shield : t < b.shieldUntil;
     }
   }
   // what presence says about a friend's avatar
@@ -512,6 +548,8 @@ export function startFps(ctx) {
     const fp = Array.isArray(pr.fp) ? pr.fp : null;
     a.fpDown = !!fp && (fp[0] | 0) <= 0;
     a.fpShield = !!fp && fp[3] === 1;
+    a.fpWeapon = fp && SLOTS[fp[4]] ? SLOTS[fp[4]] : 'pistol';
+    a.aimPitch = a.pitch || 0;
   }
   let uiTick = 0;
   function update(dt) {
@@ -532,6 +570,8 @@ export function startFps(ctx) {
       a.fpFall = (a.fpFall || 0) + ((a.fpDown ? 1 : 0) - (a.fpFall || 0)) * Math.min(1, dt * 8);
       a.g.rotation.x = a.fpFall * Math.PI / 2;
       if (a.fpShield && !a.fpDown) a.g.visible = a.g.visible && Math.floor(t * 8) % 2 === 0;
+      // everyone holds their blaster, aiming where they look
+      if (a.who && a.seat < 0) { holdGun(a, a.fpWeapon || 'pistol'); a.armed = !a.fpDown; }
     }
     // aiming: zoom in smoothly, bring the blaster under the crosshair
     const w = W();
