@@ -128,7 +128,7 @@ export function buildAvatar(look, tag) {
   return {
     g, hop, hips, spine, head, arms, legs, look: L, key: lookKey(L), face: { cv, ctx: cv.getContext('2d'), tex, mat: faceMat, key: '' },
     x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, seat: -1, walk: 0, init: false,
-    expr: 'idle', exprUntil: 0, blinkAt: 1 + Math.random() * 3, blinkEnd: 0, jump: 0, jumpV: 0, land: 0, lean: 0
+    expr: 'idle', exprUntil: 0, blinkAt: 1 + Math.random() * 3, blinkEnd: 0, jump: 0, jumpV: 0, land: 0, lean: 0, crouch: 0, crouchT: 0
   };
 }
 
@@ -305,19 +305,24 @@ export function animateAvatar(a, dt, t, moving) {
   if (a.jumpV > 0) sy += 0.06;
   const sx = 1 / Math.sqrt(sy);
   a.hop.scale.set(sx, sy, sx);
-  a.hop.position.y = (seated ? -0.07 : 0) + a.jump + (ex === 'laugh' ? Math.abs(Math.sin(t * 24)) * 0.02 : 0) + (moving ? Math.abs(Math.cos(a.walk)) * 0.035 : 0);
+  // crouching: knees bend and the whole body sinks
+  a.crouch += ((seated ? 0 : a.crouchT || 0) - a.crouch) * (1 - Math.exp(-dt * 10));
+  const c = a.crouch;
+  a.hop.position.y = (seated ? -0.07 : 0) - c * 0.3 + a.jump + (ex === 'laugh' ? Math.abs(Math.sin(t * 24)) * 0.02 : 0) + (moving ? Math.abs(Math.cos(a.walk)) * 0.035 : 0);
   const k = 1 - Math.exp(-dt * 12);
   // legs
   for (const l of a.legs) {
     let hx = 0, kx = 0;
     if (seated) { hx = Math.PI / 2; kx = -Math.PI / 2 + Math.sin(t * 1.3 + l.sx) * 0.06; }
     else if (moving) { const s = Math.sin(a.walk) * l.sx; hx = s * 0.6; kx = -Math.max(0, -s) * 1.0 - 0.05; }
+    if (a.jump > 0) { hx += 0.35; kx -= 0.7; } // tuck the legs in mid-air
+    hx += c * 1.2; kx -= c * 2.2;
     lerp(l.hip.rotation, 'x', hx, k); lerp(l.knee.rotation, 'x', kx, k);
   }
   // spine and head
   a.lean = Math.max(0, a.lean - dt * 2.2);
   const pose = POSE[ex === 'idle' && seated ? 'seated' : ex] || POSE.idle;
-  lerp(a.spine.rotation, 'x', -a.lean * 0.4 + (ex === 'sad' ? 0.12 : 0) + (moving ? -0.08 : 0), k);
+  lerp(a.spine.rotation, 'x', -a.lean * 0.4 + (ex === 'sad' ? 0.12 : 0) + (moving ? -0.08 : 0) - c * 0.3, k);
   a.spine.rotation.z = moving ? Math.sin(a.walk) * 0.04 : seated ? Math.sin(t * 1.1 + a.x) * 0.02 : 0;
   lerp(a.head.rotation, 'x', pose[4] + (ex === 'laugh' ? Math.sin(t * 24) * 0.05 : 0), k);
   lerp(a.head.rotation, 'y', moving ? 0 : Math.sin(t * 0.5 + a.x * 2) * 0.18, k * 0.3);
@@ -329,6 +334,7 @@ export function animateAvatar(a, dt, t, moving) {
     if (ex === 'wink' && r.sx < 0) { up = POSE.idle[0]; fwd = POSE.idle[1]; bend = POSE.idle[2]; }
     if (moving && ex === 'idle') { fwd = -Math.sin(a.walk) * 0.55 * r.sx; bend = 0.35; }
     if (a.lean > 0) { fwd += a.lean * 1.2; bend += a.lean * 0.3; }
+    fwd += c * 0.6; bend += c * 0.4;
     lerp(r.sh.rotation, 'z', r.sx * up, k); lerp(r.sh.rotation, 'x', fwd, k);
     lerp(r.el.rotation, 'x', bend, k); lerp(r.el.rotation, 'z', -r.sx * fold, k);
   }

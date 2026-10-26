@@ -102,6 +102,9 @@ table.res tr.win td{color:var(--marigold)}
 #joy{pointer-events:auto;position:fixed;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px));width:116px;height:116px;border-radius:50%;background:rgba(28,21,36,.45);border:2px solid rgba(251,243,228,.35);touch-action:none}
 #knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(251,243,228,.8)}
 #actBtn{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+#moveBtns{pointer-events:auto;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(104px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
+#moveBtns .emote{width:54px;height:54px;font-size:26px;touch-action:none}
+#moveBtns .emote[aria-pressed="true"]{border-color:var(--marigold);box-shadow:0 0 0 3px rgba(244,182,63,.45)}
 
 #intro{position:fixed;inset:0;display:grid;place-items:center;background:rgba(20,14,27,.72);backdrop-filter:blur(3px);overflow:auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
@@ -238,6 +241,10 @@ table.res tr.win td{color:var(--marigold)}
 </div>
 <div id="selfEmote" hidden></div>
 <button id="actBtn" class="btn" hidden></button>
+<div id="moveBtns" hidden>
+  <button class="emote" id="crouchBtn" type="button" aria-pressed="false" aria-label="S'accroupir">🧎</button>
+  <button class="emote" id="jumpBtn" type="button" aria-label="Sauter">🦘</button>
+</div>
 
 <div id="intro">
   <form class="intro-card" id="introForm">
@@ -252,6 +259,8 @@ table.res tr.win td{color:var(--marigold)}
       <kbd>Échap</kbd><span>libérer la souris</span>
       <kbd>T</kbd><span>écrire un message (M : micro)</span>
       <kbd>Clic droit</kbd><span>lancer une boule de papier</span>
+      <kbd>Espace</kbd><span>sauter</span>
+      <kbd>C</kbd><span>s'accroupir (maintenir)</span>
       <kbd>1 à 6</kbd><span>faire une tête</span>
     </div>
     <div class="intro-btns">
@@ -493,7 +502,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 /* ---------------- state ---------------- */
 let room = null, booting = true, online = false, myKey = null, peers = [];
 let G = { phase: 'idle', epoch: '', v: 0 };
-const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: (Math.random() - 0.5) * 4, z: 3.7 + Math.random() * 1.2, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0 };
+const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: (Math.random() - 0.5) * 4, z: 3.7 + Math.random() * 1.2, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0, crouch: 0, jy: 0, jv: 0, jumps: 0 };
 const botLook = col => { const l = randomLook(); l.tc = Math.max(0, CLOTH.indexOf(col)); return cleanLook(l); };
 let passPick = new Set(), pending = null, pendingAt = 0, dismissedEnd = '', botsWanted = 0, roundsWanted = 0, roundsTouched = false;
 const absentSince = {};
@@ -1130,6 +1139,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyG') throwPaper();
     if (e.code === 'KeyF') { cushionAction(); renderSocial(); }
     if (e.code === 'KeyM') micToggle();
+    if (e.code === 'Space') jump();
   }
   keys[e.code] = true;
   if (e.code === 'KeyE' && me.entered && !e.repeat) useKey();
@@ -1168,6 +1178,13 @@ canvas.addEventListener('pointermove', e => {
 const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 const joyEl = $('#joy'), knob = $('#knob');
+// touch: jump and crouch buttons above the action button
+function renderMoveBtns() {
+  $('#moveBtns').hidden = !(coarse && me.entered && me.seat < 0);
+  $('#crouchBtn').setAttribute('aria-pressed', String(crouchLatch));
+}
+$('#jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
+$('#crouchBtn').addEventListener('pointerdown', e => { e.preventDefault(); setCrouchLatch(!crouchLatch); });
 let joyId = null;
 joyEl.addEventListener('pointerdown', e => { joyId = e.pointerId; joyEl.setPointerCapture(e.pointerId); moveJoy(e); });
 joyEl.addEventListener('pointermove', e => { if (e.pointerId === joyId) moveJoy(e); });
@@ -1210,6 +1227,7 @@ function toggleSit() {
   } else {
     const s = nearestFreeSeat(); if (s < 0) return;
     me.seat = s; me.yaw = ang(s); me.pitch = -0.46;
+    me.jy = me.jv = me.crouch = 0; crouchLatch = false;
     if (locked) { try { document.exitPointerLock(); } catch (e) {} }
   }
   sfx.poof();
@@ -1221,13 +1239,21 @@ function pushPresence(force) {
   if (!room || !me.entered) return;
   const now = performance.now();
   if (!force && now - lastPres < 70) return;
-  const a = [+me.x.toFixed(2), +me.z.toFixed(2), +me.yaw.toFixed(2), +me.pitch.toFixed(2), me.seat];
+  const a = [+me.x.toFixed(2), +me.z.toFixed(2), +me.yaw.toFixed(2), +me.pitch.toFixed(2), me.seat, me.crouch > 0.5 ? 1 : 0];
   const s = a.join(',');
   if (s === lastSent && !force) return;
   lastSent = s; lastPres = now;
   room.presence({ a }).catch(() => {});
 }
-let stepDist = 0, bob = 0, shake = 0;
+let stepDist = 0, bob = 0, shake = 0, crouchLatch = false;
+const JUMP_V = 3.2;
+function jump() {
+  if (!me.entered || me.seat >= 0 || me.jy > 0) return;
+  me.jv = JUMP_V; me.jumps++;
+  sfx.hop();
+  if (room) room.presence({ j: me.jumps }).catch(() => {});
+}
+function setCrouchLatch(v) { crouchLatch = v; renderMoveBtns(); }
 function updateMe(dt) {
   if (me.seat >= 0) {
     const p = seatXZ(me.seat, CHAIR_R + 0.12);
@@ -1244,7 +1270,13 @@ function updateMe(dt) {
     if (keys.ArrowRight) me.yaw -= dt * 2.2;
     f -= joy.y; r += joy.x;
     const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
-    const sp = (keys.ShiftLeft ? 6.5 : 4.2) * dt;
+    // crouch while C is held (or the touch button is on), jump with gravity
+    me.crouch += ((keys.KeyC || crouchLatch ? 1 : 0) - me.crouch) * (1 - Math.exp(-dt * 10));
+    if (me.jv || me.jy > 0) {
+      me.jv -= 9.8 * dt; me.jy += me.jv * dt;
+      if (me.jy <= 0) { me.jy = 0; me.jv = 0; sfx.thud(); shake = Math.max(shake, 0.08); }
+    }
+    const sp = (keys.ShiftLeft && me.crouch < 0.5 ? 6.5 : 4.2) * (1 - me.crouch * 0.55) * dt;
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     me.x += (-sy * f + cy * r) * sp;
     me.z += (-cy * f - sy * r) * sp;
@@ -1260,10 +1292,11 @@ function updateMe(dt) {
     }
     // footsteps and a gentle head bob
     const moved = Math.hypot(me.x - ox, me.z - oz);
-    stepDist += moved;
+    const grounded = me.jy === 0;
+    if (grounded) stepDist += moved;
     if (stepDist > 0.62) { stepDist = 0; sfx.step(); }
-    bob = moved > 0 ? bob + moved * 9 : bob * 0.9;
-    camera.position.set(me.x, 1.55 + (moved > 0 ? Math.abs(Math.sin(bob)) * 0.035 : 0), me.z);
+    bob = moved > 0 && grounded ? bob + moved * 9 : bob * 0.9;
+    camera.position.set(me.x, 1.55 - me.crouch * 0.5 + me.jy + (moved > 0 && grounded ? Math.abs(Math.sin(bob)) * 0.035 : 0), me.z);
   }
   camera.rotation.set(me.pitch, me.yaw, 0);
   if (shake > 0) {
@@ -1286,6 +1319,10 @@ function updateAvatars(dt, t) {
     if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
     const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), pr.l, x, z, yaw, seat);
     av.who = peerKey(p); av.talk = levelOf(p.peer);
+    av.crouchT = a[5] === 1 ? 1 : 0;
+    const j = pr.j | 0; // jump counter, like expressions: don't replay an old one on arrival
+    if (av.lastJump === undefined) av.lastJump = j;
+    else if (j !== av.lastJump) { av.lastJump = j; if (av.jump === 0 && seat < 0) av.jumpV = JUMP_V; }
     readSocial(p, av, av.who, cleanNick(pr.n), cleanCol(pr.c));
     // an expression the player pulled on purpose: [index, counter]
     const ex = Array.isArray(pr.x) ? pr.x : null;
@@ -1326,10 +1363,11 @@ function keepTagsClear() {
   for (const a of avatars.values()) {
     if (!a.tag) continue;
     a.g.updateMatrixWorld();
-    const hi = topAt(a, TAG_Y);
-    if (hi <= limit || tagV.z > 1 || tagV.x < left || tagV.x > right) { a.tag.position.y = TAG_Y; continue; }
-    const lo = topAt(a, TAG_MIN_Y);
-    a.tag.position.y = lo >= limit ? TAG_MIN_Y : TAG_MIN_Y + (TAG_Y - TAG_MIN_Y) * (limit - lo) / (hi - lo);
+    const dy = a.jump - a.crouch * 0.3, top = TAG_Y + dy, bot = TAG_MIN_Y + dy; // follow jumps and crouches
+    const hi = topAt(a, top);
+    if (hi <= limit || tagV.z > 1 || tagV.x < left || tagV.x > right) { a.tag.position.y = top; continue; }
+    const lo = topAt(a, bot);
+    a.tag.position.y = lo >= limit ? bot : bot + (top - bot) * (limit - lo) / (hi - lo);
   }
 }
 // the avatar standing for player i, if anyone can see one (never your own)
@@ -1599,7 +1637,7 @@ function renderStatus() {
   $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? booting ? 'Connexion au salon…' : 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
-function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); }
+function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); renderMoveBtns(); }
 
 let seenRoll = '', seenPhase = '', prevEv = null;
 function stateChanged() {
@@ -1725,7 +1763,7 @@ function emote(i) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
-if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span><kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>';
+if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span><kbd>Bouton</kbd><span>s\'asseoir ou se lever</span><kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
 $('#introForm').addEventListener('submit', e => {
   e.preventDefault();
   me.nick = cleanNick($('#nick').value);

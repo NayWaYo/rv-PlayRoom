@@ -106,6 +106,14 @@ export const sfx = {
     if (!ready()) return; const t = ctx.currentTime;
     noise(t, 0.06, { filter: 'lowpass', freq: 420, gain: 0.12 });
   },
+  hop() {
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(260, t, 0.16, { type: 'triangle', gain: 0.12, slideTo: 520 });
+  },
+  thud() {
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.1, { filter: 'lowpass', freq: 380, gain: 0.26 });
+  },
   shuffle() {
     if (!ready()) return; const t = ctx.currentTime;
     for (let i = 0; i < 9; i++) noise(t + i * 0.035, 0.05, { freq: 2400 + i * 120, q: 0.7, gain: 0.16 });
