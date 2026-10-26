@@ -106,6 +106,23 @@ export const sfx = {
     if (!ready()) return; const t = ctx.currentTime;
     noise(t, 0.06, { filter: 'lowpass', freq: 420, gain: 0.12 });
   },
+  dart(g = 1) {
+    // a foam dart leaving the blaster: a soft puff and a little whistle
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.08, { filter: 'lowpass', freq: 1600, slideTo: 400, gain: 0.3 * g });
+    tone(900, t, 0.1, { type: 'triangle', gain: 0.05 * g, slideTo: 1500 });
+  },
+  pock() {
+    // your dart landed on someone
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(700, t, 0.07, { type: 'square', gain: 0.08, slideTo: 1100, lowpass: 2500 });
+  },
+  reload() {
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.05, { freq: 2600, q: 2, gain: 0.15 });
+    noise(t + 0.5, 0.05, { freq: 1800, q: 2, gain: 0.18 });
+    tone(420, t + 0.55, 0.06, { type: 'square', gain: 0.05, lowpass: 1800 });
+  },
   hop() {
     if (!ready()) return; const t = ctx.currentTime;
     tone(260, t, 0.16, { type: 'triangle', gain: 0.12, slideTo: 520 });

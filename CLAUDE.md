@@ -23,13 +23,15 @@ Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.1
 - `js/secret.js` : clés ECDH par navigateur, mains chiffrées en AES-GCM.
 - `js/voice.js` : chat vocal de proximité (flux WebRTC, `PannerNode` HRTF).
 - `js/toys.js` : boules de papier et coussins, physique rejouée à l'identique chez chacun. Les meubles sur lesquels on monte (canapé, pouf, caisses) sont des boîtes dans `PLATFORMS` (index.html), partagées avec cette physique.
+- `js/fps.js` : mode bataille de fléchettes (pistolet, touches, élimination, réapparition, score, robots). Chargé par `import()` seulement dans un salon `#fps-CODE`, branché sur `index.html` par quelques appels `fps.*` (constante `FPS`).
 
 ### Réseau
 
-- Une room = un code dans l'URL (`#K7MPQ`). Hors claude.ai, `p2pRoom()` construit une petite interface `room` (`emit`, `on`, `presence`, `onPeers`, `setStream`, `onStream`) au-dessus de Trystero (signalisation par relais Nostr publics, puis WebRTC direct). Le code sait encore utiliser la capacité `room` de claude.ai, mais la version Artifact est abandonnée.
+- Une room = un code dans l'URL : `#K7MPQ` pour les jeux tranquilles, `#fps-K7MPQ` pour la bataille de fléchettes (deux salons Trystero distincts). Hors claude.ai, `p2pRoom()` construit une petite interface `room` (`emit`, `on`, `presence`, `onPeers`, `setStream`, `onStream`) au-dessus de Trystero (signalisation par relais Nostr publics, puis WebRTC direct). Le code sait encore utiliser la capacité `room` de claude.ai, mais la version Artifact est abandonnée.
 - Le joueur qui lance la partie est l'hôte : il applique les règles, fait jouer les robots et diffuse l'état sur le topic `state`. Les joueurs envoient leurs coups sur le topic `act`.
 - Mains cachées : l'hôte diffuse une vue publique (les cartes des autres valent `'?'`, `passSel` vaut `1`) avec la main de chaque joueur scellée pour lui (`sec`, `hpk`). Si l'hôte part, le suivant lance `startRecovery()` : il redemande les mains (act `hand`) et redistribue celles des robots et des absents à partir de `G.played`.
 - La présence porte la position (`a` : x, z, cap, inclinaison, siège, accroupi, hauteur des pieds), le pseudo, la couleur, le look (`l`), la clé publique (`pk`), et les actions sociales en `[compteur, ...]` : expression `x`, message `say`, boule `pb`, coussin `cu`. Le compteur évite de rejouer une action à l'arrivée d'un joueur.
+- Bataille : chaque tir part sur le topic `dart` (origine, impact, cible). Le tireur décide s'il touche, la cible applique les dégâts et annonce son élimination sur `ko`. Chacun publie sa vie et son score en présence (`fp` : vie, éliminations, défaites, protection). Les robots tournent dans le navigateur du joueur qui les ajoute, qui les diffuse sur `bots` ; ils disparaissent s'il part.
 
 ## Tester
 
@@ -53,8 +55,8 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 
 ## Pistes en attente
 
+- Bataille de fléchettes, lot 2 : une vraie carte (plusieurs pièces, niveaux de hauteur, passages à franchir accroupi), chargée seulement en mode FPS.
+- Bataille de fléchettes, lot 3 : d'autres armes à fléchettes (mitraillette, fusil d'assaut, sniper).
 - Valider en vrai la reprise quand l'hôte quitte en pleine manche (`startRecovery()`) : chacun doit retrouver sa main sans voir celles des autres.
 - Serveur relais TURN si des joueurs (4G, réseaux d'entreprise) ne se connectent pas.
-- Règles du Papayoo intégrées au jeu pour les nouveaux joueurs.
-- Les noms des avatars en face passent parfois sous le bandeau du haut.
 - Limite assumée : le navigateur de l'hôte connaît toutes les mains.

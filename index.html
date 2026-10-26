@@ -121,6 +121,8 @@ table.res tr.win td{color:var(--marigold)}
 .help{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:16px 0 18px;font-size:14px;color:var(--muted);align-items:center}
 .help kbd{justify-self:start}
 #enter{width:100%;font-size:19px;padding:12px}
+.mode-switch{display:block;margin:14px auto 0;border:0;background:none;color:var(--muted);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.mode-switch:hover{color:var(--cream)}
 .intro-btns{display:flex;gap:8px;margin-bottom:10px}
 .intro-btns .btn{flex:1;padding-inline:12px}
 #rules{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
@@ -273,6 +275,7 @@ table.res tr.win td{color:var(--marigold)}
       <span>Salon <b id="roomCode"></b></span>
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
+    <button class="mode-switch" id="modeSwitch" type="button"></button>
   </form>
 </div>
 
@@ -495,6 +498,15 @@ const su = PY.su, rk = PY.rk;
 const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 const coarse = matchMedia('(pointer: coarse)').matches;
+// a battle room (#fps-CODE) loads the foam-dart game instead of the card table
+const FPS = /^#fps-/i.test(location.hash);
+const fpsModule = FPS ? import('./js/fps.js') : null;
+let fps = null;
+if (FPS) {
+  document.querySelector('.intro-card h1').innerHTML = 'Bataille de <span>fléchettes</span>';
+  document.querySelector('.intro-card .lede').textContent = 'Un pistolet à fléchettes en mousse, trois touches et tu es éliminé. Ajoute des robots pour t\'entraîner, ou invite tes amis avec le lien.';
+  document.querySelector('#rulesIntro').hidden = true;
+}
 const cleanNick = n => String(n || '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮]/g, '').trim().slice(0, 14) || 'Joueur';
 const cleanCol = c => COLORS.includes(c) ? c : COLORS[0];
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
@@ -1170,6 +1182,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyF') { cushionAction(); renderSocial(); }
     if (e.code === 'KeyM') micToggle();
     if (e.code === 'Space') jump();
+    if (e.code === 'KeyR' && fps) fps.reload();
   }
   keys[e.code] = true;
   if (e.code === 'KeyE' && me.entered && !e.repeat) useKey();
@@ -1192,6 +1205,7 @@ canvas.addEventListener('pointerdown', e => {
   if (!me.entered) return;
   canvas.focus();
   if (e.button === 2) { throwPaper(); return; } // right click: paper ball
+  if (fps && e.button === 0 && locked) { fps.trigger(true); return; } // left click: fire
   if (!coarse && me.seat < 0 && e.pointerType === 'mouse' && !locked) {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
   }
@@ -1205,7 +1219,7 @@ canvas.addEventListener('pointermove', e => {
     drag.x = e.clientX; drag.y = e.clientY;
   }
 });
-const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; };
+const endDrag = e => { if (fps && e.button === 0) fps.trigger(false); if (drag && drag.id === e.pointerId) drag = null; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 const joyEl = $('#joy'), knob = $('#knob');
 // touch: jump and crouch buttons above the action button
@@ -1278,7 +1292,7 @@ function pushPresence(force) {
 let stepDist = 0, shake = 0, crouchLatch = false;
 const JUMP_V = 3.6; // about 0.66 m: enough to get onto the sofa or a crate
 function jump() {
-  if (!me.entered || me.seat >= 0 || me.jv !== 0 || me.jy > groundAt(me.x, me.z, me.jy)) return;
+  if (!me.entered || me.seat >= 0 || me.frozen || me.jv !== 0 || me.jy > groundAt(me.x, me.z, me.jy)) return;
   me.jv = JUMP_V;
   sfx.hop();
 }
@@ -1298,6 +1312,7 @@ function updateMe(dt) {
     if (keys.ArrowLeft) me.yaw += dt * 2.2;
     if (keys.ArrowRight) me.yaw -= dt * 2.2;
     f -= joy.y; r += joy.x;
+    if (me.frozen) f = r = 0; // knocked out in a battle
     const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
     // crouch while C is held (or the touch button is on), jump with gravity
     me.crouch += ((keys.KeyC || crouchLatch ? 1 : 0) - me.crouch) * (1 - Math.exp(-dt * 10));
@@ -1359,6 +1374,7 @@ function updateAvatars(dt, t) {
     av.who = peerKey(p); av.talk = levelOf(p.peer);
     av.crouchT = a[5] === 1 ? 1 : 0;
     av.ty = seat < 0 ? Math.max(0, Math.min(2, +a[6] || 0)) : 0; // feet height: mid-jump, or up on the furniture
+    if (fps) fps.peerAvatar(av, pr);
     readSocial(p, av, av.who, cleanNick(pr.n), cleanCol(pr.c));
     // an expression the player pulled on purpose: [index, counter]
     const ex = Array.isArray(pr.x) ? pr.x : null;
@@ -1373,6 +1389,7 @@ function updateAvatars(dt, t) {
     const s = seatXZ(p.seat, CHAIR_R);
     syncAvatar('b:' + p.seat, p.nick, p.col, p.l, s.x, s.z, ang(p.seat), p.seat).who = p.k;
   });
+  if (fps) fps.syncAvatars(); // battle bots
   for (const [id, a] of avatars) {
     if (a.seen !== frameNo) { dropAvatar(id); continue; }
     const k = 1 - Math.exp(-dt * 12);
@@ -1635,21 +1652,26 @@ function launch() {
 function useTarget() {
   if (toys.cushions.some(c => c.held === myKey)) return 'throw';
   const c = toys.nearestCushion(me.x, me.z, me.seat >= 0 ? 1.0 : 1.7);
-  if (!c) return 'sit';
-  if (me.seat >= 0) return 'grab';
+  if (!c) return FPS ? 'none' : 'sit'; // no sitting down in a battle
+  if (me.seat >= 0 || FPS) return 'grab';
   const s = nearestFreeSeat(), sp = s >= 0 ? seatXZ(s, CHAIR_R) : null;
   const cd = Math.hypot(c.mesh.position.x - me.x, c.mesh.position.z - me.z);
   return !sp || cd < Math.hypot(sp.x - me.x, sp.z - me.z) ? 'grab' : 'sit';
 }
 function useKey() {
-  if (useTarget() === 'sit') toggleSit();
-  else { cushionAction(); renderSocial(); }
+  const use = useTarget();
+  if (use === 'sit') toggleSit();
+  else if (use !== 'none') { cushionAction(); renderSocial(); }
 }
 function renderPrompt() {
   const p = $('#prompt'), act = $('#actBtn');
   p.hidden = true; act.hidden = true;
   if (!me.entered || !$('#panel').hidden && me.seat < 0) return;
   const use = useTarget();
+  if (use === 'none') {
+    if (!locked && !coarse) { p.hidden = false; p.innerHTML = '<span>Clique dans la pièce pour viser, puis clic gauche pour tirer</span>'; }
+    return;
+  }
   if (use !== 'sit') {
     const txt = use === 'throw' ? 'lancer le coussin' : 'attraper le coussin';
     if (coarse) { act.hidden = false; act.textContent = txt[0].toUpperCase() + txt.slice(1); }
@@ -1805,7 +1827,8 @@ function emote(i) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
-if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span><kbd>Bouton</kbd><span>s\'asseoir ou se lever</span><kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
+if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
+else if (FPS) $('#help').innerHTML = '<kbd>Z Q S D</kbd><span>se déplacer (Maj : courir)</span><kbd>Souris</kbd><span>viser (clique dans la pièce)</span><kbd>Clic gauche</kbd><span>tirer une fléchette</span><kbd>R</kbd><span>recharger</span><kbd>Espace</kbd><span>sauter</span><kbd>C</kbd><span>s\'accroupir (maintenir)</span><kbd>Échap</kbd><span>libérer la souris</span><kbd>T</kbd><span>écrire un message (M : micro)</span>';
 $('#introForm').addEventListener('submit', e => {
   e.preventDefault();
   me.nick = cleanNick($('#nick').value);
@@ -1814,6 +1837,7 @@ $('#introForm').addEventListener('submit', e => {
   $('#intro').hidden = true;
   initAudio(); // browsers only allow sound after a click
   sfx.poof();
+  if (fps) fps.onEnter();
   if (room) room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {});
   pushPresence(true);
   canvas.focus();
@@ -2023,6 +2047,7 @@ function loop(now) {
   updateMe(dt);
   updateAvatars(dt, now / 1000);
   updateTable(dt);
+  if (fps) fps.update(dt);
   updateDecor(dt, now / 1000);
   updateSocial(dt, now);
   if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); }
@@ -2040,11 +2065,12 @@ refreshUI();
    URL hash, then talk directly. Identities are claimed, not verified: fine
    between friends, and the host still checks every move. */
 const ROOM_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const newCode = () => Array.from({ length: 5 }, () => ROOM_ALPHA[Math.floor(Math.random() * ROOM_ALPHA.length)]).join('');
 function roomCodeFromUrl() {
-  let c = location.hash.replace(/^#/, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  let c = location.hash.replace(/^#(fps-)?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   if (c.length < 4) {
-    c = Array.from({ length: 5 }, () => ROOM_ALPHA[Math.floor(Math.random() * ROOM_ALPHA.length)]).join('');
-    history.replaceState(null, '', '#' + c);
+    c = newCode();
+    history.replaceState(null, '', '#' + (FPS ? 'fps-' : '') + c);
   }
   return c;
 }
@@ -2055,7 +2081,7 @@ async function p2pRoom() {
   let key = null;
   try { key = sessionStorage.getItem('playroom-key'); } catch (e) {}
   if (!key) { key = 'u' + Math.random().toString(36).slice(2, 12); try { sessionStorage.setItem('playroom-key', key); } catch (e) {} }
-  const t = joinRoom({ appId: 'rv-playroom' }, 'salon-' + code, {
+  const t = joinRoom({ appId: 'rv-playroom' }, (FPS ? 'fps-' : 'salon-') + code, {
     onJoinError: () => toast('Impossible de rejoindre un joueur : son réseau bloque peut-être la connexion directe.', 4000)
   });
   const subs = {}, peerFns = [];
@@ -2127,7 +2153,13 @@ async function copyInvite() {
 }
 $('#copyLink').addEventListener('click', copyInvite);
 $('#inviteBtn').addEventListener('click', copyInvite);
-addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl() !== room.code) location.reload(); });
+addEventListener('hashchange', () => {
+  const fps = /^#fps-/i.test(location.hash);
+  if (fps !== FPS || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
+});
+// a new room of the other kind
+$('#modeSwitch').textContent = FPS ? 'Créer plutôt un salon de jeux tranquilles' : 'Créer plutôt une bataille de fléchettes 🎯';
+$('#modeSwitch').addEventListener('click', () => { location.hash = (FPS ? '' : 'fps-') + newCode(); });
 
 (async () => {
   const cl = window.claude;
@@ -2142,7 +2174,7 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
     r = await p2pRoom().catch(e => { console.warn('p2p room unavailable', e); return null; });
   }
   booting = false;
-  if (!r) { myKey = 'local'; refreshUI(); return; }
+  if (!r) { myKey = 'local'; refreshUI(); startBattle(); return; }
   room = r;
   if (room.onStream) room.onStream((s, peer) => addVoice(peer, s));
   keysReady.then(pk => { if (pk) room.presence({ pk }).catch(() => {}); }); // so the host can seal my cards for me
@@ -2160,7 +2192,18 @@ addEventListener('hashchange', () => { if (room && room.code && roomCodeFromUrl(
   room.on('act', m => { if (isHost()) handleAct(m.data, peerKey(m)); }, () => {});
   if (me.entered) { room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {}); pushPresence(true); }
   refreshUI();
+  startBattle();
 })();
+async function startBattle() {
+  if (!fpsModule) return;
+  const { startFps } = await fpsModule;
+  fps = startFps({
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, PLATFORMS, TABLE_R, HALF, coarse,
+    room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol,
+    blocked: () => editor.isOpen() || $('#rules').open || !$('#chatForm').hidden
+  });
+  if (me.entered) fps.onEnter();
+}
 })();
 </script>
 </body>
