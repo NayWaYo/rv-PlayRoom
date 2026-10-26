@@ -49,9 +49,11 @@ Pièges connus :
 - Le mode mobile du navigateur intégré (`resize_window` en preset `mobile`) émule un téléphone Android tactile (`pointer: coarse`).
 - Le vocal ne se teste pas ici (pas de vrai micro) : à vérifier entre amis.
 
+Validé en vrai entre amis : vocal et interactions sur téléphone, mains cachées (on ne voit que le dos des cartes des autres, même en faisant le tour de la table).
+
 ## Pistes en attente
 
-- Valider en vrai entre amis : vocal, mains cachées, jeu sur téléphone.
+- Valider en vrai la reprise quand l'hôte quitte en pleine manche (`startRecovery()`) : chacun doit retrouver sa main sans voir celles des autres.
 - Serveur relais TURN si des joueurs (4G, réseaux d'entreprise) ne se connectent pas.
 - Règles du Papayoo intégrées au jeu pour les nouveaux joueurs.
 - Les noms des avatars en face passent parfois sous le bandeau du haut.
