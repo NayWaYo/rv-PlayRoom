@@ -24,6 +24,8 @@ Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.1
 - `js/voice.js` : chat vocal de proximité (flux WebRTC, `PannerNode` HRTF).
 - `js/toys.js` : boules de papier et coussins, physique rejouée à l'identique chez chacun. Les meubles sur lesquels on monte (canapé, pouf, caisses) sont des boîtes dans `PLATFORMS` (index.html), partagées avec cette physique.
 - `js/fps.js` : mode bataille de fléchettes (pistolet, touches, élimination, réapparition, score, robots). Chargé par `import()` seulement dans un salon `#fps-CODE`, branché sur `index.html` par quelques appels `fps.*` (constante `FPS`).
+- `js/world.js` : les collisions de tout le monde (joueur, avatars, robots) : boîtes solides sur lesquelles on monte, contre lesquelles on bute ou sous lesquelles on passe accroupi, disques, limites. Le salon y décrit sa table et `PLATFORMS`, la carte FPS ses murs. Construit aussi la grille de déplacement des robots (A*).
+- `js/fpsmap.js` : la carte « le Fort » (hall, deux ailes, étage, escaliers, tunnels), chargée seulement en mode FPS : elle remplace le salon dans la scène et fournit ses boîtes et ses points d'apparition.
 
 ### Réseau
 
@@ -55,7 +57,6 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 
 ## Pistes en attente
 
-- Bataille de fléchettes, lot 2 : une vraie carte (plusieurs pièces, niveaux de hauteur, passages à franchir accroupi), chargée seulement en mode FPS.
 - Bataille de fléchettes, lot 3 : d'autres armes à fléchettes (mitraillette, fusil d'assaut, sniper).
 - Valider en vrai la reprise quand l'hôte quitte en pleine manche (`startRecovery()`) : chacun doit retrouver sa main sans voir celles des autres.
 - Serveur relais TURN si des joueurs (4G, réseaux d'entreprise) ne se connectent pas.

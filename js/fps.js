@@ -5,11 +5,11 @@
 import * as THREE from 'three';
 import { toon, roundedBox } from './fx.js';
 import { randomLook, seededRand } from './avatar.js';
+import { slide, fall, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
 
 const MAX_HP = 3, RESPAWN = 3, SHIELD = 1.5, RANGE = 30;
 const PISTOL = { cooldown: 0.3, mag: 8, reload: 1.3, spread: 0.008 };
 const BODY_R = 0.32, EYE = 1.5;
-const SPAWNS = [[-4.6, 4.6], [4.4, 4.6], [-4.8, -2.8], [3.4, -4.8], [0, 5], [-5, 1.8], [3.4, 2.8], [0.6, -4.6]];
 const BOT_NAMES = ['Zip', 'Bolt', 'Pixel', 'Turbo', 'Nova', 'Gizmo', 'Rivet', 'Volt'];
 const BOT_COLS = ['#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5a', '#f08a3c', '#f4b63f'];
 
@@ -36,7 +36,8 @@ const CSS = `
 `;
 
 export function startFps(ctx) {
-  const { scene, camera, me, avatars, syncAvatar, sfx, toast, PLATFORMS, TABLE_R, HALF, coarse } = ctx;
+  const { scene, camera, me, avatars, syncAvatar, sfx, toast, coarse } = ctx;
+  const SPAWNS = ctx.spawns; // [x, feet height, z]
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const now = () => performance.now() / 1000;
@@ -246,14 +247,14 @@ export function startFps(ctx) {
     let best = SPAWNS[0], bd = -1;
     const others = fighters().filter(f => !f.self);
     for (const s of SPAWNS) {
-      const d = others.length ? Math.min(...others.map(f => Math.hypot(f.x - s[0], f.z - s[1]))) : Math.random();
+      const d = others.length ? Math.min(...others.map(f => Math.hypot(f.x - s[0], f.z - s[2]) + Math.abs(f.base - s[1]))) : Math.random();
       if (d > bd) { bd = d; best = s; }
     }
     return best;
   }
   function respawnMe() {
-    const [x, z] = respawnSpot();
-    me.x = x; me.z = z; me.jy = 0; me.jv = 0; me.yaw = Math.atan2(x, z); me.pitch = -0.05;
+    const [x, y, z] = respawnSpot();
+    me.x = x; me.z = z; me.jy = y; me.jv = 0; me.yaw = Math.atan2(x, z); me.pitch = -0.05;
     hp = MAX_HP; shieldUntil = now() + SHIELD; ammo = PISTOL.mag; reloadUntil = 0;
     setTimeout(pushMine, SHIELD * 1000 + 50); // the shield ends even if this tab is in the background
     pushMine(); renderBar();
@@ -265,11 +266,12 @@ export function startFps(ctx) {
   function addBot() {
     const n = botSeq++, id = 'bot:' + ctx.myKey() + ':' + n;
     const seed = (Math.random() * 1e9) | 0;
-    const [x, z] = respawnSpot();
+    const [x, y, z] = respawnSpot();
     bots.set(id, {
       id, nick: '🤖 ' + BOT_NAMES[n % BOT_NAMES.length], col: BOT_COLS[n % BOT_COLS.length], seed, look: randomLook(seededRand(seed)),
-      x, z, yaw: 0, y: 0, vy: 0, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
-      goal: null, think: 0, target: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0
+      x, z, y, vy: 0, yaw: 0, crouch: false, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
+      path: [], step: 0, repath: 0, think: 0, target: null, lastSeen: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0,
+      stuckAt: 0, stuckX: x, stuckZ: z
     });
     renderBoard();
   }
@@ -282,12 +284,7 @@ export function startFps(ctx) {
     b.hp--;
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
     if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from); }
-  }
-  function blockedAt(x, z) {
-    if (Math.abs(x) > HALF || Math.abs(z) > HALF) return true;
-    if (Math.hypot(x, z) < TABLE_R + 0.45) return true;
-    for (const P of PLATFORMS) if (P.top > 0.25 && x > P.x0 - 0.3 && x < P.x1 + 0.3 && z > P.z0 - 0.3 && z < P.z1 + 0.3) return true;
-    return false;
+    else if (!b.target) b.think = 0; // look around for whoever did that
   }
   function canSee(o, x, base, z, height) {
     const d = new THREE.Vector3(x - o.x, base + height * 0.6 - o.y, z - o.z), dist = d.length();
@@ -295,36 +292,45 @@ export function startFps(ctx) {
     const w = worldHit(o, d, dist);
     return !w || w.dist > dist - 0.3;
   }
+  // walk somewhere: a friend's last known spot, or anywhere at all
+  function planWalk(b, t) {
+    const to = b.lastSeen && t - b.lastSeen.t < 8 ? nearestSpot(b.lastSeen.x, b.lastSeen.y, b.lastSeen.z) : randomSpot();
+    b.path = findPath(nearestSpot(b.x, b.y, b.z), to) || []; b.step = 1;
+    b.repath = t + (b.path.length ? 6 + Math.random() * 4 : 1); // no way there: try elsewhere in a second
+    if (b.lastSeen && to && Math.hypot(to.x - b.x, to.z - b.z) < 1) b.lastSeen = null;
+  }
   const botO = new THREE.Vector3();
   function updateBot(b, dt) {
     const t = now();
     if (b.hp <= 0) {
-      if (t > b.downUntil) { const [x, z] = respawnSpot(); Object.assign(b, { x, z, hp: MAX_HP, shieldUntil: t + SHIELD, target: null, nextShot: t + 1 }); }
+      if (t > b.downUntil) {
+        const [x, y, z] = respawnSpot();
+        Object.assign(b, { x, y, z, vy: 0, hp: MAX_HP, shieldUntil: t + SHIELD, target: null, lastSeen: null, path: [], repath: 0, nextShot: t + 1 });
+      }
       return;
     }
-    botO.set(b.x, b.y + EYE, b.z);
+    botO.set(b.x, b.y + (b.crouch ? 1.0 : EYE), b.z);
     // pick a target now and then: the nearest one in sight
     if (t > b.think) {
       b.think = t + 0.4 + Math.random() * 0.3;
-      let best = null, bd = 14;
+      let best = null, bd = 16;
       for (const f of fighters()) {
         if (f.id === b.id || !f.alive) continue;
-        const d = Math.hypot(f.x - b.x, f.z - b.z);
+        const d = Math.hypot(f.x - b.x, f.z - b.z) + Math.abs(f.base - b.y);
         if (d < bd && canSee(botO, f.x, f.base, f.z, f.height)) { bd = d; best = f.id; }
       }
       if (best !== b.target) b.spotted = t; // a moment to react before the first shot
+      if (!best && b.target) b.repath = 0; // lost them: go and look where they were
       b.target = best;
-      if (!best && (!b.goal || Math.hypot(b.goal[0] - b.x, b.goal[1] - b.z) < 0.5)) {
-        for (let k = 0; k < 10; k++) { const g = [(Math.random() - 0.5) * 2 * (HALF - 0.6), (Math.random() - 0.5) * 2 * (HALF - 0.6)]; if (!blockedAt(g[0], g[1])) { b.goal = g; break; } }
-      }
     }
     const f = b.target && fighters().find(q => q.id === b.target && q.alive);
-    let mx = 0, mz = 0, face = null;
+    let mx = 0, mz = 0, face = null, wantCrouch = false;
     if (f) {
+      b.lastSeen = { x: f.x, y: f.base, z: f.z, t };
       const dx = f.x - b.x, dz = f.z - b.z, d = Math.hypot(dx, dz) || 1;
       face = Math.atan2(-dx, -dz);
       if (t > b.strafeUntil) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeUntil = t + 0.8 + Math.random() * 1.4; }
-      const fwd = d > 7 ? 1 : d < 3 ? -1 : 0;
+      const fwd = Math.abs(f.base - b.y) > 1 ? 0 : d > 7 ? 1 : d < 3 ? -1 : 0;
       mx = dx / d * fwd + (-dz / d) * b.strafe * 0.8; mz = dz / d * fwd + (dx / d) * b.strafe * 0.8;
       // shoot when roughly facing them
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
@@ -338,16 +344,30 @@ export function startFps(ctx) {
         sendDart(o, res, b.id);
         if (res.target) damage(res.target, b.id);
       }
-      if (Math.random() < dt * 0.25 && b.y === 0) b.vy = 3.6; // the odd hop
-    } else if (b.goal) {
-      const dx = b.goal[0] - b.x, dz = b.goal[1] - b.z, d = Math.hypot(dx, dz) || 1;
-      mx = dx / d; mz = dz / d; face = Math.atan2(-dx, -dz);
+      if (Math.random() < dt * 0.25 && b.vy === 0 && ceilingAt(b.x, b.z, b.y) > b.y + 3) b.vy = 3.6; // the odd hop
+    } else {
+      // follow the path, a standing spot at a time
+      if (t > b.repath || (b.path.length && b.step >= b.path.length)) planWalk(b, t);
+      const p = b.path && b.path[b.step];
+      if (p) {
+        const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz);
+        if (d < 0.3) b.step++;
+        else { mx = dx / d; mz = dz / d; face = Math.atan2(-dx, -dz); }
+        wantCrouch = p.crouch;
+      }
     }
     if (face !== null) { let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); b.yaw += dy * Math.min(1, dt * 6); }
-    const sp = 3.2 * dt, nx = b.x + mx * sp, nz = b.z + mz * sp;
-    if (!blockedAt(nx, b.z)) b.x = nx; else b.goal = null;
-    if (!blockedAt(b.x, nz)) b.z = nz; else b.goal = null;
-    if (b.vy || b.y > 0) { b.vy -= 9.8 * dt; b.y = Math.max(0, b.y + b.vy * dt); if (b.y === 0) b.vy = 0; }
+    b.crouch = wantCrouch || ceilingAt(b.x, b.z, b.y) < b.y + TALL;
+    const sp = (b.crouch ? 1.8 : 3.2) * dt, ox = b.x, oz = b.z;
+    b.x += mx * sp; b.z += mz * sp;
+    b.height = b.crouch ? LOW : TALL;
+    slide(b, ox, oz);
+    fall(b, dt);
+    // stuck against something: think again
+    if (t > b.stuckAt) {
+      if ((mx || mz) && Math.hypot(b.x - b.stuckX, b.z - b.stuckZ) < 0.15) b.repath = 0;
+      b.stuckAt = t + 1; b.stuckX = b.x; b.stuckZ = b.z;
+    }
   }
   function playNear(o, kind) {
     const d = o.distanceTo(camera.position);
@@ -357,7 +377,7 @@ export function startFps(ctx) {
   function streamBots() {
     const room = ctx.room(); if (!room || !bots.size) return;
     const t = now(); if (t - botSend < 0.1) return; botSend = t;
-    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0])).catch(() => {});
+    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0, b.crouch ? 1 : 0])).catch(() => {});
   }
 
   /* ---------- network ---------- */
@@ -384,7 +404,7 @@ export function startFps(ctx) {
     const owner = m.by;
     for (const r of m.data.slice(0, 12)) {
       if (!Array.isArray(r) || typeof r[0] !== 'string' || !r[0].startsWith('bot:' + owner + ':')) continue;
-      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, seen: now(), owner });
+      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, seen: now(), owner });
     }
   }
   const room0 = ctx.room();
@@ -435,7 +455,7 @@ export function startFps(ctx) {
     const all = [...bots.values(), ...remoteBots.values()];
     for (const b of all) {
       const a = syncAvatar('f:' + b.id, b.nick, b.col, b.look || randomLook(seededRand(b.seed)), b.x, b.z, b.yaw, -1);
-      a.who = b.id; a.ty = b.y; a.fpDown = b.hp <= 0; a.fpShield = b.shield !== undefined ? b.shield : t < b.shieldUntil;
+      a.who = b.id; a.ty = b.y; a.crouchT = b.crouch ? 1 : 0; a.fpDown = b.hp <= 0; a.fpShield = b.shield !== undefined ? b.shield : t < b.shieldUntil;
     }
   }
   // what presence says about a friend's avatar
