@@ -315,7 +315,7 @@ export function animateAvatar(a, dt, t, moving) {
     let hx = 0, kx = 0;
     if (seated) { hx = Math.PI / 2; kx = -Math.PI / 2 + Math.sin(t * 1.3 + l.sx) * 0.06; }
     else if (moving) { const s = Math.sin(a.walk) * l.sx; hx = s * 0.6; kx = -Math.max(0, -s) * 1.0 - 0.05; }
-    if (a.jump > 0) { hx += 0.35; kx -= 0.7; } // tuck the legs in mid-air
+    if (a.jump > 0 || a.air) { hx += 0.35; kx -= 0.7; } // tuck the legs in mid-air
     hx += c * 1.2; kx -= c * 2.2;
     lerp(l.hip.rotation, 'x', hx, k); lerp(l.knee.rotation, 'x', kx, k);
   }

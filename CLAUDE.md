@@ -22,14 +22,14 @@ Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.1
 - `js/sfx.js` : bruitages et musique générés en Web Audio (aucun fichier audio).
 - `js/secret.js` : clés ECDH par navigateur, mains chiffrées en AES-GCM.
 - `js/voice.js` : chat vocal de proximité (flux WebRTC, `PannerNode` HRTF).
-- `js/toys.js` : boules de papier et coussins, physique rejouée à l'identique chez chacun.
+- `js/toys.js` : boules de papier et coussins, physique rejouée à l'identique chez chacun. Les meubles sur lesquels on monte (canapé, pouf, caisses) sont des boîtes dans `PLATFORMS` (index.html), partagées avec cette physique.
 
 ### Réseau
 
 - Une room = un code dans l'URL (`#K7MPQ`). Hors claude.ai, `p2pRoom()` construit une petite interface `room` (`emit`, `on`, `presence`, `onPeers`, `setStream`, `onStream`) au-dessus de Trystero (signalisation par relais Nostr publics, puis WebRTC direct). Le code sait encore utiliser la capacité `room` de claude.ai, mais la version Artifact est abandonnée.
 - Le joueur qui lance la partie est l'hôte : il applique les règles, fait jouer les robots et diffuse l'état sur le topic `state`. Les joueurs envoient leurs coups sur le topic `act`.
 - Mains cachées : l'hôte diffuse une vue publique (les cartes des autres valent `'?'`, `passSel` vaut `1`) avec la main de chaque joueur scellée pour lui (`sec`, `hpk`). Si l'hôte part, le suivant lance `startRecovery()` : il redemande les mains (act `hand`) et redistribue celles des robots et des absents à partir de `G.played`.
-- La présence porte la position (`a` : x, z, cap, inclinaison, siège, accroupi), le pseudo, la couleur, le look (`l`), la clé publique (`pk`), et les actions sociales en `[compteur, ...]` : expression `x`, message `say`, boule `pb`, coussin `cu`, et le compteur de sauts `j`. Le compteur évite de rejouer une action à l'arrivée d'un joueur.
+- La présence porte la position (`a` : x, z, cap, inclinaison, siège, accroupi, hauteur des pieds), le pseudo, la couleur, le look (`l`), la clé publique (`pk`), et les actions sociales en `[compteur, ...]` : expression `x`, message `say`, boule `pb`, coussin `cu`. Le compteur évite de rejouer une action à l'arrivée d'un joueur.
 
 ## Tester
 
@@ -43,7 +43,7 @@ Le lancer en tâche de fond, ouvrir `http://localhost:8642/#CODE` dans le naviga
 
 Pièges connus :
 
-- Un onglet ou un panneau masqué ne fait plus de `requestAnimationFrame` : la scène, les déplacements et la physique s'arrêtent. Afficher le panneau (`show_pane preview`) et mettre au premier plan l'onglet à piloter.
+- Un onglet ou un panneau masqué ne fait plus de `requestAnimationFrame` : la scène, les déplacements et la physique s'arrêtent. Afficher le panneau (`show_pane preview`) et mettre au premier plan l'onglet à piloter. Si la fenêtre de Claude n'est pas visible, la page tombe à quelques images par seconde : pour tester des sauts ou des chutes, exposer `updateMe` en debug et l'appeler en boucle avec `dt = 1/60`.
 - Les déplacements simulés par `KeyboardEvent` sont imprécis. Pour placer un joueur, exposer temporairement l'état (`window.__dbg... // DEBUG`) et le retirer avant de committer (`grep -c __dbg index.html` doit donner 0).
 - Le premier script lancé juste après un rechargement est souvent coupé : attendre la fin du chargement avant d'entrer dans le salon.
 - Le mode mobile du navigateur intégré (`resize_window` en preset `mobile`) émule un téléphone Android tactile (`pointer: coarse`).

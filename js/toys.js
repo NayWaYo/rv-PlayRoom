@@ -15,8 +15,8 @@ const CUSHIONS = [
 ];
 
 export class Toys {
-  constructor(scene, { tableR, tableY, onHit, onBounce }) {
-    this.scene = scene; this.tableR = tableR; this.tableY = tableY;
+  constructor(scene, { tableR, tableY, blocks = [], onHit, onBounce }) {
+    this.scene = scene; this.tableR = tableR; this.tableY = tableY; this.blocks = blocks;
     this.onHit = onHit; this.onBounce = onBounce;
     this.balls = [];
     this.cushions = CUSHIONS.map(c => {
@@ -91,6 +91,19 @@ export class Toys {
     if (d < this.tableR && p.y - r < this.tableY && p.y > this.tableY - 0.15 && v.y < 0) {
       p.y = this.tableY + r; bounced = v.y < -1; v.y = -v.y * 0.35; v.x *= 0.75; v.z *= 0.75;
     }
+    // furniture: land on top, bounce off the sides
+    let rest = p.y <= r + 0.001 || (p.y <= this.tableY + r + 0.001 && d < this.tableR);
+    for (const b of this.blocks) {
+      if (p.x < b.x0 - r || p.x > b.x1 + r || p.z < b.z0 - r || p.z > b.z1 + r || p.y - r > b.top) continue;
+      if (p.y > b.top - 0.12) {
+        p.y = b.top + r;
+        if (v.y < 0) { bounced = v.y < -1; v.y = -v.y * 0.35; v.x *= 0.75; v.z *= 0.75; }
+        rest = true;
+      } else { // push out through the nearest side
+        const out = [[p.x - (b.x0 - r), 'x', b.x0 - r, -1], [b.x1 + r - p.x, 'x', b.x1 + r, 1], [p.z - (b.z0 - r), 'z', b.z0 - r, -1], [b.z1 + r - p.z, 'z', b.z1 + r, 1]].sort((m, n) => m[0] - n[0])[0];
+        p[out[1]] = out[2]; v[out[1]] = out[3] * Math.abs(v[out[1]]) * 0.5; bounced = true;
+      }
+    }
     // people
     const speed = v.length();
     if (speed > 1.6) for (const t of targets) {
@@ -105,7 +118,6 @@ export class Toys {
       }
     }
     if (bounced && speed > 1.2) this.onBounce(o, speed);
-    if (p.y <= r + 0.001 && Math.hypot(v.x, v.z) < 0.08 && Math.abs(v.y) < 0.3) { v.set(0, 0, 0); o.moving = false; o.lastHit = null; }
-    if (p.y <= this.tableY + r + 0.001 && d < this.tableR && Math.hypot(v.x, v.z) < 0.08 && Math.abs(v.y) < 0.3) { v.set(0, 0, 0); o.moving = false; o.lastHit = null; }
+    if (rest && Math.hypot(v.x, v.z) < 0.08 && Math.abs(v.y) < 0.3) { v.set(0, 0, 0); o.moving = false; o.lastHit = null; }
   }
 }
