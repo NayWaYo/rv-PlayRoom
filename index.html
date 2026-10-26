@@ -125,9 +125,9 @@ table.res tr.win td{color:var(--marigold)}
 .mode-switch:hover{color:var(--cream)}
 .intro-btns{display:flex;gap:8px;margin-bottom:10px}
 .intro-btns .btn{flex:1;padding-inline:12px}
-#rules{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
-#rules::backdrop{background:rgba(20,14,27,.72);backdrop-filter:blur(3px)}
-#rules[open]{display:flex;flex-direction:column}
+#rules,#controls{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+#rules::backdrop,#controls::backdrop{background:rgba(20,14,27,.72);backdrop-filter:blur(3px)}
+#rules[open],#controls[open]{display:flex;flex-direction:column}
 .rules-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px 10px}
 .rules-head h2{margin:0;font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
 .rules-head h2 span{color:var(--payoo)}
@@ -141,6 +141,13 @@ table.res tr.win td{color:var(--marigold)}
 .deal{width:100%;border-collapse:collapse;margin:6px 0;font-size:14px;text-align:center}
 .deal th,.deal td{padding:4px 6px;border-bottom:1px solid var(--line)}
 .deal th:first-child,.deal td:first-child{text-align:left;color:var(--muted);font-weight:700}
+.ctl-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0}
+.ctl-key{min-width:72px;border:1.5px solid var(--line);border-radius:10px;background:var(--night);color:var(--cream);font-family:var(--display);font-weight:800;font-size:15px;padding:4px 10px;cursor:pointer}
+.ctl-key:hover{border-color:var(--marigold)}
+.ctl-key.wait{border-color:var(--marigold);background:var(--marigold);color:#2a1a08}
+.ctl-row input[type=range]{width:46%;accent-color:var(--marigold)}
+.ctl-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--marigold)}
+.ctl-reset{margin-top:14px;width:100%}
 #lookBtn{cursor:pointer}
 #emotes{pointer-events:auto;position:fixed;right:calc(12px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
 .emote{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:rgba(28,21,36,.82);font-size:22px;line-height:1;cursor:pointer;padding:0;transition:transform .1s}
@@ -218,6 +225,7 @@ table.res tr.win td{color:var(--marigold)}
         <button class="chip" id="inviteBtn" type="button" hidden>Inviter</button>
         <button class="chip" id="lookBtn" type="button" hidden>Mon perso</button>
         <button class="chip" id="rulesBtn" type="button" hidden>Règles</button>
+        <button class="chip" id="controlsBtn" type="button" hidden>Contrôles</button>
         <button class="chip toggle" id="sfxBtn" type="button" hidden aria-pressed="true">Sons</button>
         <button class="chip toggle" id="musicBtn" type="button" hidden aria-pressed="true">Musique</button>
       </div>
@@ -268,6 +276,7 @@ table.res tr.win td{color:var(--marigold)}
     <div class="intro-btns">
       <button class="btn ghost" id="customize" type="button">Mon perso</button>
       <button class="btn ghost" id="rulesIntro" type="button">Les règles</button>
+      <button class="btn ghost" id="controlsIntro" type="button">Contrôles</button>
     </div>
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
     <div class="status-line" id="introStatus">Connexion au salon…</div>
@@ -278,6 +287,14 @@ table.res tr.win td{color:var(--marigold)}
     <button class="mode-switch" id="modeSwitch" type="button"></button>
   </form>
 </div>
+
+<dialog id="controls" aria-labelledby="controlsTitle">
+  <div class="rules-head">
+    <h2 id="controlsTitle">Contrôles</h2>
+    <button class="rules-close" type="button" aria-label="Fermer les contrôles">×</button>
+  </div>
+  <div class="rules-body"></div>
+</dialog>
 
 <dialog id="rules" aria-labelledby="rulesTitle">
   <div class="rules-head">
@@ -480,6 +497,7 @@ import { initKeys, myPublicKey, seal, open } from './js/secret.js';
 import { addVoice, dropVoice, updateVoices, levelOf, micLevel, micActive, toggleMic } from './js/voice.js';
 import { Toys } from './js/toys.js';
 import { setWorld, groundAt, ceilingAt, slide, fall, TALL, LOW } from './js/world.js';
+import { key, label, actionFor, mouse, openControls, onChange as onControlsChange } from './js/controls.js';
 const keysReady = initKeys().catch(() => null);
 (() => {
 'use strict';
@@ -1169,24 +1187,29 @@ let joy = { x: 0, y: 0 }, locked = false, drag = null;
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
-  if ($('#rules').open) return;
-  if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) { const n = +e.code.slice(5) - 1; if (!(fps && fps.select(n))) emote(n); } // in a battle, 1 and 2 pick a weapon
+  if ($('#rules').open || $('#controls').open) return;
+  const act = actionFor(e.code, FPS); // what this key does, as the player set it up
   if (me.entered && !e.repeat) {
-    if (e.code === 'KeyT' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
-    if (e.code === 'KeyG') throwPaper();
-    if (e.code === 'KeyF') { cushionAction(); renderSocial(); }
-    if (e.code === 'KeyM') micToggle();
-    if (e.code === 'Space') jump();
-    if (e.code === 'KeyR' && fps) fps.reload();
+    if (act === 'chat' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
+    if (act === 'paper') throwPaper();
+    if (act === 'mic') micToggle();
+    if (act === 'jump') jump();
+    if (act === 'use') useKey();
+    if (fps && act === 'reload') fps.reload();
+    if (fps && act === 'weapon1') fps.select(0);
+    if (fps && act === 'weapon2') fps.select(1);
+    if (!act && /^Digit[1-6]$/.test(e.code)) emote(+e.code.slice(5) - 1); // number keys left free make faces
   }
   keys[e.code] = true;
-  if (e.code === 'KeyE' && me.entered && !e.repeat) useKey();
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (act || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (fps) { fps.trigger(false); fps.aim(false); } });
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; $('#cross').hidden = !locked; });
 function look(dx, dy, s) {
+  const ms = mouse();
+  s *= ms.sens;
+  if (ms.invertY) dy = -dy;
   if (fps) s *= fps.lookScale(); // slower while zoomed in
   me.yaw -= dx * s; me.pitch -= dy * s;
   me.pitch = Math.max(-1.25, Math.min(1.1, me.pitch));
@@ -1310,10 +1333,11 @@ function updateMe(dt) {
   } else if (me.entered) {
     const ox = me.x, oz = me.z;
     let f = 0, r = 0;
-    if (keys.KeyW || keys.ArrowUp) f += 1;
-    if (keys.KeyS || keys.ArrowDown) f -= 1;
-    if (keys.KeyA) r -= 1;
-    if (keys.KeyD) r += 1;
+    const held = id => keys[key(id)];
+    if (held('forward') || keys.ArrowUp) f += 1;
+    if (held('back') || keys.ArrowDown) f -= 1;
+    if (held('left')) r -= 1;
+    if (held('right')) r += 1;
     if (keys.ArrowLeft) me.yaw += dt * 2.2;
     if (keys.ArrowRight) me.yaw -= dt * 2.2;
     f -= joy.y; r += joy.x;
@@ -1321,8 +1345,8 @@ function updateMe(dt) {
     const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
     // crouch while C is held (or the touch button is on), or while something low is overhead
     const lowRoof = ceilingAt(me.x, me.z, me.jy) < me.jy + TALL;
-    me.crouch += ((keys.KeyC || crouchLatch || lowRoof ? 1 : 0) - me.crouch) * (1 - Math.exp(-dt * 10));
-    const sp = (keys.ShiftLeft && me.crouch < 0.5 ? 6.5 : 4.2) * (1 - me.crouch * 0.55) * dt;
+    me.crouch += ((held('crouch') || crouchLatch || lowRoof ? 1 : 0) - me.crouch) * (1 - Math.exp(-dt * 10));
+    const sp = (held('run') && me.crouch < 0.5 ? 6.5 : 4.2) * (1 - me.crouch * 0.55) * dt;
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     me.x += (-sy * f + cy * r) * sp;
     me.z += (-cy * f - sy * r) * sp;
@@ -1658,6 +1682,8 @@ function useKey() {
   if (use === 'sit') toggleSit();
   else if (use !== 'none') { cushionAction(); renderSocial(); }
 }
+// a key as the player set it up, ready for innerHTML
+const kbd = id => '<kbd>' + label(id).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]) + '</kbd>';
 function renderPrompt() {
   const p = $('#prompt'), act = $('#actBtn');
   p.hidden = true; act.hidden = true;
@@ -1670,18 +1696,18 @@ function renderPrompt() {
   if (use !== 'sit') {
     const txt = use === 'throw' ? 'lancer le coussin' : 'attraper le coussin';
     if (coarse) { act.hidden = false; act.textContent = txt[0].toUpperCase() + txt.slice(1); }
-    else { p.hidden = false; p.innerHTML = '<kbd>E</kbd><span>' + txt + '</span>'; }
+    else { p.hidden = false; p.innerHTML = kbd('use') + '<span>' + txt + '</span>'; }
     return;
   }
   if (me.seat >= 0) {
-    if (!coarse) { if (!isActive() || myIdx() < 0) { p.hidden = false; p.innerHTML = '<kbd>E</kbd><span>se lever</span>'; } }
+    if (!coarse) { if (!isActive() || myIdx() < 0) { p.hidden = false; p.innerHTML = kbd('use') + '<span>se lever</span>'; } }
     else { act.hidden = false; act.textContent = 'Se lever'; }
     return;
   }
   const s = nearestFreeSeat();
   if (s >= 0) {
     if (coarse) { act.hidden = false; act.textContent = 'S\'asseoir'; }
-    else { p.hidden = false; p.innerHTML = '<kbd>E</kbd><span>s\'asseoir</span>'; }
+    else { p.hidden = false; p.innerHTML = kbd('use') + '<span>s\'asseoir</span>'; }
   } else if (!locked && !coarse) {
     p.hidden = false; p.innerHTML = '<span>Clique dans la pièce pour regarder autour, puis approche-toi d\'une chaise</span>';
   }
@@ -1804,6 +1830,19 @@ rules.addEventListener('click', e => { if (e.target === rules) rules.close(); })
 rules.querySelector('.rules-close').addEventListener('click', () => rules.close());
 $('#rulesBtn').addEventListener('click', openRules);
 $('#rulesIntro').addEventListener('click', openRules);
+// the controls: which key does what, mouse speed (no keyboard on a phone)
+const controlsDlg = $('#controls');
+function openControlsDlg() {
+  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  for (const k in keys) keys[k] = false;
+  openControls(controlsDlg, FPS);
+}
+controlsDlg.addEventListener('close', () => { if (me.entered) canvas.focus(); });
+controlsDlg.addEventListener('click', e => { if (e.target === controlsDlg) controlsDlg.close(); });
+controlsDlg.querySelector('.rules-close').addEventListener('click', () => controlsDlg.close());
+$('#controlsBtn').addEventListener('click', openControlsDlg);
+$('#controlsIntro').addEventListener('click', openControlsDlg);
+$('#controlsIntro').hidden = coarse;
 // expressions on purpose: keys 1 to 6 or the buttons on the right
 const emotesEl = $('#emotes');
 EXPRESSIONS.forEach((x, i) => {
@@ -1823,7 +1862,21 @@ function emote(i) {
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
 if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer</span><kbd>🔍</kbd><span>viser</span><kbd>🔁</kbd><span>changer d\'arme</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
-else if (FPS) $('#help').innerHTML = '<kbd>Z Q S D</kbd><span>se déplacer (Maj : courir)</span><kbd>Souris</kbd><span>viser (clique dans la pièce)</span><kbd>Clic gauche</kbd><span>tirer (maintenir avec le fusil)</span><kbd>Clic droit</kbd><span>viser (zoom)</span><kbd>1 2</kbd><span>pistolet ou fusil d\'assaut (ou molette)</span><kbd>R</kbd><span>recharger</span><kbd>Espace</kbd><span>sauter</span><kbd>C</kbd><span>s\'accroupir (maintenir)</span><kbd>Échap</kbd><span>libérer la souris</span><kbd>T</kbd><span>écrire un message (M : micro)</span>';
+// the keyboard help on the intro card, with the keys as the player set them up
+function renderHelp() {
+  if (coarse) return;
+  const k = id => kbd(id).slice(5, -6), row = (keysHtml, text) => `<kbd>${keysHtml}</kbd><span>${text}</span>`;
+  const move = row(`${k('forward')} ${k('left')} ${k('back')} ${k('right')}`, `se déplacer (${k('run')} : courir)`);
+  $('#help').innerHTML = FPS
+    ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil)') + row('Clic droit', 'viser (zoom)')
+      + row(`${k('weapon1')} ${k('weapon2')}`, 'pistolet ou fusil d\'assaut (ou molette)') + row(k('reload'), 'recharger')
+      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'libérer la souris') + row(k('chat'), `écrire un message (${k('mic')} : micro)`)
+    : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'libérer la souris')
+      + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)
+      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('1 à 6', 'faire une tête');
+}
+renderHelp();
+onControlsChange(() => { renderHelp(); labelSocial(); renderPrompt(); });
 $('#introForm').addEventListener('submit', e => {
   e.preventDefault();
   me.nick = cleanNick($('#nick').value);
@@ -1845,6 +1898,7 @@ function renderAudioBtns() {
   $('#sfxBtn').setAttribute('aria-pressed', String(p.sfx));
   $('#musicBtn').setAttribute('aria-pressed', String(p.music));
   $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = $('#rulesBtn').hidden = !me.entered;
+  $('#controlsBtn').hidden = !me.entered || coarse; // keyboard and mouse only
   $('#emotes').hidden = !me.entered || editor.isOpen();
 }
 $('#sfxBtn').addEventListener('click', () => { const v = !getPrefs().sfx; setPrefs({ sfx: v }); store.set('playroom-sfx', v ? '1' : '0'); renderAudioBtns(); });
@@ -2002,17 +2056,21 @@ async function micToggle() {
   renderSocial();
 }
 const socialBtns = [
-  { id: 'micBtn', icon: '🎤', label: 'Micro', key: 'M', act: micToggle },
-  { id: 'chatBtn', icon: '💬', label: 'Écrire un message', key: 'T', act: openChat },
-  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: 'clic droit', act: throwPaper },
-  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: 'E', act: cushionAction }
+  { id: 'micBtn', icon: '🎤', label: 'Micro', key: () => label('mic'), act: micToggle },
+  { id: 'chatBtn', icon: '💬', label: 'Écrire un message', key: () => label('chat'), act: openChat },
+  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: () => 'clic droit ou ' + label('paper'), act: throwPaper },
+  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: () => label('use'), act: cushionAction }
 ];
 socialBtns.forEach(b => {
   const x = el('button', 'emote', b.icon); x.type = 'button'; x.id = b.id;
-  x.title = `${b.label} (${b.key})`; x.setAttribute('aria-label', `${b.label}, touche ${b.key}`);
   x.onclick = () => { b.act(); canvas.focus(); };
   $('#social').append(x);
 });
+// their tooltips name the keys as the player set them up
+function labelSocial() {
+  for (const b of socialBtns) { const x = $('#' + b.id); x.title = `${b.label} (${b.key()})`; x.setAttribute('aria-label', `${b.label}, touche ${b.key()}`); }
+}
+labelSocial();
 function renderSocial() {
   $('#social').hidden = !me.entered || editor.isOpen();
   $('#chat').hidden = !me.entered;
@@ -2200,7 +2258,7 @@ async function startBattle() {
   fps = startFps({
     scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol,
-    blocked: () => editor.isOpen() || $('#rules').open || !$('#chatForm').hidden
+    blocked: () => editor.isOpen() || $('#rules').open || $('#controls').open || !$('#chatForm').hidden
   });
   if (me.entered) fps.onEnter();
 }

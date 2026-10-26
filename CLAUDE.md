@@ -26,6 +26,7 @@ Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.1
 - `js/fps.js` : mode bataille de fléchettes (pistolet, touches, élimination, réapparition, score, robots). Chargé par `import()` seulement dans un salon `#fps-CODE`, branché sur `index.html` par quelques appels `fps.*` (constante `FPS`).
 - `js/world.js` : les collisions de tout le monde (joueur, avatars, robots) : boîtes solides sur lesquelles on monte, contre lesquelles on bute ou sous lesquelles on passe accroupi, disques, limites. Le salon y décrit sa table et `PLATFORMS`, la carte FPS ses murs. Construit aussi la grille de déplacement des robots (A*).
 - `js/fpsmap.js` : la carte « le Fort » (hall, deux ailes, étage, escaliers, tunnels), chargée seulement en mode FPS : elle remplace le salon dans la scène et fournit ses boîtes et ses points d'apparition.
+- `js/controls.js` : contrôles réglables (fenêtre « Contrôles », ordinateur seulement) : touche de chaque action, sensibilité de la souris, axe inversé, gardés dans `localStorage`. Les touches sont des codes physiques (`KeyW` = Z en AZERTY), affichées avec la lettre du clavier du joueur. Dans `index.html`, passer par `actionFor(e.code)`, `key(id)` et `kbd(id)` au lieu de codes en dur.
 
 ### Réseau
 
