@@ -2,13 +2,17 @@
 
 Jeu de cartes Papayoo multijoueur dans un salon 3D au style cartoon, joué dans le navigateur, sans compte ni serveur de jeu. Nom de travail : PlayRoom. Tout le texte de l'interface est en français.
 
-En ligne : https://naywayo.github.io/rv-PlayRoom/ (GitHub Pages, dépôt public `NayWaYo/rv-PlayRoom`, redéployé à chaque push sur `main`, environ une minute).
+Hors ligne : GitHub Pages est coupé depuis le 2026-10-26 (dépôt public `NayWaYo/rv-PlayRoom`, l'adresse https://naywayo.github.io/rv-PlayRoom/ renvoie 404). On joue en local avec `tools/serve.ps1`. Pour remettre en ligne (publication depuis `main`, dossier racine, environ une minute) :
+
+```bash
+gh api -X POST repos/NayWaYo/rv-PlayRoom/pages -f "source[branch]=main" -f "source[path]=/"
+```
 
 ## Façon de travailler
 
 - Une branche par lot (`feat/...`, `fix/...`), commits en français avec préfixe `feat:`, `fix:` ou `docs:`.
 - Tester en local avant de proposer quoi que ce soit, puis pousser la branche.
-- Ne fusionner dans `main` (donc mettre en ligne) que sur demande explicite. Fusion en fast-forward, puis vérifier le déploiement avec `gh run watch` et `curl` sur le site.
+- Ne fusionner dans `main` que sur demande explicite, en fast-forward. Si GitHub Pages est réactivé, `main` part en ligne : vérifier alors le déploiement avec `gh run watch` et `curl` sur le site.
 - Supprimer les branches fusionnées quand on fait le ménage.
 
 ## Architecture
