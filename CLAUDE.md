@@ -33,7 +33,7 @@ Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.1
 - Le joueur qui lance la partie est l'hôte : il applique les règles, fait jouer les robots et diffuse l'état sur le topic `state`. Les joueurs envoient leurs coups sur le topic `act`.
 - Mains cachées : l'hôte diffuse une vue publique (les cartes des autres valent `'?'`, `passSel` vaut `1`) avec la main de chaque joueur scellée pour lui (`sec`, `hpk`). Si l'hôte part, le suivant lance `startRecovery()` : il redemande les mains (act `hand`) et redistribue celles des robots et des absents à partir de `G.played`.
 - La présence porte la position (`a` : x, z, cap, inclinaison, siège, accroupi, hauteur des pieds), le pseudo, la couleur, le look (`l`), la clé publique (`pk`), et les actions sociales en `[compteur, ...]` : expression `x`, message `say`, boule `pb`, coussin `cu`. Le compteur évite de rejouer une action à l'arrivée d'un joueur.
-- Bataille : chaque tir part sur le topic `dart` (origine, impact, cible). Le tireur décide s'il touche, la cible applique les dégâts et annonce son élimination sur `ko`. Chacun publie sa vie et son score en présence (`fp` : vie, éliminations, défaites, protection). Les robots tournent dans le navigateur du joueur qui les ajoute, qui les diffuse sur `bots` ; ils disparaissent s'il part.
+- Bataille : chaque tir part sur le topic `dart` (origine, impact, cible, arme `w`). Les armes sont dans `WEAPONS` (js/fps.js) : le pistolet retire 2 points, le fusil d'assaut 1, sur 6 (trois cœurs). Le tireur décide s'il touche, la cible applique les dégâts et annonce son élimination sur `ko`. Chacun publie sa vie et son score en présence (`fp` : vie, éliminations, défaites, protection). Les robots tournent dans le navigateur du joueur qui les ajoute, qui les diffuse sur `bots` ; ils disparaissent s'il part.
 
 ## Tester
 
@@ -57,7 +57,7 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 
 ## Pistes en attente
 
-- Bataille de fléchettes, lot 3 : d'autres armes à fléchettes (mitraillette, fusil d'assaut, sniper).
+- Bataille de fléchettes : d'autres armes (mitraillette, sniper) à ajouter dans `WEAPONS`.
 - Valider en vrai la reprise quand l'hôte quitte en pleine manche (`startRecovery()`) : chacun doit retrouver sa main sans voir celles des autres.
 - Serveur relais TURN si des joueurs (4G, réseaux d'entreprise) ne se connectent pas.
 - Limite assumée : le navigateur de l'hôte connaît toutes les mains.

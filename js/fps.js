@@ -7,8 +7,14 @@ import { toon, roundedBox } from './fx.js';
 import { randomLook, seededRand } from './avatar.js';
 import { slide, fall, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
 
-const MAX_HP = 3, RESPAWN = 3, SHIELD = 1.5, RANGE = 30;
-const PISTOL = { cooldown: 0.3, mag: 8, reload: 1.3, spread: 0.008 };
+const MAX_HP = 6, RESPAWN = 3, SHIELD = 1.5, RANGE = 30; // health in half hearts
+// spread when firing from the hip / while aiming; zoom divides the field of view
+const WEAPONS = {
+  pistol: { name: 'Pistolet', cooldown: 0.3, mag: 8, reload: 1.3, spread: 0.012, aimSpread: 0.003, damage: 2, zoom: 1.35, auto: false, muzzle: -0.35 },
+  rifle: { name: 'Fusil',cooldown: 0.11, mag: 24, reload: 2.0, spread: 0.03, aimSpread: 0.008, damage: 1, zoom: 1.7, auto: true, muzzle: -0.62 }
+};
+const SLOTS = ['pistol', 'rifle'];
+const FOV = 70;
 const BODY_R = 0.32, EYE = 1.5;
 const BOT_NAMES = ['Zip', 'Bolt', 'Pixel', 'Turbo', 'Nova', 'Gizmo', 'Rivet', 'Volt'];
 const BOT_COLS = ['#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5a', '#f08a3c', '#f4b63f'];
@@ -31,6 +37,10 @@ const CSS = `
 #fpsFeed div{background:rgba(28,21,36,.82);border-radius:999px;padding:3px 12px;transition:opacity .6s}
 #cross.hit{width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--coral);box-shadow:0 0 0 3px rgba(0,0,0,.4)}
 #fireBtn{pointer-events:auto;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(172px + env(safe-area-inset-bottom,0px));width:76px;height:76px;border-radius:50%;border:3px solid var(--cream);background:var(--coral);font-size:32px;touch-action:none;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+#aimBtn,#swapBtn{pointer-events:auto;position:fixed;width:52px;height:52px;font-size:24px;touch-action:none}
+#aimBtn{right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(184px + env(safe-area-inset-bottom,0px))}
+#swapBtn{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(262px + env(safe-area-inset-bottom,0px))}
+#aimBtn[aria-pressed="true"]{border-color:var(--marigold);box-shadow:0 0 0 3px rgba(244,182,63,.45)}
 @media (max-width:560px){#fpsBoard{min-width:150px;max-width:170px;font-size:12px;padding:8px 10px}}
 @media (pointer:coarse){#fpsBar{bottom:calc(150px + env(safe-area-inset-bottom,0px));font-size:16px}}
 `;
@@ -51,7 +61,12 @@ export function startFps(ctx) {
   const feed = el('div'); feed.id = 'fpsFeed';
   const fireBtn = el('button', null, '🎯'); fireBtn.id = 'fireBtn'; fireBtn.type = 'button'; fireBtn.hidden = true;
   fireBtn.setAttribute('aria-label', 'Tirer');
-  document.body.append(hurtEl, downEl, bar, feed, fireBtn);
+  // on a phone: aim (on/off) and switch weapons, next to the fire button
+  const aimBtn = el('button', 'emote', '🔍'); aimBtn.id = 'aimBtn'; aimBtn.type = 'button'; aimBtn.setAttribute('aria-label', 'Viser'); aimBtn.setAttribute('aria-pressed', 'false');
+  const swapBtn = el('button', 'emote', '🔁'); swapBtn.id = 'swapBtn'; swapBtn.type = 'button'; swapBtn.setAttribute('aria-label', 'Changer d\'arme');
+  aimBtn.addEventListener('pointerdown', e => { e.preventDefault(); aim(!aiming); });
+  swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); select((slot + 1) % SLOTS.length); });
+  document.body.append(hurtEl, downEl, bar, feed, fireBtn, aimBtn, swapBtn);
   $('#scores').after(board); // top right, like the card game's scores
   fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); trigger(true); });
   fireBtn.addEventListener('pointerup', () => trigger(false));
@@ -97,18 +112,28 @@ export function startFps(ctx) {
     return out;
   }
 
-  /* ---------- the blaster in your hands ---------- */
+  /* ---------- the blasters in your hands ---------- */
   scene.add(camera);
   const gun = new THREE.Group();
   // held at half size, close to the eye, so it never pokes through a wall you stand against
-  const orange = toon('#f08a3c'), blue = toon('#5b9bd5'), yellow = toon('#f4b63f'), grey = toon('#3a3340');
-  const part = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); gun.add(m); return m; };
-  part(0.09, 0.1, 0.3, orange, 0, 0, 0);
-  part(0.06, 0.06, 0.2, blue, 0, 0.02, -0.22);
-  part(0.07, 0.07, 0.03, yellow, 0, 0.02, -0.33);
-  part(0.07, 0.15, 0.08, blue, 0, -0.11, 0.08).rotation.x = -0.25;
-  part(0.035, 0.05, 0.1, grey, 0, 0.075, 0.02);
-  const gunRest = new THREE.Vector3(0.1, -0.1, -0.21);
+  const orange = toon('#f08a3c'), blue = toon('#5b9bd5'), yellow = toon('#f4b63f'), grey = toon('#3a3340'), teal = toon('#4fb3a9');
+  const models = {};
+  function model(parts) {
+    const g = new THREE.Group();
+    for (const [w, h, d, mat, x, y, z, rx] of parts) { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; g.add(m); }
+    gun.add(g); return g;
+  }
+  models.pistol = model([
+    [0.09, 0.1, 0.3, orange, 0, 0, 0], [0.06, 0.06, 0.2, blue, 0, 0.02, -0.22], [0.07, 0.07, 0.03, yellow, 0, 0.02, -0.33],
+    [0.07, 0.15, 0.08, blue, 0, -0.11, 0.08, -0.25], [0.035, 0.05, 0.1, grey, 0, 0.075, 0.02]
+  ]);
+  models.rifle = model([ // held a little further out than the pistol, so the stock stays out of your face
+    [0.1, 0.12, 0.46, blue, 0, 0, -0.06], [0.06, 0.06, 0.22, yellow, 0, 0.02, -0.4], [0.075, 0.075, 0.03, orange, 0, 0.02, -0.52],
+    [0.06, 0.18, 0.09, teal, 0, -0.13, -0.08, 0.25], [0.07, 0.14, 0.08, grey, 0, -0.1, 0.12, -0.25],
+    [0.08, 0.1, 0.2, teal, 0, -0.02, 0.26], [0.045, 0.06, 0.16, grey, 0, 0.09, -0.04]
+  ]);
+  models.rifle.position.z = -0.16;
+  const gunRest = new THREE.Vector3(0.1, -0.1, -0.21), gunAim = new THREE.Vector3(0, -0.075, -0.2);
   gun.scale.setScalar(0.5);
   gun.position.copy(gunRest);
   camera.add(gun);
@@ -165,39 +190,56 @@ export function startFps(ctx) {
     return { h, target, stuck: !target && !!w };
   }
   const r2 = v => Math.round(v * 100) / 100;
-  function sendDart(o, res, from) {
+  function sendDart(o, res, from, w) {
     const room = ctx.room();
-    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0 }).catch(() => {});
+    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w }).catch(() => {});
   }
 
-  let triggerDown = false, nextShot = 0, ammo = PISTOL.mag, reloadUntil = 0;
+  // your weapons: which one is out, what's left in each, reloading, switching, aiming
+  let slot = 0, triggerDown = false, nextShot = 0, reloadUntil = 0, reloadSeq = 0, switchUntil = 0, aiming = false, zoom = 1;
+  const ammo = { pistol: WEAPONS.pistol.mag, rifle: WEAPONS.rifle.mag };
+  const W = () => WEAPONS[SLOTS[slot]];
   function trigger(down) {
     triggerDown = down;
     if (down) shoot();
   }
   function shoot() {
     if (!me.entered || !alive() || ctx.blocked()) return;
-    const t = now();
-    if (t < nextShot || t < reloadUntil) return;
-    if (ammo <= 0) { reload(); return; }
-    nextShot = t + PISTOL.cooldown; ammo--;
+    const t = now(), w = W(), k = SLOTS[slot];
+    if (t < nextShot || t < reloadUntil || t < switchUntil) return;
+    if (ammo[k] <= 0) { reload(); return; }
+    nextShot = t + w.cooldown; ammo[k]--;
     camera.getWorldPosition(tmpO); camera.getWorldDirection(tmpD);
-    const res = fire(tmpO, tmpD, ctx.myKey(), PISTOL.spread);
-    const muzzle = new THREE.Vector3(0, 0.02, -0.35).applyMatrix4(gun.matrixWorld);
+    const aimed = (zoom - 1) / (w.zoom - 1); // 0 from the hip, 1 fully aimed
+    const res = fire(tmpO, tmpD, ctx.myKey(), w.spread + (w.aimSpread - w.spread) * Math.max(0, Math.min(1, aimed)));
+    const muzzle = new THREE.Vector3(0, 0.02, w.muzzle).applyMatrix4(gun.matrixWorld);
     spawnDart(muzzle, res.h, res.stuck);
-    sfx.dart();
-    kick = 1;
-    sendDart(muzzle, res, ctx.myKey());
-    if (res.target) { hitMarker(); damage(res.target, ctx.myKey()); }
-    if (ammo === 0) reload();
+    sfx.dart(w.auto ? 0.7 : 1);
+    kick = w.auto ? 0.6 : 1;
+    if (w.auto) { me.pitch += 0.006; me.yaw += (Math.random() - 0.5) * 0.006; } // a little climb on a long burst
+    sendDart(muzzle, res, ctx.myKey(), k);
+    if (res.target) { hitMarker(); damage(res.target, ctx.myKey(), w.damage); }
+    if (ammo[k] === 0) reload();
     renderBar();
   }
   function reload() {
-    if (reloadUntil > now() || ammo === PISTOL.mag) return;
-    reloadUntil = now() + PISTOL.reload; sfx.reload();
-    setTimeout(() => { ammo = PISTOL.mag; renderBar(); }, PISTOL.reload * 1000);
+    const k = SLOTS[slot], w = W();
+    if (reloadUntil > now() || ammo[k] === w.mag || !alive()) return;
+    reloadUntil = now() + w.reload; sfx.reload();
+    const seq = ++reloadSeq;
+    setTimeout(() => { if (seq === reloadSeq) { ammo[k] = w.mag; renderBar(); } }, w.reload * 1000);
     renderBar();
   }
+  // take out another weapon (a switch cancels a reload)
+  function select(i) {
+    if (!SLOTS[i]) return false;
+    if (i !== slot && me.entered && alive()) {
+      slot = i; reloadSeq++; reloadUntil = 0; switchUntil = now() + 0.35; triggerDown = false;
+      sfx.reload(); renderBar();
+    }
+    return true;
+  }
+  function aim(on) { aiming = on && me.entered && alive(); }
   let markTimer = null;
   function hitMarker() {
     sfx.pock();
@@ -210,13 +252,13 @@ export function startFps(ctx) {
   const alive = () => hp > 0;
   function pushMine() { const room = ctx.room(); if (room) room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0] }).catch(() => {}); }
   // a dart landed on `target`, fired by `from`: only the target's owner applies it
-  function damage(target, from) {
-    if (target === ctx.myKey()) hurtMe(from);
-    else { const b = bots.get(target); if (b) hurtBot(b, from); }
+  function damage(target, from, dmg) {
+    if (target === ctx.myKey()) hurtMe(from, dmg);
+    else { const b = bots.get(target); if (b) hurtBot(b, from, dmg); }
   }
-  function hurtMe(from) {
+  function hurtMe(from, dmg) {
     if (!alive() || now() < shieldUntil) return;
-    hp--; sfx.bonk();
+    hp = Math.max(0, hp - dmg); sfx.bonk();
     hurtEl.classList.add('on'); setTimeout(() => hurtEl.classList.remove('on'), 60);
     if (hp <= 0) { deaths++; downUntil = now() + RESPAWN; downBy = nameOf(from); knockedOut(ctx.myKey(), from); }
     pushMine(); renderBar();
@@ -255,7 +297,7 @@ export function startFps(ctx) {
   function respawnMe() {
     const [x, y, z] = respawnSpot();
     me.x = x; me.z = z; me.jy = y; me.jv = 0; me.yaw = Math.atan2(x, z); me.pitch = -0.05;
-    hp = MAX_HP; shieldUntil = now() + SHIELD; ammo = PISTOL.mag; reloadUntil = 0;
+    hp = MAX_HP; shieldUntil = now() + SHIELD; ammo.pistol = WEAPONS.pistol.mag; ammo.rifle = WEAPONS.rifle.mag; reloadUntil = 0; reloadSeq++;
     setTimeout(pushMine, SHIELD * 1000 + 50); // the shield ends even if this tab is in the background
     pushMine(); renderBar();
   }
@@ -270,6 +312,7 @@ export function startFps(ctx) {
     bots.set(id, {
       id, nick: '🤖 ' + BOT_NAMES[n % BOT_NAMES.length], col: BOT_COLS[n % BOT_COLS.length], seed, look: randomLook(seededRand(seed)),
       x, z, y, vy: 0, yaw: 0, crouch: false, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
+      weapon: Math.random() < 0.5 ? 'rifle' : 'pistol', burst: 4,
       path: [], step: 0, repath: 0, think: 0, target: null, lastSeen: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0,
       stuckAt: 0, stuckX: x, stuckZ: z
     });
@@ -279,9 +322,9 @@ export function startFps(ctx) {
     const last = [...bots.keys()].pop(); if (!last) return;
     bots.delete(last); renderBoard();
   }
-  function hurtBot(b, from) {
+  function hurtBot(b, from, dmg) {
     if (b.hp <= 0 || now() < b.shieldUntil) return;
-    b.hp--;
+    b.hp = Math.max(0, b.hp - dmg);
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
     if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from); }
     else if (!b.target) b.think = 0; // look around for whoever did that
@@ -335,14 +378,17 @@ export function startFps(ctx) {
       // shoot when roughly facing them
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       if (Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + 0.7) {
-        b.nextShot = t + 0.9 + Math.random() * 0.8;
+        const rifle = b.weapon === 'rifle';
+        // pistol bots take their time; rifle bots fire short bursts, then pause
+        if (rifle && --b.burst > 0) b.nextShot = t + 0.13;
+        else { b.nextShot = t + (rifle ? 1.2 : 0.9) + Math.random() * 0.8; b.burst = 4; }
         const dir = new THREE.Vector3(f.x - b.x, f.base + f.height * 0.6 - botO.y, f.z - b.z).normalize();
         const o = botO.clone().addScaledVector(dir, 0.4);
-        const res = fire(o, dir, b.id, 0.07 + d * 0.006);
+        const res = fire(o, dir, b.id, (rifle ? 0.09 : 0.07) + d * (rifle ? 0.007 : 0.006));
         spawnDart(o, res.h, res.stuck);
         playNear(o, 'dart');
-        sendDart(o, res, b.id);
-        if (res.target) damage(res.target, b.id);
+        sendDart(o, res, b.id, b.weapon);
+        if (res.target) damage(res.target, b.id, WEAPONS[b.weapon].damage);
       }
       if (Math.random() < dt * 0.25 && b.vy === 0 && ceilingAt(b.x, b.z, b.y) > b.y + 3) b.vy = 3.6; // the odd hop
     } else {
@@ -389,7 +435,7 @@ export function startFps(ctx) {
     if (o.distanceTo(h) > RANGE + 1) return;
     spawnDart(o, h, d.k === 1);
     playNear(o, 'dart');
-    if (typeof d.t === 'string' && shooter) damage(d.t, shooter);
+    if (typeof d.t === 'string' && shooter) damage(d.t, shooter, WEAPONS[d.w] ? WEAPONS[d.w].damage : 2);
   }
   function onKo(m) {
     if (m.isMe) return;
@@ -413,10 +459,13 @@ export function startFps(ctx) {
   /* ---------- HUD ---------- */
   function renderBar() {
     bar.hidden = !me.entered;
-    hpEl.textContent = '❤️'.repeat(Math.max(0, hp)) + '🤍'.repeat(MAX_HP - Math.max(0, hp));
-    const reloading = now() < reloadUntil;
-    ammoEl.textContent = reloading ? 'Recharge…' : `🎯 ${ammo}/${PISTOL.mag}`;
-    ammoEl.classList.toggle('low', !reloading && ammo <= 2);
+    // three hearts, each one two hits of the rifle or one of the pistol
+    let hearts = '';
+    for (let i = 0; i < MAX_HP / 2; i++) hearts += hp >= i * 2 + 2 ? '❤️' : hp === i * 2 + 1 ? '💔' : '🤍';
+    hpEl.textContent = hearts;
+    const reloading = now() < reloadUntil, w = W(), k = SLOTS[slot];
+    ammoEl.textContent = `${w.name} · ` + (reloading ? 'recharge…' : `${ammo[k]}/${w.mag}`);
+    ammoEl.classList.toggle('low', !reloading && ammo[k] <= w.mag / 4);
   }
   let boardSig = '';
   function renderBoard() {
@@ -484,24 +533,36 @@ export function startFps(ctx) {
       a.g.rotation.x = a.fpFall * Math.PI / 2;
       if (a.fpShield && !a.fpDown) a.g.visible = a.g.visible && Math.floor(t * 8) % 2 === 0;
     }
-    // the blaster: sway, recoil, dip while reloading
+    // aiming: zoom in smoothly, bring the blaster under the crosshair
+    const w = W();
+    if (!me.entered || !alive() || ctx.blocked()) aiming = false;
+    zoom += ((aiming ? w.zoom : 1) - zoom) * Math.min(1, dt * 14);
+    if (Math.abs(camera.fov - FOV / zoom) > 0.01) { camera.fov = FOV / zoom; camera.updateProjectionMatrix(); }
+    const aimed = Math.max(0, Math.min(1, (zoom - 1) / (w.zoom - 1)));
+    // the blaster: the one in your hands, recoil, a dip while reloading or switching
+    for (const k of SLOTS) models[k].visible = k === SLOTS[slot];
     kick = Math.max(0, kick - dt * 9);
-    const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / PISTOL.reload) * Math.PI) : 0;
+    const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / w.reload) * Math.PI) : 0;
+    const sw = t < switchUntil ? (switchUntil - t) / 0.35 : 0;
     gun.visible = me.entered && alive();
     // bottom right of the view, whatever the screen shape (a phone held upright is narrow)
-    const hh = -gunRest.z * Math.tan(camera.fov * Math.PI / 360), hw = hh * camera.aspect;
+    const hh = -gunRest.z * Math.tan(FOV * Math.PI / 360), hw = hh * camera.aspect;
     const s = Math.min(1, camera.aspect * 1.3);
-    gun.scale.setScalar(0.5 * s);
-    gun.position.set(Math.min(gunRest.x, hw * 0.6), Math.max(gunRest.y, -hh * 0.75) - rl * 0.06, gunRest.z + kick * 0.03);
-    gun.rotation.set(kick * 0.25 - rl * 0.6, 0, rl * 0.3);
-    if (triggerDown && PISTOL.auto) shoot();
+    gun.scale.setScalar(0.5 * s / zoom); // the zoom would make it look bigger: keep its apparent size
+    const rx = Math.min(gunRest.x, hw * 0.6), ry = Math.max(gunRest.y, -hh * 0.75);
+    gun.position.set((rx + (gunAim.x - rx) * aimed) / zoom, (ry + (gunAim.y - ry) * aimed - rl * 0.06 - sw * 0.08) / zoom, gunRest.z + kick * 0.03);
+    gun.rotation.set(kick * 0.25 - rl * 0.6 - sw * 0.5, 0, rl * 0.3);
+    if (triggerDown && w.auto) shoot();
     updateDarts(dt);
     $('#cross').hidden = !me.entered || !alive() || ctx.blocked();
-    fireBtn.hidden = !(coarse && me.entered && alive());
+    fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && me.entered && alive());
+    aimBtn.setAttribute('aria-pressed', String(aiming));
     if ((uiTick += dt) > 0.25) { uiTick = 0; renderBar(); renderBoard(); }
   }
   return {
-    update, syncAvatars, peerAvatar, trigger, reload,
+    update, syncAvatars, peerAvatar, trigger, reload, select, aim,
+    cycle(dir) { select((slot + dir + SLOTS.length) % SLOTS.length); },
+    lookScale: () => 1 / zoom, // slower mouse while zoomed in
     onEnter() { respawnMe(); renderBoard(); renderBar(); }
   };
 }

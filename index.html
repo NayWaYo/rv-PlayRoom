@@ -505,7 +505,7 @@ const fpsModule = FPS ? import('./js/fps.js') : null;
 let fps = null;
 if (FPS) {
   document.querySelector('.intro-card h1').innerHTML = 'Bataille de <span>fléchettes</span>';
-  document.querySelector('.intro-card .lede').textContent = 'Un pistolet à fléchettes en mousse, trois touches et tu es éliminé. Ajoute des robots pour t\'entraîner, ou invite tes amis avec le lien.';
+  document.querySelector('.intro-card .lede').textContent = 'Un pistolet et un fusil d\'assaut à fléchettes en mousse, trois cœurs chacun. Ajoute des robots pour t\'entraîner, ou invite tes amis avec le lien.';
   document.querySelector('#rulesIntro').hidden = true;
 }
 const cleanNick = n => String(n || '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮]/g, '').trim().slice(0, 14) || 'Joueur';
@@ -1170,7 +1170,7 @@ addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
   if ($('#rules').open) return;
-  if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) emote(+e.code.slice(5) - 1);
+  if (/^Digit[1-6]$/.test(e.code) && me.entered && !e.repeat) { const n = +e.code.slice(5) - 1; if (!(fps && fps.select(n))) emote(n); } // in a battle, 1 and 2 pick a weapon
   if (me.entered && !e.repeat) {
     if (e.code === 'KeyT' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
     if (e.code === 'KeyG') throwPaper();
@@ -1184,9 +1184,10 @@ addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (fps) { fps.trigger(false); fps.aim(false); } });
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; $('#cross').hidden = !locked; });
 function look(dx, dy, s) {
+  if (fps) s *= fps.lookScale(); // slower while zoomed in
   me.yaw -= dx * s; me.pitch -= dy * s;
   me.pitch = Math.max(-1.25, Math.min(1.1, me.pitch));
   if (me.seat >= 0) {
@@ -1200,7 +1201,7 @@ canvas.addEventListener('pointerdown', e => {
   if (!me.entered) return;
   canvas.focus();
   if (e.button === 2) { throwPaper(); return; } // right click: paper ball
-  if (fps && e.button === 0 && locked) { fps.trigger(true); return; } // left click: fire
+  if (fps && e.button === 0 && locked) return; // firing is handled on mousedown below
   if (!coarse && me.seat < 0 && e.pointerType === 'mouse' && !locked) {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
   }
@@ -1214,7 +1215,16 @@ canvas.addEventListener('pointermove', e => {
     drag.x = e.clientX; drag.y = e.clientY;
   }
 });
-const endDrag = e => { if (fps && e.button === 0) fps.trigger(false); if (drag && drag.id === e.pointerId) drag = null; };
+const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; };
+// in a battle: left button fires (held for the rifle), right button aims. Mouse events, because
+// a second button pressed while the first is held never makes a new pointerdown
+canvas.addEventListener('mousedown', e => {
+  if (!fps || !me.entered) return;
+  if (e.button === 0 && locked) fps.trigger(true);
+  if (e.button === 2) fps.aim(true);
+});
+addEventListener('mouseup', e => { if (fps && e.button === 0) fps.trigger(false); if (fps && e.button === 2) fps.aim(false); });
+canvas.addEventListener('wheel', e => { if (fps && me.entered) { e.preventDefault(); fps.cycle(e.deltaY > 0 ? 1 : -1); } }, { passive: false });
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 const joyEl = $('#joy'), knob = $('#knob');
 // touch: jump and crouch buttons above the action button
@@ -1812,8 +1822,8 @@ function emote(i) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
-if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
-else if (FPS) $('#help').innerHTML = '<kbd>Z Q S D</kbd><span>se déplacer (Maj : courir)</span><kbd>Souris</kbd><span>viser (clique dans la pièce)</span><kbd>Clic gauche</kbd><span>tirer une fléchette</span><kbd>R</kbd><span>recharger</span><kbd>Espace</kbd><span>sauter</span><kbd>C</kbd><span>s\'accroupir (maintenir)</span><kbd>Échap</kbd><span>libérer la souris</span><kbd>T</kbd><span>écrire un message (M : micro)</span>';
+if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer</span><kbd>🔍</kbd><span>viser</span><kbd>🔁</kbd><span>changer d\'arme</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
+else if (FPS) $('#help').innerHTML = '<kbd>Z Q S D</kbd><span>se déplacer (Maj : courir)</span><kbd>Souris</kbd><span>viser (clique dans la pièce)</span><kbd>Clic gauche</kbd><span>tirer (maintenir avec le fusil)</span><kbd>Clic droit</kbd><span>viser (zoom)</span><kbd>1 2</kbd><span>pistolet ou fusil d\'assaut (ou molette)</span><kbd>R</kbd><span>recharger</span><kbd>Espace</kbd><span>sauter</span><kbd>C</kbd><span>s\'accroupir (maintenir)</span><kbd>Échap</kbd><span>libérer la souris</span><kbd>T</kbd><span>écrire un message (M : micro)</span>';
 $('#introForm').addEventListener('submit', e => {
   e.preventDefault();
   me.nick = cleanNick($('#nick').value);
