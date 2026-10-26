@@ -1,4 +1,4 @@
-<!doctype html>
+    if (hi <= limit || tagV.z > 1 || tagV.x < left || tagV.x > right)<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
@@ -944,7 +944,7 @@ function syncAvatar(id, nick, col, look, x, z, yaw, seat) {
   if (!a) {
     const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTex(nick, col), depthWrite: false }));
     tag.scale.set(1.0, 0.25, 1);
-    a = buildAvatar(look, tag); a.nick = nick; a.col = col;
+    a = buildAvatar(look, tag); a.nick = nick; a.col = col; a.tag = tag;
     scene.add(a.g); avatars.set(id, a);
   }
   a.tx = x; a.tz = z; a.tyaw = yaw; a.seat = seat; a.seen = frameNo;
@@ -1255,6 +1255,24 @@ function updateAvatars(dt, t) {
     a.g.visible = a.seat >= 0 || Math.hypot(a.x - camera.position.x, a.z - camera.position.z) > 0.4; // never film from inside someone
     a.g.rotation.y = a.yaw;
     animateAvatar(a, dt, t, moving);
+  }
+  keepTagsClear();
+}
+// name tags slide down toward the head rather than hide under the top banner
+const TAG_Y = 2.08, TAG_MIN_Y = 1.72, tagV = new THREE.Vector3();
+function keepTagsClear() {
+  const b = $('#banner'), r = b.hidden ? null : b.getBoundingClientRect();
+  const limit = r ? 1 - 2 * (r.bottom + 6) / innerHeight : 1; // in NDC
+  const left = r ? 2 * (r.left - 60) / innerWidth - 1 : 0, right = r ? 2 * (r.right + 60) / innerWidth - 1 : 0;
+  camera.updateMatrixWorld();
+  const topAt = (a, y) => tagV.set(0, y + 0.125, 0).applyMatrix4(a.g.matrixWorld).project(camera).y;
+  for (const a of avatars.values()) {
+    if (!a.tag) continue;
+    a.g.updateMatrixWorld();
+    const hi = topAt(a, TAG_Y);
+    if (hi <= limit || tagV.z > 1 || tagV.x < left || tagV.x > right) { a.tag.position.y = TAG_Y; continue; }
+    const lo = topAt(a, TAG_MIN_Y);
+    a.tag.position.y = lo >= limit ? TAG_MIN_Y : TAG_MIN_Y + (TAG_Y - TAG_MIN_Y) * (limit - lo) / (hi - lo);
   }
 }
 // the avatar standing for player i, if anyone can see one (never your own)
