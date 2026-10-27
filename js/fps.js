@@ -3,22 +3,46 @@
 // (fine between friends); everyone keeps their own health and score in presence.
 // Bots live in the browser of the player who added them, who streams them to the others.
 import * as THREE from 'three';
-import { toon, roundedBox } from './fx.js';
+import { toon, roundedBox, makeGlow } from './fx.js';
 import { randomLook, seededRand } from './avatar.js';
 import { slide, fall, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
 
-const MAX_HP = 6, RESPAWN = 3, SHIELD = 1.5, RANGE = 30; // health in half hearts
-// spread when firing from the hip / while aiming; zoom divides the field of view
+const MAX_HP = 6, RESPAWN = 3, SHIELD = 1.5, RANGE = 60; // health in half hearts; RANGE: the longest shot of all
+const MAX_ARMOR = 4; // armor soaks up damage before health
+// spread when firing from the hip / while aiming; zoom divides the field of view; kick: recoil
+// heavy weapons are picked up from the floor: no reload, `mag` shots, then they're gone
 const WEAPONS = {
-  pistol: { name: 'Pistolet', cooldown: 0.3, mag: 8, reload: 1.3, spread: 0.012, aimSpread: 0.003, damage: 2, zoom: 1.35, auto: false, muzzle: -0.35 },
-  rifle: { name: 'Fusil',cooldown: 0.11, mag: 24, reload: 2.0, spread: 0.03, aimSpread: 0.008, damage: 1, zoom: 1.7, auto: true, muzzle: -0.62 }
+  pistol: { name: 'Pistolet', cooldown: 0.3, mag: 8, reload: 1.3, spread: 0.012, aimSpread: 0.003, damage: 2, zoom: 1.35, auto: false, muzzle: -0.35, range: 30, kick: 1 },
+  rifle: { name: 'Fusil', cooldown: 0.11, mag: 24, reload: 2.0, spread: 0.03, aimSpread: 0.008, damage: 1, zoom: 1.7, auto: true, muzzle: -0.62, range: 30, kick: 0.6, climb: 0.006 },
+  smg: { name: 'Mitraillette', cooldown: 0.065, mag: 32, reload: 1.7, spread: 0.05, aimSpread: 0.025, damage: 1, zoom: 1.25, auto: true, muzzle: -0.32, range: 20, kick: 0.45, climb: 0.004 },
+  sniper: { name: 'Sniper', cooldown: 1.2, mag: 4, reload: 2.4, spread: 0.09, aimSpread: 0, damage: 4, zoom: 4, auto: false, muzzle: -0.86, range: 60, kick: 1.6, scope: true },
+  rocket: { name: 'Lance-roquettes', cooldown: 1.0, mag: 4, heavy: true, spread: 0.01, aimSpread: 0.004, damage: 0, zoom: 1.3, auto: false, muzzle: -0.55, range: 40, kick: 2, splash: 3, splashDmg: 6 },
+  railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 }
 };
-const SLOTS = ['pistol', 'rifle'];
+const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun'];
+const BASIC = 4; // the first four are always in your hands; the others only once picked up
+const ROCKET_SPEED = 20;
+// on the floor of the map, coming back a while after someone takes them
+const PICKUPS = {
+  health: { name: 'Soin', every: 15 },
+  armor: { name: 'Armure', every: 20 },
+  rocket: { name: 'Lance-roquettes', every: 30 },
+  railgun: { name: 'Railgun', every: 35 }
+};
 const FOV = 70;
 const BODY_R = 0.32, EYE = 1.5;
 const HEAD_Y = 1.38, HEAD_R = 0.27; // where a standing head sits, and how big a target it is (generous: cartoon heads)
 const BOT_NAMES = ['Zip', 'Bolt', 'Pixel', 'Turbo', 'Nova', 'Gizmo', 'Rivet', 'Volt'];
 const BOT_COLS = ['#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5a', '#f08a3c', '#f4b63f'];
+// what bots carry, and how they fire it: shots per burst, gap between, pause after, aim
+const BOT_GUNS = {
+  pistol: { burst: 1, gap: 0, pause: 0.9, spread: 0.07, drift: 0.006 },
+  rifle: { burst: 4, gap: 0.13, pause: 1.2, spread: 0.09, drift: 0.007 },
+  smg: { burst: 6, gap: 0.08, pause: 1.3, spread: 0.11, drift: 0.009 }
+};
+const BOT_ARMS = Object.keys(BOT_GUNS);
+const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack' };
+const PAD_COL = { health: '#ea6a4f', armor: '#5b9bd5', rocket: '#8fbf5a', railgun: '#7fe8ff' };
 
 const CSS = `
 #fpsBoard{pointer-events:auto;min-width:190px;max-width:240px;background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:14px;padding:10px 12px;backdrop-filter:blur(6px);font-size:13px}
@@ -31,6 +55,12 @@ const CSS = `
 #fpsBar{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(28,21,36,.82);border:1px solid var(--line);border-radius:999px;padding:6px 16px;font-family:var(--display);font-weight:800;font-size:18px;pointer-events:none}
 #fpsBar .hp{letter-spacing:2px}
 #fpsBar .ammo.low{color:var(--coral)}
+#fpsBar .ammo.heavy{color:var(--marigold)}
+#fpsScope{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at center,transparent 0,transparent min(34vw,34vh),rgba(10,6,16,.94) calc(min(34vw,34vh) + 2px));opacity:0;transition:opacity .12s}
+#fpsScope::before,#fpsScope::after{content:'';position:absolute;left:50%;top:50%;background:rgba(10,6,16,.7)}
+#fpsScope::before{width:min(68vw,68vh);height:2px;transform:translate(-50%,-50%)}
+#fpsScope::after{width:2px;height:min(68vw,68vh);transform:translate(-50%,-50%)}
+#fpsScope.on{opacity:1}
 #fpsDown{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(234,106,79,.25),rgba(120,20,30,.55));pointer-events:none;font-family:var(--display);font-weight:800;font-size:26px;text-align:center;text-shadow:0 3px 0 rgba(0,0,0,.4);padding:16px}
 #fpsHurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 30px rgba(234,106,79,.75);opacity:0;transition:opacity .35s}
 #fpsHurt.on{opacity:1;transition:none}
@@ -58,6 +88,7 @@ export function startFps(ctx) {
   const board = el('aside'); board.id = 'fpsBoard'; board.hidden = true;
   const bar = el('div'); bar.id = 'fpsBar'; bar.hidden = true;
   const hpEl = el('span', 'hp'), ammoEl = el('span', 'ammo'); bar.append(hpEl, ammoEl);
+  const scopeEl = el('div'); scopeEl.id = 'fpsScope';
   const downEl = el('div'); downEl.id = 'fpsDown'; downEl.hidden = true;
   const hurtEl = el('div'); hurtEl.id = 'fpsHurt';
   const feed = el('div'); feed.id = 'fpsFeed';
@@ -67,8 +98,8 @@ export function startFps(ctx) {
   const aimBtn = el('button', 'emote', '🔍'); aimBtn.id = 'aimBtn'; aimBtn.type = 'button'; aimBtn.setAttribute('aria-label', 'Viser'); aimBtn.setAttribute('aria-pressed', 'false');
   const swapBtn = el('button', 'emote', '🔁'); swapBtn.id = 'swapBtn'; swapBtn.type = 'button'; swapBtn.setAttribute('aria-label', 'Changer d\'arme');
   aimBtn.addEventListener('pointerdown', e => { e.preventDefault(); aim(!aiming); });
-  swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); select((slot + 1) % SLOTS.length); });
-  document.body.append(hurtEl, downEl, bar, feed, fireBtn, aimBtn, swapBtn);
+  swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(1); });
+  document.body.append(scopeEl, hurtEl, downEl, bar, feed, fireBtn, aimBtn, swapBtn);
   $('#scores').after(board); // top right, like the card game's scores
   fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); trigger(true); });
   fireBtn.addEventListener('pointerup', () => trigger(false));
@@ -132,6 +163,7 @@ export function startFps(ctx) {
   const gun = new THREE.Group();
   // held at half size, close to the eye, so it never pokes through a wall you stand against
   const orange = toon('#f08a3c'), blue = toon('#5b9bd5'), yellow = toon('#f4b63f'), grey = toon('#3a3340'), teal = toon('#4fb3a9');
+  const purple = toon('#8f73e3'), green = toon('#8fbf5a'), red = toon('#ea6a4f'), cyan = toon('#7fe8ff');
   // each blaster as blocks: size, colour, place, tilt; drawn in your hands and in everyone else's
   const PARTS = {
     pistol: [
@@ -142,6 +174,24 @@ export function startFps(ctx) {
       [0.1, 0.12, 0.46, blue, 0, 0, -0.06], [0.06, 0.06, 0.22, yellow, 0, 0.02, -0.4], [0.075, 0.075, 0.03, orange, 0, 0.02, -0.52],
       [0.06, 0.18, 0.09, teal, 0, -0.13, -0.08, 0.25], [0.07, 0.14, 0.08, grey, 0, -0.1, 0.12, -0.25],
       [0.08, 0.1, 0.2, teal, 0, -0.02, 0.26], [0.045, 0.06, 0.16, grey, 0, 0.09, -0.04]
+    ],
+    smg: [
+      [0.09, 0.11, 0.3, teal, 0, 0, -0.02], [0.05, 0.05, 0.14, grey, 0, 0.02, -0.22], [0.065, 0.065, 0.03, orange, 0, 0.02, -0.3],
+      [0.06, 0.14, 0.07, orange, 0, -0.11, 0.07, -0.25], [0.05, 0.2, 0.07, yellow, 0, -0.15, -0.08, 0.1], [0.04, 0.04, 0.18, grey, 0, 0.075, 0]
+    ],
+    sniper: [
+      [0.09, 0.1, 0.56, purple, 0, 0, -0.08], [0.045, 0.045, 0.32, grey, 0, 0.02, -0.5], [0.06, 0.06, 0.03, orange, 0, 0.02, -0.67],
+      [0.055, 0.055, 0.24, grey, 0, 0.1, -0.06], [0.075, 0.075, 0.03, blue, 0, 0.1, -0.19], [0.07, 0.07, 0.03, blue, 0, 0.1, 0.07],
+      [0.06, 0.15, 0.08, teal, 0, -0.11, 0.1, -0.25], [0.08, 0.13, 0.22, purple, 0, -0.03, 0.3]
+    ],
+    rocket: [
+      [0.17, 0.17, 0.7, green, 0, 0.02, -0.1], [0.21, 0.21, 0.05, orange, 0, 0.02, -0.45], [0.21, 0.21, 0.05, orange, 0, 0.02, 0.25],
+      [0.06, 0.15, 0.08, grey, 0, -0.14, 0.02, -0.2], [0.03, 0.08, 0.05, yellow, 0, 0.15, -0.2], [0.08, 0.08, 0.04, red, 0, 0.02, -0.48]
+    ],
+    railgun: [
+      [0.1, 0.12, 0.46, grey, 0, 0, -0.04], [0.03, 0.035, 0.42, teal, 0, 0.055, -0.42], [0.03, 0.035, 0.42, teal, 0, -0.035, -0.42],
+      [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.3], [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.44], [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.58],
+      [0.06, 0.15, 0.08, orange, 0, -0.13, 0.08, -0.25], [0.09, 0.11, 0.16, purple, 0, 0, 0.26]
     ]
   };
   function model(kind, parent) {
@@ -149,10 +199,13 @@ export function startFps(ctx) {
     for (const [w, h, d, mat, x, y, z, rx] of PARTS[kind]) { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; g.add(m); }
     parent.add(g); return g;
   }
-  const models = { pistol: model('pistol', gun), rifle: model('rifle', gun) };
-  models.rifle.position.z = -0.16; // held a little further out than the pistol, so the stock stays out of your face
+  const models = {};
+  for (const k of SLOTS) models[k] = model(k, gun);
+  // long ones held a little further out than the pistol, so the stock stays out of your face
+  models.rifle.position.z = -0.16; models.sniper.position.z = -0.22; models.railgun.position.z = -0.14;
+  models.rocket.position.set(0.04, 0.03, -0.1); // on the shoulder
   // a blaster in someone else's hands: grip in the right palm, barrel along the forearm
-  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12] };
+  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08] };
   function holdGun(a, kind) {
     if (a.heldKind === kind) return;
     if (a.held) a.held.parent.remove(a.held);
@@ -173,21 +226,55 @@ export function startFps(ctx) {
   const tipGeo = new THREE.SphereGeometry(0.024, 10, 8);
   const dartMats = [toon('#5b9bd5'), toon('#ea6a4f')];
   const darts = [];
-  function spawnDart(o, h, stuck) {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(dartGeo, dartMats[0]));
-    const tip = new THREE.Mesh(tipGeo, dartMats[1]); tip.position.z = -0.07; g.add(tip);
+  // a foam dart, a rocket (slow, bursts where it lands) or a railgun beam (there at once, then fades)
+  function spawnDart(o, h, stuck, kind) {
+    if (kind === 'railgun') { beam(o, h); return; }
+    const g = new THREE.Group(), rocket = kind === 'rocket';
+    if (rocket) {
+      g.add(new THREE.Mesh(rocketGeo, green));
+      const tip = new THREE.Mesh(rocketTip, red); tip.position.z = -0.17; g.add(tip);
+      const flame = makeGlow('#ffb36b', 0.5, 0.9); flame.position.z = 0.16; g.add(flame);
+    } else {
+      g.add(new THREE.Mesh(dartGeo, dartMats[0]));
+      const tip = new THREE.Mesh(tipGeo, dartMats[1]); tip.position.z = -0.07; g.add(tip);
+    }
     g.position.copy(o); g.lookAt(h); scene.add(g);
     const len = o.distanceTo(h);
-    darts.push({ g, from: o.clone(), to: h.clone(), t: 0, dur: Math.max(0.05, len / 38), stuck, life: 5 });
+    darts.push({ g, from: o.clone(), to: h.clone(), t: 0, dur: Math.max(0.05, len / (rocket ? ROCKET_SPEED : 38)), stuck, life: rocket ? 0 : 5, rocket });
     if (darts.length > 40) { scene.remove(darts[0].g); darts.shift(); }
   }
+  const rocketGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10); rocketGeo.rotateX(Math.PI / 2);
+  const rocketTip = new THREE.SphereGeometry(0.055, 10, 8);
+  const flashes = []; // beams and blasts, fading out
+  function beam(o, h) {
+    const len = o.distanceTo(h), g = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, len, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const halo = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, len, 8), new THREE.MeshBasicMaterial({ color: '#7fe8ff', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+    for (const m of [core, halo]) { m.rotation.x = Math.PI / 2; g.add(m); }
+    g.position.lerpVectors(o, h, 0.5); g.lookAt(h); scene.add(g);
+    const spark = makeGlow('#7fe8ff', 1.2, 1); spark.position.copy(h); scene.add(spark);
+    flashes.push({ objs: [g, spark], t: 0, dur: 0.6, fade: k => { core.material.opacity = 1 - k; halo.material.opacity = 0.5 * (1 - k); g.scale.set(1 - k, 1 - k, 1); spark.material.opacity = 1 - k; } });
+  }
+  const blastGeo = new THREE.SphereGeometry(1, 20, 14);
+  function blast(p, r) {
+    const ball = new THREE.Mesh(blastGeo, new THREE.MeshBasicMaterial({ color: '#ffb36b', transparent: true, opacity: 0.85, depthWrite: false }));
+    const glow = makeGlow('#ff8a3c', r * 3, 1);
+    ball.position.copy(p); glow.position.copy(p); scene.add(ball, glow);
+    flashes.push({ objs: [ball, glow], t: 0, dur: 0.5, fade: k => { ball.scale.setScalar(0.3 + r * 0.7 * Math.sqrt(k)); ball.material.opacity = 0.85 * (1 - k); ball.material.color.setHSL(0.08 - k * 0.06, 1, 0.65 - k * 0.3); glow.material.opacity = 1 - k; } });
+    playNear(p, 'boom', 25);
+  }
   function updateDarts(dt) {
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i]; f.t += dt; const k = Math.min(1, f.t / f.dur);
+      f.fade(k);
+      if (k >= 1) { for (const o of f.objs) { scene.remove(o); o.traverse(m => { if (m.geometry && m.geometry !== blastGeo) m.geometry.dispose(); if (m.material) m.material.dispose(); }); } flashes.splice(i, 1); }
+    }
     for (let i = darts.length - 1; i >= 0; i--) {
       const d = darts[i];
       if (d.t < d.dur) {
         d.t = Math.min(d.dur, d.t + dt);
         d.g.position.lerpVectors(d.from, d.to, d.t / d.dur);
+        if (d.t >= d.dur && d.rocket) { blast(d.to, WEAPONS.rocket.splash); scene.remove(d.g); d.g.children[2].material.dispose(); darts.splice(i, 1); continue; }
         if (d.t >= d.dur && !d.stuck) { d.vy = 1.2; d.vx = (Math.random() - 0.5) * 1.5; d.vz = (Math.random() - 0.5) * 1.5; } // bounced off someone
         continue;
       }
@@ -204,12 +291,12 @@ export function startFps(ctx) {
   /* ---------- firing (you and bots share it) ---------- */
   const tmpO = new THREE.Vector3(), tmpD = new THREE.Vector3();
   // fire from o along d, as shooter `from`; returns what was hit
-  function fire(o, d, from, spread) {
+  function fire(o, d, from, spread, range = 30) {
     d = d.clone();
     d.x += (Math.random() - 0.5) * 2 * spread; d.y += (Math.random() - 0.5) * 2 * spread; d.z += (Math.random() - 0.5) * 2 * spread;
     d.normalize();
-    const w = worldHit(o, d);
-    let best = w ? w.dist : RANGE, target = null, head = false;
+    const w = worldHit(o, d, range);
+    let best = w ? w.dist : range, target = null, head = false;
     for (const f of fighters()) {
       if (f.id === from || !f.alive) continue;
       const tb = bodyHit(o, d, f.x, f.base, f.z, f.neck - f.base), th = ballHit(o, d, f.head, HEAD_R);
@@ -217,48 +304,95 @@ export function startFps(ctx) {
       if (th !== null && th < best) { best = th; target = f.id; head = true; }
     }
     const h = o.clone().addScaledVector(d, best);
-    return { h, target, head, stuck: !target && !!w };
+    return { h, d, target, head, stuck: !target && !!w };
   }
   const r2 = v => Math.round(v * 100) / 100;
   function sendDart(o, res, from, w) {
     const room = ctx.room();
     if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w, hs: res.head ? 1 : 0 }).catch(() => {});
   }
+  // a rocket bursts at p: everyone close enough, and not behind a wall, takes some damage
+  // (the shooter works it out when the rocket lands and tells the others on `boom`)
+  function splash(p, from) {
+    const W_ = WEAPONS.rocket, hits = [];
+    for (const f of fighters()) {
+      if (!f.alive) continue;
+      const top = f.base + f.height, dy = Math.max(f.base, Math.min(top, p.y)) - p.y;
+      const dist = Math.hypot(f.x - p.x, f.z - p.z, dy);
+      if (dist > W_.splash || !canSee(p, f.x, f.base, f.z, f.height)) continue;
+      let dmg = Math.max(1, Math.round(W_.splashDmg * (1 - dist / W_.splash)));
+      if (f.id === from) {
+        dmg = Math.ceil(dmg / 2); // your own rocket hurts you less, and throws you up
+        if (f.self && me.jv >= 0) me.jv = Math.max(me.jv, 6 * (1 - dist / W_.splash) + 1);
+      }
+      hits.push([f.id, dmg]);
+    }
+    if (!hits.length) return;
+    const room = ctx.room();
+    if (room) room.emit('boom', { s: from, x: hits }).catch(() => {});
+    for (const [id, dmg] of hits) {
+      if (from === ctx.myKey() && id !== from) hitMarker(false);
+      damage(id, from, dmg, false);
+    }
+  }
 
   // your weapons: which one is out, what's left in each, reloading, switching, aiming
-  let slot = 0, triggerDown = false, nextShot = 0, reloadUntil = 0, reloadSeq = 0, switchUntil = 0, aiming = false, zoom = 1;
-  const ammo = { pistol: WEAPONS.pistol.mag, rifle: WEAPONS.rifle.mag };
+  let slot = 0, last = 0, heavy = null, triggerDown = false, nextShot = 0, reloadUntil = 0, reloadSeq = 0, switchUntil = 0, aiming = false, zoom = 1, chargeAt = 0;
+  const ammo = {};
+  const fillAmmo = () => { for (const k of SLOTS) ammo[k] = WEAPONS[k].heavy ? 0 : WEAPONS[k].mag; };
+  fillAmmo();
   const W = () => WEAPONS[SLOTS[slot]];
+  const has = i => i < BASIC || SLOTS[i] === heavy;
   function trigger(down) {
     triggerDown = down;
     if (down) shoot();
+    else if (chargeAt) { chargeAt = 0; sfx.uncharge(); renderBar(); } // let go too soon: no shot
   }
-  function shoot() {
+  function shoot(charged) {
     if (!me.entered || !alive() || ctx.blocked()) return;
     const t = now(), w = W(), k = SLOTS[slot];
     if (t < nextShot || t < reloadUntil || t < switchUntil) return;
     if (ammo[k] <= 0) { reload(); return; }
+    if (w.charge && !charged) { if (!chargeAt) { chargeAt = t; sfx.charge(w.charge); renderBar(); } return; } // fires once charged, in update()
+    chargeAt = 0;
     nextShot = t + w.cooldown; ammo[k]--;
     camera.getWorldPosition(tmpO); camera.getWorldDirection(tmpD);
     const aimed = (zoom - 1) / (w.zoom - 1); // 0 from the hip, 1 fully aimed
-    const res = fire(tmpO, tmpD, ctx.myKey(), w.spread + (w.aimSpread - w.spread) * Math.max(0, Math.min(1, aimed)));
+    const res = fire(tmpO, tmpD, ctx.myKey(), w.spread + (w.aimSpread - w.spread) * Math.max(0, Math.min(1, aimed)), w.range);
     const muzzle = new THREE.Vector3(0, 0.02, w.muzzle).applyMatrix4(gun.matrixWorld);
-    spawnDart(muzzle, res.h, res.stuck);
-    sfx.dart(w.auto ? 0.7 : 1);
-    kick = w.auto ? 0.6 : 1;
-    if (w.auto) { me.pitch += 0.006; me.yaw += (Math.random() - 0.5) * 0.006; } // a little climb on a long burst
-    sendDart(muzzle, res, ctx.myKey(), k);
-    if (res.target) {
-      hitMarker(res.head);
-      if (res.head) { const a = [...avatars.values()].find(v => v.who === res.target); if (a) ctx.react(a, 'shock', 0.6); }
-      damage(res.target, ctx.myKey(), w.damage * (res.head ? 2 : 1), res.head); // the head counts double
+    if (w.scope && aimed > 0.8) muzzle.copy(tmpO).addScaledVector(tmpD, 0.3).y -= 0.08; // through the scope: the gun is out of sight
+    spawnDart(muzzle, res.h, res.stuck, k);
+    if (k === 'rocket') sfx.whoosh(); else if (k === 'railgun') sfx.zap(); else if (k === 'sniper') sfx.crack(); else sfx.dart(w.auto ? 0.7 : 1);
+    kick = w.kick;
+    if (w.climb) { me.pitch += w.climb; me.yaw += (Math.random() - 0.5) * w.climb; } // a little climb on a long burst
+    if (k === 'rocket') {
+      // the rocket flies a while: hurt whoever is near where it lands, once it gets there
+      sendDart(muzzle, { ...res, target: null }, ctx.myKey(), k);
+      const p = res.h.clone().addScaledVector(res.d, -0.15), from = ctx.myKey();
+      setTimeout(() => splash(p, from), muzzle.distanceTo(res.h) / ROCKET_SPEED * 1000);
+    } else {
+      sendDart(muzzle, res, ctx.myKey(), k);
+      if (res.target) {
+        hitMarker(res.head);
+        if (res.head) { const a = [...avatars.values()].find(v => v.who === res.target); if (a) ctx.react(a, 'shock', 0.6); }
+        damage(res.target, ctx.myKey(), w.damage * (res.head ? 2 : 1), res.head); // the head counts double
+      }
     }
-    if (ammo[k] === 0) reload();
+    if (ammo[k] === 0) {
+      if (w.heavy) setTimeout(() => { if (heavy === k && ammo[k] === 0) dropHeavy(); }, 600); // empty: thrown away
+      else reload();
+    }
     renderBar();
+  }
+  function dropHeavy() {
+    const was = SLOTS[slot] === heavy;
+    heavy = null; chargeAt = 0;
+    if (was) select(last < BASIC ? last : 0);
+    renderBar(); pushMine();
   }
   function reload() {
     const k = SLOTS[slot], w = W();
-    if (reloadUntil > now() || ammo[k] === w.mag || !alive()) return;
+    if (w.heavy || reloadUntil > now() || ammo[k] === w.mag || !alive()) return;
     reloadUntil = now() + w.reload; sfx.reload();
     const seq = ++reloadSeq;
     setTimeout(() => { if (seq === reloadSeq) { ammo[k] = w.mag; renderBar(); } }, w.reload * 1000);
@@ -266,12 +400,17 @@ export function startFps(ctx) {
   }
   // take out another weapon (a switch cancels a reload)
   function select(i) {
-    if (!SLOTS[i]) return false;
+    if (!SLOTS[i] || !has(i)) return false;
     if (i !== slot && me.entered && alive()) {
-      slot = i; reloadSeq++; reloadUntil = 0; switchUntil = now() + 0.35; triggerDown = false;
+      if (slot < BASIC) last = slot;
+      slot = i; reloadSeq++; reloadUntil = 0; switchUntil = now() + 0.35; triggerDown = false; chargeAt = 0;
       sfx.reload(); renderBar(); pushMine(); // the others see the new blaster in your hands
     }
     return true;
+  }
+  // the next weapon you have, either way (the mouse wheel, the phone's switch button)
+  function cycle(dir) {
+    for (let n = 1; n <= SLOTS.length; n++) { const i = (slot + dir * n + SLOTS.length * n) % SLOTS.length; if (has(i)) { select(i); return; } }
   }
   function aim(on) { aiming = on && me.entered && alive(); }
   let markTimer = null;
@@ -282,7 +421,7 @@ export function startFps(ctx) {
   }
 
   /* ---------- health, knock-outs, scores ---------- */
-  let hp = MAX_HP, kills = 0, deaths = 0, downUntil = 0, shieldUntil = 0, downBy = '';
+  let hp = MAX_HP, armor = 0, kills = 0, deaths = 0, downUntil = 0, shieldUntil = 0, downBy = '';
   const alive = () => hp > 0;
   function pushMine() { const room = ctx.room(); if (room) room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot] }).catch(() => {}); }
   // a dart landed on `target`, fired by `from`: only the target's owner applies it
@@ -290,16 +429,30 @@ export function startFps(ctx) {
     if (target === ctx.myKey()) hurtMe(from, dmg, head);
     else { const b = bots.get(target); if (b) hurtBot(b, from, dmg, head); }
   }
+  // armor takes the damage first
+  function soak(who, dmg) {
+    const a = Math.min(who.armor || 0, dmg);
+    who.armor = (who.armor || 0) - a;
+    return dmg - a;
+  }
   function hurtMe(from, dmg, head) {
     if (!alive() || now() < shieldUntil) return;
+    const mine = { armor }; dmg = soak(mine, dmg); armor = mine.armor;
     hp = Math.max(0, hp - dmg); sfx.bonk();
     hurtEl.classList.add('on'); setTimeout(() => hurtEl.classList.remove('on'), 60);
-    if (hp <= 0) { deaths++; downUntil = now() + RESPAWN; downBy = nameOf(from) + (head ? ', en pleine tête' : ''); knockedOut(ctx.myKey(), from, head); }
+    if (hp <= 0) {
+      deaths++; downUntil = now() + RESPAWN; chargeAt = 0;
+      downBy = from === ctx.myKey() ? 'ta propre roquette' : nameOf(from) + (head ? ', en pleine tête' : '');
+      if (heavy) { heavy = null; if (slot >= BASIC) slot = last; } // a picked-up weapon is lost
+      knockedOut(ctx.myKey(), from, head);
+    }
     pushMine(); renderBar();
   }
   function knockedOut(victim, by, head) {
-    if (by === ctx.myKey()) kills++;
-    else { const b = bots.get(by); if (b) b.kills++; }
+    if (by !== victim) { // knocking yourself out scores nothing
+      if (by === ctx.myKey()) kills++;
+      else { const b = bots.get(by); if (b) b.kills++; }
+    }
     const room = ctx.room();
     if (room) room.emit('ko', { v: victim, k: by, h: head ? 1 : 0 }).catch(() => {});
     announce(victim, by, head);
@@ -307,7 +460,9 @@ export function startFps(ctx) {
   function announce(victim, by, head) {
     const me_ = ctx.myKey();
     const v = victim === me_ ? 'toi' : nameOf(victim), k = by === me_ ? 'Tu' : nameOf(by);
-    const line = el('div', null, (by === me_ ? `Tu as éliminé ${v} 🎯` : victim === me_ ? `${k} t'a éliminé` : `${k} a éliminé ${v}`) + (head ? ' 💥 dans la tête !' : ''));
+    const text = victim === by ? (by === me_ ? 'Tu t\'es éliminé tout seul 🙃' : `${k} s'est éliminé tout seul 🙃`)
+      : (by === me_ ? `Tu as éliminé ${v} 🎯` : victim === me_ ? `${k} t'a éliminé` : `${k} a éliminé ${v}`) + (head ? ' 💥 dans la tête !' : '');
+    const line = el('div', null, text);
     feed.append(line);
     setTimeout(() => { line.style.opacity = '0'; setTimeout(() => line.remove(), 700); }, 3000);
     while (feed.children.length > 4) feed.firstChild.remove();
@@ -331,7 +486,7 @@ export function startFps(ctx) {
   function respawnMe() {
     const [x, y, z] = respawnSpot();
     me.x = x; me.z = z; me.jy = y; me.jv = 0; me.yaw = Math.atan2(x, z); me.pitch = -0.05;
-    hp = MAX_HP; shieldUntil = now() + SHIELD; ammo.pistol = WEAPONS.pistol.mag; ammo.rifle = WEAPONS.rifle.mag; reloadUntil = 0; reloadSeq++;
+    hp = MAX_HP; armor = 0; heavy = null; if (slot >= BASIC) slot = last; shieldUntil = now() + SHIELD; fillAmmo(); reloadUntil = 0; reloadSeq++;
     setTimeout(pushMine, SHIELD * 1000 + 50); // the shield ends even if this tab is in the background
     pushMine(); renderBar();
   }
@@ -346,7 +501,7 @@ export function startFps(ctx) {
     bots.set(id, {
       id, nick: '🤖 ' + BOT_NAMES[n % BOT_NAMES.length], col: BOT_COLS[n % BOT_COLS.length], seed, look: randomLook(seededRand(seed)),
       x, z, y, vy: 0, yaw: 0, crouch: false, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
-      weapon: Math.random() < 0.5 ? 'rifle' : 'pistol', burst: 4,
+      weapon: BOT_ARMS[n % 3], burst: 0, armor: 0,
       path: [], step: 0, repath: 0, think: 0, target: null, lastSeen: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0,
       stuckAt: 0, stuckX: x, stuckZ: z
     });
@@ -358,7 +513,7 @@ export function startFps(ctx) {
   }
   function hurtBot(b, from, dmg, head) {
     if (b.hp <= 0 || now() < b.shieldUntil) return;
-    b.hp = Math.max(0, b.hp - dmg);
+    b.hp = Math.max(0, b.hp - soak(b, dmg));
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
     if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from, head); }
     else if (!b.target) b.think = 0; // look around for whoever did that
@@ -382,7 +537,7 @@ export function startFps(ctx) {
     if (b.hp <= 0) {
       if (t > b.downUntil) {
         const [x, y, z] = respawnSpot();
-        Object.assign(b, { x, y, z, vy: 0, hp: MAX_HP, shieldUntil: t + SHIELD, target: null, lastSeen: null, path: [], repath: 0, nextShot: t + 1 });
+        Object.assign(b, { x, y, z, vy: 0, hp: MAX_HP, armor: 0, shieldUntil: t + SHIELD, target: null, lastSeen: null, path: [], repath: 0, nextShot: t + 1 });
       }
       return;
     }
@@ -413,13 +568,13 @@ export function startFps(ctx) {
       // shoot when roughly facing them
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       if (Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + 0.7) {
-        const rifle = b.weapon === 'rifle';
-        // pistol bots take their time; rifle bots fire short bursts, then pause
-        if (rifle && --b.burst > 0) b.nextShot = t + 0.13;
-        else { b.nextShot = t + (rifle ? 1.2 : 0.9) + Math.random() * 0.8; b.burst = 4; }
+        const g = BOT_GUNS[b.weapon];
+        // pistol bots take their time; the others fire short bursts, then pause
+        if (--b.burst > 0) b.nextShot = t + g.gap;
+        else { b.nextShot = t + g.pause + Math.random() * 0.8; b.burst = g.burst; }
         const dir = new THREE.Vector3(f.x - b.x, f.base + f.height * 0.6 - botO.y, f.z - b.z).normalize();
         const o = botO.clone().addScaledVector(dir, 0.4);
-        const res = fire(o, dir, b.id, (rifle ? 0.09 : 0.07) + d * (rifle ? 0.007 : 0.006));
+        const res = fire(o, dir, b.id, g.spread + d * g.drift, WEAPONS[b.weapon].range);
         spawnDart(o, res.h, res.stuck);
         playNear(o, 'dart');
         sendDart(o, res, b.id, b.weapon);
@@ -451,15 +606,80 @@ export function startFps(ctx) {
       b.stuckAt = t + 1; b.stuckX = b.x; b.stuckZ = b.z;
     }
   }
-  function playNear(o, kind) {
+  function playNear(o, kind, far = 12) {
     const d = o.distanceTo(camera.position);
-    if (d < 12) sfx[kind](Math.max(0.15, 1 - d / 12));
+    if (d < far) sfx[kind](Math.max(0.15, 1 - d / far));
   }
   let botSend = 0;
   function streamBots() {
     const room = ctx.room(); if (!room || !bots.size) return;
     const t = now(); if (t - botSend < 0.1) return; botSend = t;
-    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0, b.crouch ? 1 : 0, b.weapon === 'rifle' ? 1 : 0, r2(b.pitch || 0)])).catch(() => {});
+    room.emit('bots', [...bots.values()].map(b => [b.id, b.nick, b.col, b.seed, r2(b.x), r2(b.z), r2(b.yaw), r2(b.y), b.hp, b.kills, b.deaths, t < b.shieldUntil ? 1 : 0, b.crouch ? 1 : 0, SLOTS.indexOf(b.weapon), r2(b.pitch || 0)])).catch(() => {});
+  }
+
+  /* ---------- things to pick up on the floor ---------- */
+  // each one turns on a pad; walk over it to take it. Whoever takes it tells the others on
+  // `pick`, and everyone counts down to its return on their own clock
+  const padGeo = new THREE.CylinderGeometry(0.55, 0.6, 0.06, 24);
+  const pickups = (ctx.pickups || []).map(([kind, x, y, z], i) => {
+    const g = new THREE.Group(), item = new THREE.Group();
+    g.position.set(x, y, z);
+    const pad = new THREE.Mesh(padGeo, toon(PAD_COL[kind])); pad.position.y = 0.03; g.add(pad);
+    const glow = makeGlow(PAD_COL[kind], 1.6, 0.55); glow.position.y = 0.5; g.add(glow);
+    if (kind === 'health') {
+      item.add(new THREE.Mesh(roundedBox(0.36, 0.36, 0.36), toon('#fbf3e4')));
+      for (const [w, h] of [[0.38, 0.1], [0.1, 0.38]]) { const c = new THREE.Mesh(roundedBox(w, h, 0.38), red); item.add(c); }
+    } else if (kind === 'armor') {
+      item.add(new THREE.Mesh(roundedBox(0.4, 0.46, 0.1), blue));
+      const s = new THREE.Mesh(roundedBox(0.1, 0.36, 0.12), yellow); item.add(s);
+      const s2 = new THREE.Mesh(roundedBox(0.3, 0.1, 0.12), yellow); s2.position.y = 0.05; item.add(s2);
+    } else { const m = model(kind, item); m.scale.setScalar(0.9); m.position.z = 0.15; }
+    item.position.y = 0.6; g.add(item); scene.add(g);
+    return { i, kind, x, y, z, g, item, glow, back: 0 };
+  });
+  function takePickup(p, t) {
+    p.back = t + PICKUPS[p.kind].every;
+    const room = ctx.room();
+    if (room) room.emit('pick', { i: p.i, k: p.kind }).catch(() => {});
+  }
+  // what you'd get from it right now (nothing if you're full)
+  function wantsPickup(kind) {
+    if (kind === 'health') return hp < MAX_HP;
+    if (kind === 'armor') return armor < MAX_ARMOR;
+    return heavy !== kind || ammo[kind] < WEAPONS[kind].mag;
+  }
+  function grab(p) {
+    const k = p.kind;
+    if (k === 'health') hp = Math.min(MAX_HP, hp + 4);
+    else if (k === 'armor') armor = MAX_ARMOR;
+    else {
+      if (heavy && heavy !== k) ammo[heavy] = 0;
+      heavy = k; ammo[k] = WEAPONS[k].mag;
+      select(SLOTS.indexOf(k)); // in your hands straight away
+    }
+    sfx.pickup();
+    toast(k === 'health' ? 'Soin : +2 cœurs ❤️' : k === 'armor' ? 'Armure : 🛡️🛡️' : `${WEAPONS[k].name} ! (${key5()})`);
+    pushMine(); renderBar();
+  }
+  const key5 = () => coarse ? '🔁 pour changer' : 'touche ' + ctx.keyLabel('weapon5');
+  function updatePickups(dt) {
+    const t = now();
+    for (const p of pickups) {
+      const up = t >= p.back;
+      p.item.visible = up; p.glow.material.opacity = up ? 0.55 : 0.12;
+      if (!up) continue;
+      p.item.rotation.y += dt * 1.8;
+      p.item.position.y = 0.6 + Math.sin(t * 2.4 + p.i) * 0.08;
+      const near = (x, y, z) => Math.hypot(x - p.x, z - p.z) < 0.8 && Math.abs(y - p.y) < 0.9;
+      if (me.entered && alive() && near(me.x, me.jy, me.z) && wantsPickup(p.kind)) { takePickup(p, t); grab(p); continue; }
+      // your bots take health and armor when they walk over them
+      if (p.kind !== 'health' && p.kind !== 'armor') continue;
+      for (const b of bots.values()) {
+        if (b.hp <= 0 || !near(b.x, b.y, b.z)) continue;
+        if (p.kind === 'health' && b.hp < MAX_HP) { b.hp = Math.min(MAX_HP, b.hp + 4); takePickup(p, t); break; }
+        if (p.kind === 'armor' && b.armor < MAX_ARMOR) { b.armor = MAX_ARMOR; takePickup(p, t); break; }
+      }
+    }
   }
 
   /* ---------- network ---------- */
@@ -469,15 +689,17 @@ export function startFps(ctx) {
     if (!Array.isArray(d.o) || !Array.isArray(d.h) || d.o.length !== 3 || d.h.length !== 3 || !d.o.concat(d.h).every(Number.isFinite)) return;
     const o = new THREE.Vector3(...d.o), h = new THREE.Vector3(...d.h);
     if (o.distanceTo(h) > RANGE + 1) return;
-    spawnDart(o, h, d.k === 1);
-    playNear(o, 'dart');
-    if (typeof d.t === 'string' && shooter) damage(d.t, shooter, (WEAPONS[d.w] ? WEAPONS[d.w].damage : 2) * (d.hs === 1 ? 2 : 1), d.hs === 1);
+    if (!Object.hasOwn(WEAPONS, d.w)) d.w = 'pistol';
+    spawnDart(o, h, d.k === 1, d.w);
+    playNear(o, SHOT_SFX[d.w] || 'dart', d.w === 'railgun' || d.w === 'sniper' ? 30 : 12);
+    if (typeof d.t === 'string' && shooter) damage(d.t, shooter, WEAPONS[d.w].damage * (d.hs === 1 ? 2 : 1), d.hs === 1);
   }
   function onKo(m) {
     if (m.isMe) return;
     const d = m.data || {};
     if (typeof d.v !== 'string' || typeof d.k !== 'string') return;
-    if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
+    if (d.v === d.k) { /* knocked themselves out: nobody scores */ }
+    else if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
     else { const b = bots.get(d.k); if (b) b.kills++; }
     announce(d.v, d.k, d.h === 1);
   }
@@ -486,11 +708,27 @@ export function startFps(ctx) {
     const owner = m.by;
     for (const r of m.data.slice(0, 12)) {
       if (!Array.isArray(r) || typeof r[0] !== 'string' || !r[0].startsWith('bot:' + owner + ':')) continue;
-      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, weapon: r[13] === 1 ? 'rifle' : 'pistol', pitch: Math.max(-1.2, Math.min(1.2, +r[14] || 0)), seen: now(), owner });
+      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, weapon: BOT_GUNS[SLOTS[r[13]]] ? SLOTS[r[13]] : 'pistol', pitch: Math.max(-1.2, Math.min(1.2, +r[14] || 0)), seen: now(), owner });
     }
   }
+  function onBoom(m) {
+    if (m.isMe) return;
+    const d = m.data || {};
+    if (typeof d.s !== 'string' || !Array.isArray(d.x)) return;
+    for (const h of d.x.slice(0, 24)) {
+      if (!Array.isArray(h) || typeof h[0] !== 'string') continue;
+      damage(h[0], d.s, Math.max(1, Math.min(WEAPONS.rocket.splashDmg, h[1] | 0)), false);
+    }
+  }
+  function onPick(m) {
+    if (m.isMe) return;
+    const d = m.data || {}, p = pickups[d.i | 0];
+    if (!p || p.kind !== d.k) return;
+    if (now() >= p.back) playNear(p.g.position, 'pickup', 8);
+    p.back = now() + PICKUPS[p.kind].every;
+  }
   const room0 = ctx.room();
-  if (room0) { room0.on('dart', onDart, () => {}); room0.on('ko', onKo, () => {}); room0.on('bots', onBots, () => {}); }
+  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick]]) room0.on(topic, fn, () => {});
 
   /* ---------- HUD ---------- */
   function renderBar() {
@@ -498,9 +736,10 @@ export function startFps(ctx) {
     // three hearts, each one two hits of the rifle or one of the pistol
     let hearts = '';
     for (let i = 0; i < MAX_HP / 2; i++) hearts += hp >= i * 2 + 2 ? '❤️' : hp === i * 2 + 1 ? '💔' : '🤍';
-    hpEl.textContent = hearts;
+    hpEl.textContent = hearts + '🛡️'.repeat(Math.ceil(armor / 2));
     const reloading = now() < reloadUntil, w = W(), k = SLOTS[slot];
-    ammoEl.textContent = `${w.name} · ` + (reloading ? 'recharge…' : `${ammo[k]}/${w.mag}`);
+    ammoEl.textContent = `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : w.heavy ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
+    ammoEl.classList.toggle('heavy', !!w.heavy);
     ammoEl.classList.toggle('low', !reloading && ammo[k] <= w.mag / 4);
   }
   let boardSig = '';
@@ -584,7 +823,9 @@ export function startFps(ctx) {
     kick = Math.max(0, kick - dt * 9);
     const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / w.reload) * Math.PI) : 0;
     const sw = t < switchUntil ? (switchUntil - t) / 0.35 : 0;
-    gun.visible = me.entered && alive();
+    const scoped = !!w.scope && aimed > 0.85; // looking through the sniper's scope
+    scopeEl.classList.toggle('on', scoped && me.entered && alive());
+    gun.visible = me.entered && alive() && !scoped;
     // bottom right of the view, whatever the screen shape (a phone held upright is narrow)
     const hh = -gunRest.z * Math.tan(FOV * Math.PI / 360), hw = hh * camera.aspect;
     const s = Math.min(1, camera.aspect * 1.3);
@@ -592,8 +833,14 @@ export function startFps(ctx) {
     const rx = Math.min(gunRest.x, hw * 0.6), ry = Math.max(gunRest.y, -hh * 0.75);
     gun.position.set((rx + (gunAim.x - rx) * aimed) / zoom, (ry + (gunAim.y - ry) * aimed - rl * 0.06 - sw * 0.08) / zoom, gunRest.z + kick * 0.03);
     gun.rotation.set(kick * 0.25 - rl * 0.6 - sw * 0.5, 0, rl * 0.3);
+    if (chargeAt) { // the railgun shakes as it charges, then fires by itself
+      const c = Math.min(1, (t - chargeAt) / w.charge);
+      gun.position.x += (Math.random() - 0.5) * 0.006 * c; gun.position.y += (Math.random() - 0.5) * 0.006 * c;
+      if (c >= 1) shoot(true);
+    }
     if (triggerDown && w.auto) shoot();
     updateDarts(dt);
+    updatePickups(dt);
     $('#cross').hidden = !me.entered || !alive() || ctx.blocked();
     fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && me.entered && alive());
     aimBtn.setAttribute('aria-pressed', String(aiming));
@@ -601,7 +848,8 @@ export function startFps(ctx) {
   }
   return {
     update, syncAvatars, peerAvatar, trigger, reload, select, aim,
-    cycle(dir) { select((slot + dir + SLOTS.length) % SLOTS.length); },
+    cycle,
+    selectHeavy() { if (heavy) select(SLOTS.indexOf(heavy)); },
     lookScale: () => 1 / zoom, // slower mouse while zoomed in
     onEnter() { respawnMe(); renderBoard(); renderBar(); }
   };

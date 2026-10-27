@@ -1198,6 +1198,9 @@ addEventListener('keydown', e => {
     if (fps && act === 'reload') fps.reload();
     if (fps && act === 'weapon1') fps.select(0);
     if (fps && act === 'weapon2') fps.select(1);
+    if (fps && act === 'weapon3') fps.select(2);
+    if (fps && act === 'weapon4') fps.select(3);
+    if (fps && act === 'weapon5') fps.selectHeavy();
     if (!act && /^Digit[1-6]$/.test(e.code)) emote(+e.code.slice(5) - 1); // number keys left free make faces
   }
   keys[e.code] = true;
@@ -1868,8 +1871,9 @@ function renderHelp() {
   const k = id => kbd(id).slice(5, -6), row = (keysHtml, text) => `<kbd>${keysHtml}</kbd><span>${text}</span>`;
   const move = row(`${k('forward')} ${k('left')} ${k('back')} ${k('right')}`, `se déplacer (${k('run')} : courir)`);
   $('#help').innerHTML = FPS
-    ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil)') + row('Clic droit', 'viser (zoom)')
-      + row(`${k('weapon1')} ${k('weapon2')}`, 'pistolet ou fusil d\'assaut (ou molette)') + row(k('reload'), 'recharger')
+    ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil, la mitraillette ou le railgun)') + row('Clic droit', 'viser (zoom, lunette du sniper)')
+      + row(`${k('weapon1')} ${k('weapon2')} ${k('weapon3')} ${k('weapon4')}`, 'pistolet, fusil, mitraillette, sniper (ou molette)')
+      + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger')
       + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'libérer la souris') + row(k('chat'), `écrire un message (${k('mic')} : micro)`)
     : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'libérer la souris')
       + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)
@@ -2256,7 +2260,7 @@ async function startBattle() {
   const map = buildMap(scene);
   setWorld({ ...map.bounds, boxes: map.boxes });
   fps = startFps({
-    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns,
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, keyLabel: label,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol,
     blocked: () => editor.isOpen() || $('#rules').open || $('#controls').open || !$('#chatForm').hidden
   });

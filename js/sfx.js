@@ -117,6 +117,47 @@ export const sfx = {
     if (!ready()) return; const t = ctx.currentTime;
     tone(700, t, 0.07, { type: 'square', gain: 0.08, slideTo: 1100, lowpass: 2500 });
   },
+  crack(g = 1) {
+    // the sniper: a sharp snap, then a tail
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.05, { freq: 3500, q: 0.7, gain: 0.4 * g });
+    noise(t + 0.02, 0.35, { filter: 'lowpass', freq: 900, slideTo: 200, gain: 0.25 * g });
+    tone(1400, t, 0.12, { type: 'triangle', gain: 0.06 * g, slideTo: 500 });
+  },
+  whoosh(g = 1) {
+    // a rocket leaving the tube
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.45, { freq: 400, slideTo: 1800, q: 0.9, gain: 0.3 * g, attack: 0.03 });
+    tone(110, t, 0.2, { type: 'sawtooth', gain: 0.08 * g, slideTo: 60, lowpass: 600 });
+  },
+  boom(g = 1) {
+    // a rocket bursts: a low thump and a crackle
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(90, t, 0.6, { gain: 0.5 * g, slideTo: 35 });
+    noise(t, 0.7, { filter: 'lowpass', freq: 1400, slideTo: 120, gain: 0.5 * g, attack: 0.005 });
+    for (let i = 0; i < 5; i++) noise(t + 0.05 + Math.random() * 0.3, 0.04, { freq: 2500 + Math.random() * 2000, q: 2, gain: 0.08 * g });
+  },
+  charge(secs = 1) {
+    // the railgun winding up
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(220, t, secs, { type: 'sawtooth', gain: 0.07, slideTo: 1500, lowpass: 2600, attack: secs * 0.8 });
+    tone(330, t, secs, { type: 'sine', gain: 0.06, slideTo: 2200, attack: secs * 0.8, vibrato: 18 });
+  },
+  uncharge() {
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(700, t, 0.25, { type: 'triangle', gain: 0.08, slideTo: 150 });
+  },
+  zap(g = 1) {
+    // the railgun fires
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(2400, t, 0.4, { type: 'sawtooth', gain: 0.12 * g, slideTo: 120, lowpass: 5000 });
+    noise(t, 0.25, { freq: 5000, slideTo: 800, q: 0.6, gain: 0.3 * g });
+    tone(60, t, 0.3, { gain: 0.3 * g, slideTo: 40 });
+  },
+  pickup(g = 1) {
+    if (!ready()) return; const t = ctx.currentTime;
+    [76, 81, 88].forEach((m, i) => tone(mtof(m), t + i * 0.06, 0.18, { type: 'triangle', gain: 0.12 * g }));
+  },
   reload() {
     if (!ready()) return; const t = ctx.currentTime;
     noise(t, 0.05, { freq: 2600, q: 2, gain: 0.15 });

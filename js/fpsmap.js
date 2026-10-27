@@ -138,5 +138,9 @@ export function buildMap(scene) {
 
   const spawns = [[-14, 0, -10], [-14, 0, 10], [14.8, 0, -10.5], [14.8, 0, 10.5], [-13.2, H, 0], [12, H, 3], [0, 0, -11], [0, 0, 11],
     [-5, H, -10], [5, H, 10], [-8, 0, 3], [9.9, 0, -1]];
-  return { bounds: BOUNDS, boxes, spawns };
+  // health in each wing and the hall, armor upstairs, the heavy weapons where everyone fights for them:
+  // the rocket launcher on top of the stage, the railgun in the hut upstairs
+  const pickups = [['health', -10, 0, -5], ['health', 12.9, 0, 0], ['health', 1.6, 0, 5.6], ['armor', -9, H, 2], ['armor', 9.6, H, -4],
+    ['rocket', 0, 1.6, 0], ['railgun', -12.2, H, -8]];
+  return { bounds: BOUNDS, boxes, spawns, pickups };
 }
