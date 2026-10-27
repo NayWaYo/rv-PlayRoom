@@ -284,7 +284,7 @@ table.res tr.win td{color:var(--marigold)}
       <span>Salon <b id="roomCode"></b></span>
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
-    <button class="mode-switch" id="mapSwitch" type="button" hidden></button>
+    <div id="mapSwitch" hidden></div>
     <button class="mode-switch" id="modeSwitch" type="button"></button>
   </form>
 </div>
@@ -519,10 +519,14 @@ const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 const coarse = matchMedia('(pointer: coarse)').matches;
 // a battle room (#fps-CODE) loads the foam-dart game instead of the card table;
-// the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE for the Station
+// the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE for the others
 const FPS = /^#fps-/i.test(location.hash);
-const MAPS = { fort: { name: 'le Fort', file: './js/fpsmap.js', prefix: 'fps-' }, station: { name: 'la Station', file: './js/fpsstation.js', prefix: 'fps-station-' } };
-const mapFromHash = h => /^#fps-station-/i.test(h) ? 'station' : 'fort';
+const MAPS = {
+  fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-' },
+  station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-' },
+  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-' }
+};
+const mapFromHash = h => Object.keys(MAPS).find(k => k !== 'fort' && h.toLowerCase().startsWith('#' + MAPS[k].prefix)) || 'fort';
 const MAP = FPS ? mapFromHash(location.hash) : null;
 const PREFIX = FPS ? MAPS[MAP].prefix : '';
 const fpsModule = FPS ? import('./js/fps.js') : null;
@@ -2131,7 +2135,7 @@ refreshUI();
 const ROOM_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const newCode = () => Array.from({ length: 5 }, () => ROOM_ALPHA[Math.floor(Math.random() * ROOM_ALPHA.length)]).join('');
 function roomCodeFromUrl() {
-  let c = location.hash.replace(/^#(fps-(station-)?)?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  let c = location.hash.replace(/^#(fps-([a-z]+-)?)?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   if (c.length < 4) {
     c = newCode();
     history.replaceState(null, '', '#' + PREFIX + c);
@@ -2225,10 +2229,14 @@ addEventListener('hashchange', () => {
 $('#modeSwitch').textContent = FPS ? 'Créer plutôt un salon de jeux tranquilles' : 'Créer plutôt une bataille de fléchettes 🎯';
 $('#modeSwitch').addEventListener('click', () => { location.hash = (FPS ? '' : 'fps-') + newCode(); });
 if (FPS) {
-  const other = MAP === 'fort' ? 'station' : 'fort';
   $('#mapSwitch').hidden = false;
-  $('#mapSwitch').textContent = `Créer plutôt une bataille dans ${MAPS[other].name} ${other === 'station' ? '🚀' : '🏰'}`;
-  $('#mapSwitch').addEventListener('click', () => { location.hash = MAPS[other].prefix + newCode(); });
+  for (const k of Object.keys(MAPS)) {
+    if (k === MAP) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mode-switch';
+    b.textContent = `Créer plutôt une bataille dans ${MAPS[k].name} ${MAPS[k].icon}`;
+    b.addEventListener('click', () => { location.hash = MAPS[k].prefix + newCode(); });
+    $('#mapSwitch').append(b);
+  }
 }
 
 (async () => {
