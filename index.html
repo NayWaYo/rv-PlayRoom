@@ -1911,7 +1911,8 @@ function renderAudioBtns() {
   const p = getPrefs();
   $('#sfxBtn').setAttribute('aria-pressed', String(p.sfx));
   $('#musicBtn').setAttribute('aria-pressed', String(p.music));
-  $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = $('#rulesBtn').hidden = !me.entered;
+  $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = !me.entered;
+  $('#rulesBtn').hidden = !me.entered || FPS; // the Papayoo rules, only where Papayoo is played
   $('#controlsBtn').hidden = !me.entered || coarse; // keyboard and mouse only
   $('#emotes').hidden = !me.entered || editor.isOpen();
 }
