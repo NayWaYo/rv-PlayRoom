@@ -65,7 +65,7 @@ function buildNav() {
   for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
     const x = W.x0 + i * CELL, z = W.z0 + k * CELL;
     const heights = new Set([0]);
-    for (const B of W.boxes) if (over(B, x, z, 0)) heights.add(B.y1);
+    for (const B of W.boxes) if (over(B, x, z, BODY_R * 0.75)) heights.add(B.y1); // as wide as groundAt looks
     for (const y of heights) {
       if (y > 0 && groundAt(x, z, y) !== y) continue;
       if (blocked(x, z, y, LOW)) continue;
@@ -77,9 +77,11 @@ function buildNav() {
   }
   for (const n of nodes) for (const [di, dk] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
     for (const m of at.get((n.i + di) + ',' + (n.k + dk)) || []) {
-      if (Math.abs(m.y - n.y) > STEP) continue;
-      const mx = (n.x + m.x) / 2, mz = (n.z + m.z) / 2, my = Math.max(n.y, m.y);
-      if (blocked(mx, mz, my, LOW) || Math.abs(groundAt(mx, mz, my) - my) > STEP) continue;
+      // spots half a metre apart on stairs can be two steps apart: fine if the middle is a step in between
+      const lo = Math.min(n.y, m.y), my = Math.max(n.y, m.y);
+      if (my - lo > 2 * STEP) continue;
+      const mx = (n.x + m.x) / 2, mz = (n.z + m.z) / 2, mid = groundAt(mx, mz, lo);
+      if (my - mid > STEP || blocked(mx, mz, mid, LOW)) continue;
       if (di && dk && (blocked(m.x, n.z, my, LOW) || blocked(n.x, m.z, my, LOW))) continue; // no corner cutting
       const cost = Math.hypot(m.x - n.x, m.z - n.z) * (n.crouch || m.crouch ? 1.6 : 1);
       n.next.push([m, cost]); m.next.push([n, cost]);

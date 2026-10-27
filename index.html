@@ -284,6 +284,7 @@ table.res tr.win td{color:var(--marigold)}
       <span>Salon <b id="roomCode"></b></span>
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
+    <button class="mode-switch" id="mapSwitch" type="button" hidden></button>
     <button class="mode-switch" id="modeSwitch" type="button"></button>
   </form>
 </div>
@@ -517,13 +518,18 @@ const su = PY.su, rk = PY.rk;
 const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 const coarse = matchMedia('(pointer: coarse)').matches;
-// a battle room (#fps-CODE) loads the foam-dart game instead of the card table
+// a battle room (#fps-CODE) loads the foam-dart game instead of the card table;
+// the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE for the Station
 const FPS = /^#fps-/i.test(location.hash);
+const MAPS = { fort: { name: 'le Fort', file: './js/fpsmap.js', prefix: 'fps-' }, station: { name: 'la Station', file: './js/fpsstation.js', prefix: 'fps-station-' } };
+const mapFromHash = h => /^#fps-station-/i.test(h) ? 'station' : 'fort';
+const MAP = FPS ? mapFromHash(location.hash) : null;
+const PREFIX = FPS ? MAPS[MAP].prefix : '';
 const fpsModule = FPS ? import('./js/fps.js') : null;
 let fps = null;
 if (FPS) {
   document.querySelector('.intro-card h1').innerHTML = 'Bataille de <span>fléchettes</span>';
-  document.querySelector('.intro-card .lede').textContent = 'Un pistolet et un fusil d\'assaut à fléchettes en mousse, trois cœurs chacun. Ajoute des robots pour t\'entraîner, ou invite tes amis avec le lien.';
+  document.querySelector('.intro-card .lede').textContent = `Carte : ${MAPS[MAP].name}. Quatre armes à fléchettes en mousse, des bonus à ramasser, trois cœurs chacun. Ajoute des robots pour t'entraîner, ou invite tes amis avec le lien.`;
   document.querySelector('#rulesIntro').hidden = true;
 }
 const cleanNick = n => String(n || '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮]/g, '').trim().slice(0, 14) || 'Joueur';
@@ -2125,10 +2131,10 @@ refreshUI();
 const ROOM_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const newCode = () => Array.from({ length: 5 }, () => ROOM_ALPHA[Math.floor(Math.random() * ROOM_ALPHA.length)]).join('');
 function roomCodeFromUrl() {
-  let c = location.hash.replace(/^#(fps-)?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  let c = location.hash.replace(/^#(fps-(station-)?)?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   if (c.length < 4) {
     c = newCode();
-    history.replaceState(null, '', '#' + (FPS ? 'fps-' : '') + c);
+    history.replaceState(null, '', '#' + PREFIX + c);
   }
   return c;
 }
@@ -2139,7 +2145,7 @@ async function p2pRoom() {
   let key = null;
   try { key = sessionStorage.getItem('playroom-key'); } catch (e) {}
   if (!key) { key = 'u' + Math.random().toString(36).slice(2, 12); try { sessionStorage.setItem('playroom-key', key); } catch (e) {} }
-  const t = joinRoom({ appId: 'rv-playroom' }, (FPS ? 'fps-' : 'salon-') + code, {
+  const t = joinRoom({ appId: 'rv-playroom' }, (FPS ? PREFIX : 'salon-') + code, { // one room per map
     onJoinError: () => toast('Impossible de rejoindre un joueur : son réseau bloque peut-être la connexion directe.', 4000)
   });
   const subs = {}, peerFns = [];
@@ -2213,11 +2219,17 @@ $('#copyLink').addEventListener('click', copyInvite);
 $('#inviteBtn').addEventListener('click', copyInvite);
 addEventListener('hashchange', () => {
   const fps = /^#fps-/i.test(location.hash);
-  if (fps !== FPS || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
+  if (fps !== FPS || (FPS && mapFromHash(location.hash) !== MAP) || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
 });
-// a new room of the other kind
+// a new room of the other kind, or a battle on the other map
 $('#modeSwitch').textContent = FPS ? 'Créer plutôt un salon de jeux tranquilles' : 'Créer plutôt une bataille de fléchettes 🎯';
 $('#modeSwitch').addEventListener('click', () => { location.hash = (FPS ? '' : 'fps-') + newCode(); });
+if (FPS) {
+  const other = MAP === 'fort' ? 'station' : 'fort';
+  $('#mapSwitch').hidden = false;
+  $('#mapSwitch').textContent = `Créer plutôt une bataille dans ${MAPS[other].name} ${other === 'station' ? '🚀' : '🏰'}`;
+  $('#mapSwitch').addEventListener('click', () => { location.hash = MAPS[other].prefix + newCode(); });
+}
 
 (async () => {
   const cl = window.claude;
@@ -2254,11 +2266,11 @@ $('#modeSwitch').addEventListener('click', () => { location.hash = (FPS ? '' : '
 })();
 async function startBattle() {
   if (!fpsModule) return;
-  const [{ startFps }, { buildMap }] = await Promise.all([fpsModule, import('./js/fpsmap.js')]);
+  const [{ startFps }, { buildMap }] = await Promise.all([fpsModule, import(MAPS[MAP].file)]);
   // swap the living room for the fort
   for (const o of [...scene.children]) scene.remove(o);
   const map = buildMap(scene);
-  setWorld({ ...map.bounds, boxes: map.boxes });
+  setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [] });
   fps = startFps({
     scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, keyLabel: label,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol,

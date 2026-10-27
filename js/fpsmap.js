@@ -1,7 +1,6 @@
 // The battle map, "le Fort": a big cardboard fort at night. A tall central hall with a
 // crawl tunnel under its stage, two wings with rooms below and an open floor above,
 // stairs and balconies, windows to shoot through and shelves to crawl under.
-// Every solid piece is both drawn and returned as a box for the world module.
 import * as THREE from 'three';
 import { toon, noOutline } from './fx.js';
 
@@ -10,7 +9,9 @@ const ROOF = 3.2;   // ceiling of the rooms below it
 const WALL = 6;     // outer walls
 export const BOUNDS = { x0: -15.6, x1: 15.6, z0: -11.6, z1: 11.6 };
 
-export function buildMap(scene) {
+// The building blocks of a battle map: every solid piece is both drawn and returned as
+// a box for the world module. Shared by every map.
+export function makeKit(scene) {
   const boxes = [];
   const geo = new THREE.BoxGeometry(1, 1, 1);
   const mats = new Map();
@@ -43,24 +44,40 @@ export function buildMap(scene) {
     if (s < s1) put(s, s1, y0, y1);
   }
   const crate = (x, z, s, h, y = 0, c = '#b07a45') => solid(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, c);
-  const door = (a, b) => [a, b, 0, 2.4], win = (a, b) => [a, b, 1.0, 2.0], vent = (a, b) => [a, b, 0, 1.3];
+  // openings, from the floor at y (an upper floor's walls)
+  const door = (a, b, y = 0) => [a, b, y, y + 2.4], win = (a, b, y = 0) => [a, b, y + 1.0, y + 2.0], vent = (a, b, y = 0) => [a, b, y, y + 1.3];
+  // stairs of n steps from (x0..x1) at z = from, climbing to height h towards `dir` (+1 or -1) along z
+  function stairsZ(x0, x1, from, dir, h, color, n = 15, run = 0.33) {
+    for (let k = 1; k <= n; k++) { const a = from + dir * (k - 1) * run, b = a + dir * run; solid(x0, x1, Math.min(a, b), Math.max(a, b), 0, k * h / n, color); }
+    return from + dir * n * run; // where the top step ends
+  }
+  function stairsX(z0, z1, from, dir, h, color, n = 15, run = 0.33) {
+    for (let k = 1; k <= n; k++) { const a = from + dir * (k - 1) * run, b = a + dir * run; solid(Math.min(a, b), Math.max(a, b), z0, z1, 0, k * h / n, color); }
+    return from + dir * n * run;
+  }
+  // a floor: a checker of two felt colours, drawn only
+  function floor(w, d, c1, c2) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    const x = cv.getContext('2d');
+    x.fillStyle = c1; x.fillRect(0, 0, 128, 128);
+    x.fillStyle = c2; x.fillRect(0, 0, 64, 64); x.fillRect(64, 64, 64, 64);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(w / 2, d / 2); t.magFilter = THREE.NearestFilter;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), noOutline(toon('#ffffff', { map: t })));
+    m.rotation.x = -Math.PI / 2; m.receiveShadow = true; scene.add(m);
+    return m;
+  }
+  return { boxes, mat, solid, wallX, wallZ, crate, door, win, vent, stairsX, stairsZ, floor };
+}
+
+export function buildMap(scene) {
+  const { boxes, solid, wallX, wallZ, crate, door, win, vent, stairsZ, floor } = makeKit(scene);
 
   // colours
   const OUT = '#52629c', CARD = '#e3b97f', CARD2 = '#d39f63', SLAB = '#c98b52', RAIL = '#f4b63f';
   const STAGE = '#ea6a4f', STAIR = '#8f73e3', SHELF = '#4fb3a9', TRIM = '#fbf3e4';
 
-  // floor: a checker of two felt colours per zone, drawn only
-  const floorTex = (() => {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
-    const x = cv.getContext('2d');
-    x.fillStyle = '#5a4778'; x.fillRect(0, 0, 128, 128);
-    x.fillStyle = '#634f84'; x.fillRect(0, 0, 64, 64); x.fillRect(64, 64, 64, 64);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(16, 12); t.magFilter = THREE.NearestFilter;
-    return t;
-  })();
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(32, 24), noOutline(toon('#ffffff', { map: floorTex })));
-  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  floor(32, 24, '#5a4778', '#634f84');
 
   // outer walls
   wallX(-11.8, -16, 16, 0, WALL, OUT, [], 0.4); wallX(11.8, -16, 16, 0, WALL, OUT, [], 0.4);
@@ -73,8 +90,8 @@ export function buildMap(scene) {
   solid(-13.4, -11, 5, 7, 0, 0.8, '#7a4a2b');                           // a big table to hide behind
   crate(-9, 9.5, 0.9, 0.9); crate(-14.4, -3, 0.9, 1.3); crate(-12.5, -9.5, 0.8, 0.6); crate(-12.5, -10.4, 0.8, 1.2, 0, '#c98b52');
   // upstairs: a hut, crates, low walls
-  wallZ(-10, -10, -6, H, H + 2.4, CARD2, [door(-8.6, -7.4).map((v, i) => i > 1 ? v + H : v)]);
-  wallX(-10, -14, -10, H, H + 2.4, CARD2); wallX(-6, -14, -10, H, H + 2.4, CARD2, [win(-12.6, -11.4).map((v, i) => i > 1 ? v + H : v)]);
+  wallZ(-10, -10, -6, H, H + 2.4, CARD2, [door(-8.6, -7.4, H)]);
+  wallX(-10, -14, -10, H, H + 2.4, CARD2); wallX(-6, -14, -10, H, H + 2.4, CARD2, [win(-12.6, -11.4, H)]);
   solid(-14.3, -9.85, -10.15, -5.85, H + 2.4, H + 2.6, STAGE);         // its roof
   crate(-9, -2.5, 1, 1, H); crate(-12, 4, 1, 1.1, H); crate(-8, 8, 1.2, 1.4, H); crate(-13.5, 9, 0.8, 0.6, H);
   solid(-12, -11.7, -2, 2, H, H + 1.0, CARD);                           // low wall: duck behind it
@@ -102,14 +119,9 @@ export function buildMap(scene) {
   wallZ(-4.05, -11.6, 1, H, H + 1, RAIL, [], 0.12); wallZ(-4.05, 2.05, 11.6, H, H + 1, RAIL, [], 0.12);
   wallZ(4.05, -11.6, -2.05, H, H + 1, RAIL, [], 0.12); wallZ(4.05, -1, 11.6, H, H + 1, RAIL, [], 0.12);
   // stairs: west goes up towards -z, east towards +z
-  const N = 15, rise = H / N, run = 0.33;
-  for (let k = 1; k <= N; k++) {
-    const zW = 7 - (k - 1) * run, zE = -7 + (k - 1) * run;
-    solid(-4, -2.6, zW - run, zW, 0, k * rise, STAIR);
-    solid(2.6, 4, zE, zE + run, 0, k * rise, STAIR);
-  }
-  solid(-4, -2.6, 1, 7 - N * run, 0, H, STAIR);                         // landings
-  solid(2.6, 4, -7 + N * run, -1, 0, H, STAIR);
+  const topW = stairsZ(-4, -2.6, 7, -1, H, STAIR), topE = stairsZ(2.6, 4, -7, 1, H, STAIR);
+  solid(-4, -2.6, 1, topW, 0, H, STAIR);                                // landings
+  solid(2.6, 4, topE, -1, 0, H, STAIR);
   // the stage, with a tunnel under it along x
   solid(-2, 2, -2, -0.6, 0, 1.6, STAGE); solid(-2, 2, 0.6, 2, 0, 1.6, STAGE);
   solid(-2, 2, -0.6, 0.6, 1.3, 1.6, STAGE);
