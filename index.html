@@ -142,7 +142,7 @@ table.res tr.win td{color:var(--marigold)}
 .mode p{margin:12px 0 10px;color:var(--muted);line-height:1.45;font-size:15px}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
 .tags li{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--plum-2);color:var(--cream)}
-.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px;padding:0;border:0}
+.maps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 14px;padding:0;border:0}
 .maps legend{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:var(--muted);margin-bottom:6px;padding:0}
 .map{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:2px solid var(--line);background:var(--night);color:var(--cream);font:inherit;cursor:pointer;text-align:center}
 .map b{font-size:26px;line-height:1.1}
@@ -421,19 +421,20 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-4",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-4",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-4",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-4",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-4",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-4",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-4",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-4",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-4",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-4",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-4",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-4",
-  "./js/world.js": "./js/world.js?v=2026-10-29-4"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-5",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-5",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-5",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-5",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-5",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-5",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-5",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-5",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-5",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-5",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-5",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-5",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-5",
+  "./js/world.js": "./js/world.js?v=2026-10-29-5"
 } }
 </script>
 <script>
@@ -605,12 +606,13 @@ const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 const coarse = matchMedia('(pointer: coarse)').matches;
 // a battle room (#fps-CODE) loads the foam-dart game instead of the card table;
-// the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE for the others
+// the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE, #fps-bureaux-CODE for the others
 const FPS = /^#fps-/i.test(location.hash);
 const MAPS = {
   fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-', blurb: 'Un fort en carton, la nuit' },
   station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-', blurb: 'Une station spatiale' },
-  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', blurb: 'Une chambre d\'enfant géante' }
+  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', blurb: 'Une chambre d\'enfant géante' },
+  bureaux: { name: 'les Bureaux', icon: '🏢', file: './js/fpsbureaux.js', prefix: 'fps-bureaux-', blurb: 'Des bureaux, la nuit' }
 };
 // the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
 const HUB = !location.hash.replace(/^#/, '');
@@ -2397,7 +2399,7 @@ async function startBattle() {
   const map = buildMap(scene);
   setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [] });
   fps = startFps({
-    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], keyLabel: label,
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], movers: map.movers || [], keyLabel: label,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol, cleanLook, CLOTH,
     blocked: () => editor.isOpen() || !!document.querySelector('dialog[open]') || !$('#chatForm').hidden
   });

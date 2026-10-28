@@ -867,6 +867,30 @@ export function startFps(ctx) {
     }
   }
 
+  /* ---------- moving floors (a lift) ---------- */
+  // the map says where each one's top is at any time; everyone reads the same clock (Date.now),
+  // so it's in the same place for everybody without a word on the network
+  const movers = ctx.movers || [];
+  const moverAt = new THREE.Vector3();
+  function updateMovers() {
+    const t = Date.now() / 1000;
+    for (const m of movers) {
+      const B = m.box, was = B.y1, top = m.at(t), dy = top - was;
+      if (!dy) continue;
+      const on = (x, z, y) => x > B.x0 - 0.15 && x < B.x1 + 0.15 && z > B.z0 - 0.15 && z < B.z1 + 0.15 && Math.abs(y - was) < 0.1;
+      const riding = me.entered && me.jv === 0 && on(me.x, me.z, me.jy);
+      B.y0 += dy; B.y1 = top;
+      for (const o of m.objs) o.position.y += dy;
+      // whoever stands on it goes with it
+      if (riding) me.jy = top;
+      for (const b of bots.values()) if (b.vy === 0 && on(b.x, b.z, b.y)) b.y = top;
+      if (m.stops && m.stops.includes(top)) { // arrived: a ding
+        moverAt.set((B.x0 + B.x1) / 2, top + 1, (B.z0 + B.z1) / 2);
+        playNear(moverAt, 'ding', 14);
+      }
+    }
+  }
+
   /* ---------- network ---------- */
   function onDart(m) {
     if (m.isMe) return;
@@ -1303,6 +1327,7 @@ export function startFps(ctx) {
     me.frozen = me.entered && (!alive() || watching);
     // lying on the floor while knocked out
     if (me.frozen && !watching) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
+    updateMovers();
     for (const b of bots.values()) updateBot(b, dt);
     streamBots();
     // knocked-out avatars fall over backwards, shielded ones blink, spectators aren't there

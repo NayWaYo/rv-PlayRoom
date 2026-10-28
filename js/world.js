@@ -59,7 +59,13 @@ export function fall(b, dt) {
 /* ---------- where bots can walk: a grid of standing spots, built once per world ---------- */
 const CELL = 0.5;
 let nav = null;
+// boxes that move (a lift, marked `moving`) are left out: the grid is built once, wherever they are
 function buildNav() {
+  const all = world.boxes;
+  world.boxes = all.filter(B => !B.moving);
+  try { return buildGrid(); } finally { world.boxes = all; }
+}
+function buildGrid() {
   const W = world, nx = Math.floor((W.x1 - W.x0) / CELL) + 1, nz = Math.floor((W.z1 - W.z0) / CELL) + 1;
   const nodes = [], at = new Map();
   for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
