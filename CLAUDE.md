@@ -39,6 +39,7 @@ L'import map donne aussi une version à chaque fichier de `js/` (`./js/fps.js?v=
 
 ### Réseau
 
+- L'adresse de base, sans code, ouvre l'accueil (`#hub`, constante `HUB`) : une carte par jeu (Salon Papayoo, Bataille de fléchettes avec le choix de la carte, gardé dans `localStorage`). Il ne se connecte à aucun salon : choisir un jeu met un code neuf dans l'URL et recharge la page. Depuis l'écran d'entrée d'un salon, « ← Accueil » y ramène.
 - Une room = un code dans l'URL : `#K7MPQ` pour les jeux tranquilles, `#fps-K7MPQ` pour la bataille de fléchettes dans le Fort, `#fps-station-K7MPQ` dans la Station, `#fps-chambre-K7MPQ` dans la Chambre (un salon Trystero distinct par mode et par carte). Hors claude.ai, `p2pRoom()` construit une petite interface `room` (`emit`, `on`, `presence`, `onPeers`, `setStream`, `onStream`) au-dessus de Trystero (signalisation par relais Nostr publics, puis WebRTC direct). Le code sait encore utiliser la capacité `room` de claude.ai, mais la version Artifact est abandonnée.
 - Le joueur qui lance la partie est l'hôte : il applique les règles, fait jouer les robots et diffuse l'état sur le topic `state`. Les joueurs envoient leurs coups sur le topic `act`.
 - Mains cachées : l'hôte diffuse une vue publique (les cartes des autres valent `'?'`, `passSel` vaut `1`) avec la main de chaque joueur scellée pour lui (`sec`, `hpk`). Si l'hôte part, le suivant lance `startRecovery()` : il redemande les mains (act `hand`) et redistribue celles des robots et des absents à partir de `G.played`.

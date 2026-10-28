@@ -123,6 +123,49 @@ table.res tr.win td{color:var(--marigold)}
 #enter{width:100%;font-size:19px;padding:12px}
 .mode-switch{display:block;margin:14px auto 0;border:0;background:none;color:var(--muted);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .mode-switch:hover{color:var(--cream)}
+/* the home screen: the two games side by side */
+#hub{position:fixed;inset:0;display:grid;place-items:center;background:rgba(20,14,27,.78);backdrop-filter:blur(4px);overflow:auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
+.hub{width:min(880px,100%)}
+.hub-head{text-align:center;margin-bottom:20px}
+.hub-head h1{margin:0;font-family:var(--display);font-weight:800;font-size:52px;line-height:1;letter-spacing:-.01em}
+.hub-head h1 span{color:var(--marigold)}
+.hub-head p{margin:8px auto 0;max-width:520px;color:var(--muted);line-height:1.45}
+.hub-modes{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mode{display:flex;flex-direction:column;background:var(--plum);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45);border-top:6px solid var(--accent)}
+.mode.salon{--accent:var(--payoo)}
+.mode.fps{--accent:var(--coral)}
+.mode-top{display:flex;align-items:center;gap:12px}
+.mode-art{flex:none;width:58px;height:58px;display:grid;place-items:center;border-radius:18px;background:var(--plum-2);font-size:32px}
+.mode h2{margin:0;font-family:var(--display);font-weight:800;font-size:26px;line-height:1.05}
+.mode .kind{display:block;font-family:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:var(--accent);margin-bottom:2px}
+.mode p{margin:12px 0 10px;color:var(--muted);line-height:1.45;font-size:15px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.tags li{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--plum-2);color:var(--cream)}
+.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px;padding:0;border:0}
+.maps legend{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:var(--muted);margin-bottom:6px;padding:0}
+.map{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:2px solid var(--line);background:var(--night);color:var(--cream);font:inherit;cursor:pointer;text-align:center}
+.map b{font-size:26px;line-height:1.1}
+.map span{font-weight:800;font-size:14px}
+.map small{color:var(--muted);font-size:11px;line-height:1.25}
+.map[aria-checked="true"]{border-color:var(--coral);background:var(--plum-2);box-shadow:0 0 0 3px rgba(234,106,79,.3)}
+.mode .btn{margin-top:auto;width:100%;font-size:18px;padding:12px}
+.mode.fps .btn{background:var(--coral);color:#2a0d06;box-shadow:0 3px 0 #a8432f}
+.hub-foot{margin:18px 0 0;text-align:center;color:var(--muted);font-size:13px}
+@media (max-width:720px){.hub-modes{grid-template-columns:1fr}.hub-head h1{font-size:42px}}
+/* a phone: tighter cards, so both games show on the first screen */
+@media (max-width:560px){
+  #hub{padding-block:16px;place-items:start center}
+  .hub-head{margin-bottom:12px}.hub-head h1{font-size:36px}.hub-head p{font-size:14px}
+  .hub-modes{gap:12px}
+  .mode{padding:14px 16px;border-radius:20px}
+  .mode-art{width:46px;height:46px;font-size:26px;border-radius:14px}
+  .mode h2{font-size:22px}
+  .mode p{font-size:14px;margin:8px 0}
+  .tags{margin-bottom:10px}
+  .map{padding:8px 4px}.map b{font-size:22px}.map small{display:none}
+  .mode .btn{font-size:17px;padding:10px}
+}
 .intro-btns{display:flex;gap:8px;margin-bottom:10px}
 .intro-btns .btn{flex:1;padding-inline:12px}
 #rules,#controls{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
@@ -284,9 +327,39 @@ table.res tr.win td{color:var(--marigold)}
       <span>Salon <b id="roomCode"></b></span>
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
-    <div id="mapSwitch" hidden></div>
-    <button class="mode-switch" id="modeSwitch" type="button"></button>
+    <button class="mode-switch" id="modeSwitch" type="button">← Accueil : changer de jeu ou de carte</button>
   </form>
+</div>
+
+<div id="hub" hidden>
+  <div class="hub">
+    <div class="hub-head">
+      <h1>Play<span>Room</span></h1>
+      <p>Des jeux entre amis dans le navigateur, sans compte ni installation. Choisis un jeu, puis envoie le lien à tes amis.</p>
+    </div>
+    <div class="hub-modes">
+      <section class="mode salon" aria-labelledby="hubSalonTitle">
+        <div class="mode-top">
+          <div class="mode-art" aria-hidden="true">🃏</div>
+          <h2 id="hubSalonTitle"><span class="kind">Jeu de cartes</span>Salon Papayoo</h2>
+        </div>
+        <p>Une partie de Papayoo autour de la table, dans un salon à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
+        <ul class="tags"><li>3 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
+        <button class="btn" id="hubSalon" type="button">Créer un salon</button>
+      </section>
+      <section class="mode fps" aria-labelledby="hubFpsTitle">
+        <div class="mode-top">
+          <div class="mode-art" aria-hidden="true">🎯</div>
+          <h2 id="hubFpsTitle"><span class="kind">Jeu de tir</span>Bataille de fléchettes</h2>
+        </div>
+        <p>Des armes à fléchettes en mousse, en vue subjective : chacun pour soi ou Rouges contre Bleus, au score ou au chrono.</p>
+        <ul class="tags"><li>Seul ou à plusieurs</li><li>Robots</li><li>Action</li></ul>
+        <fieldset class="maps" id="hubMaps" role="radiogroup" aria-label="Carte"></fieldset>
+        <button class="btn" id="hubFps" type="button">Créer une bataille</button>
+      </section>
+    </div>
+    <p class="hub-foot">Tu as reçu un lien d'invitation ? Ouvre-le directement : il mène au bon jeu.</p>
+  </div>
 </div>
 
 <dialog id="controls" aria-labelledby="controlsTitle">
@@ -348,19 +421,19 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-3",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-3",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-3",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-3",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-3",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-3",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-3",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-3",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-3",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-3",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-3",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-3",
-  "./js/world.js": "./js/world.js?v=2026-10-29-3"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-4",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-4",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-4",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-4",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-4",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-4",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-4",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-4",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-4",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-4",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-4",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-4",
+  "./js/world.js": "./js/world.js?v=2026-10-29-4"
 } }
 </script>
 <script>
@@ -535,10 +608,12 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 // the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE for the others
 const FPS = /^#fps-/i.test(location.hash);
 const MAPS = {
-  fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-' },
-  station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-' },
-  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-' }
+  fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-', blurb: 'Un fort en carton, la nuit' },
+  station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-', blurb: 'Une station spatiale' },
+  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', blurb: 'Une chambre d\'enfant géante' }
 };
+// the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
+const HUB = !location.hash.replace(/^#/, '');
 const mapFromHash = h => Object.keys(MAPS).find(k => k !== 'fort' && h.toLowerCase().startsWith('#' + MAPS[k].prefix)) || 'fort';
 const MAP = FPS ? mapFromHash(location.hash) : null;
 const PREFIX = FPS ? MAPS[MAP].prefix : '';
@@ -2246,24 +2321,42 @@ async function copyInvite() {
 $('#copyLink').addEventListener('click', copyInvite);
 $('#inviteBtn').addEventListener('click', copyInvite);
 addEventListener('hashchange', () => {
+  if (HUB) { location.reload(); return; } // a game was picked on the home screen
   const fps = /^#fps-/i.test(location.hash);
   if (fps !== FPS || (FPS && mapFromHash(location.hash) !== MAP) || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
 });
-// a new room of the other kind, or a battle on the other map
-$('#modeSwitch').textContent = FPS ? 'Créer plutôt un salon de jeux tranquilles' : 'Créer plutôt une bataille de fléchettes 🎯';
-$('#modeSwitch').addEventListener('click', () => { location.hash = (FPS ? '' : 'fps-') + newCode(); });
-if (FPS) {
-  $('#mapSwitch').hidden = false;
+// back to the home screen, to pick another game or another map
+$('#modeSwitch').addEventListener('click', () => { location.href = location.pathname + location.search; });
+// the home screen: one card per game, the battle's map to pick, and a fresh room for the one chosen
+if (HUB) {
+  $('#intro').hidden = true; $('#hub').hidden = false; document.title = 'PlayRoom';
+  let pick = MAPS[store.get('playroom-map')] ? store.get('playroom-map') : 'fort';
+  const maps = $('#hubMaps');
+  const renderMaps = () => maps.querySelectorAll('.map').forEach(b => {
+    const on = b.dataset.map === pick;
+    b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1;
+  });
   for (const k of Object.keys(MAPS)) {
-    if (k === MAP) continue;
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'mode-switch';
-    b.textContent = `Créer plutôt une bataille dans ${MAPS[k].name} ${MAPS[k].icon}`;
-    b.addEventListener('click', () => { location.hash = MAPS[k].prefix + newCode(); });
-    $('#mapSwitch').append(b);
+    const b = el('button', 'map'); b.type = 'button'; b.dataset.map = k; b.setAttribute('role', 'radio');
+    b.append(el('b', null, MAPS[k].icon), el('span', null, MAPS[k].name[0].toUpperCase() + MAPS[k].name.slice(1)), el('small', null, MAPS[k].blurb));
+    b.addEventListener('click', () => { pick = k; store.set('playroom-map', k); renderMaps(); sfx.pop(); });
+    maps.append(b);
   }
+  // arrow keys move between the maps, like any group of radio buttons
+  maps.addEventListener('keydown', e => {
+    const ks = Object.keys(MAPS), d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!d) return;
+    e.preventDefault(); pick = ks[(ks.indexOf(pick) + d + ks.length) % ks.length]; store.set('playroom-map', pick);
+    renderMaps(); maps.querySelector(`[data-map="${pick}"]`).focus();
+  });
+  renderMaps();
+  $('#hubSalon').addEventListener('click', () => { location.hash = newCode(); });
+  $('#hubFps').addEventListener('click', () => { location.hash = MAPS[pick].prefix + newCode(); });
+  $('#hubSalon').focus();
 }
 
 (async () => {
+  if (HUB) return; // no room to join until a game is picked
   const cl = window.claude;
   let r = null;
   if (cl && cl.use) {
