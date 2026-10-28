@@ -126,7 +126,7 @@ table.res tr.win td{color:var(--marigold)}
 /* the home screen: the two games side by side */
 #hub{position:fixed;inset:0;display:grid;place-items:center;background:rgba(20,14,27,.78);backdrop-filter:blur(4px);overflow:auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
-.hub{width:min(880px,100%)}
+.hub{width:min(880px,100%);min-width:0}
 .hub-head{text-align:center;margin-bottom:20px}
 .hub-head h1{margin:0;font-family:var(--display);font-weight:800;font-size:52px;line-height:1;letter-spacing:-.01em}
 .hub-head h1 span{color:var(--marigold)}
@@ -151,7 +151,13 @@ table.res tr.win td{color:var(--marigold)}
 .map[aria-checked="true"]{border-color:var(--coral);background:var(--plum-2);box-shadow:0 0 0 3px rgba(234,106,79,.3)}
 .mode .btn{margin-top:auto;width:100%;font-size:18px;padding:12px}
 .mode.fps .btn{background:var(--coral);color:#2a0d06;box-shadow:0 3px 0 #a8432f}
-.hub-foot{margin:18px 0 0;text-align:center;color:var(--muted);font-size:13px}
+.hub-foot{margin:8px 0 0;text-align:center;color:var(--muted);font-size:13px;line-height:1.4}
+.hub-join{margin:16px auto 0;max-width:520px;background:var(--plum);border:1px solid var(--line);border-radius:20px;padding:14px 16px}
+.hub-join label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:var(--muted);margin-bottom:8px}
+.hub-join-row{display:flex;gap:8px}
+#joinCode{flex:1;min-width:0;width:0;background:var(--night);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-weight:800;color:var(--cream);font-size:17px;letter-spacing:.04em;-webkit-user-select:text;user-select:text}
+#joinCode[aria-invalid="true"]{border-color:var(--coral)}
+.hub-join .btn{flex:none}
 @media (max-width:720px){.hub-modes{grid-template-columns:1fr}.hub-head h1{font-size:42px}}
 /* a phone: tighter cards, so both games show on the first screen */
 @media (max-width:560px){
@@ -324,7 +330,7 @@ table.res tr.win td{color:var(--marigold)}
     <button class="btn" id="enter" type="submit">Entrer dans le salon</button>
     <div class="status-line" id="introStatus">Connexion au salon…</div>
     <div class="invite" id="invite" hidden>
-      <span>Salon <b id="roomCode"></b></span>
+      <span>Code <b id="roomCode"></b></span>
       <button class="btn ghost" id="copyLink" type="button">Copier le lien d'invitation</button>
     </div>
     <button class="mode-switch" id="modeSwitch" type="button">← Accueil : changer de jeu ou de carte</button>
@@ -358,7 +364,14 @@ table.res tr.win td{color:var(--marigold)}
         <button class="btn" id="hubFps" type="button">Créer une bataille</button>
       </section>
     </div>
-    <p class="hub-foot">Tu as reçu un lien d'invitation ? Ouvre-le directement : il mène au bon jeu.</p>
+    <form class="hub-join" id="hubJoin" novalidate>
+      <label for="joinCode">Rejoindre une partie</label>
+      <div class="hub-join-row">
+        <input id="joinCode" maxlength="300" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7MPQ, F-K7MPQ ou un lien" aria-describedby="joinHelp">
+        <button class="btn" type="submit">Rejoindre</button>
+      </div>
+      <p class="hub-foot" id="joinHelp">Le code est en haut de l'écran de celui qui t'invite. Une lettre devant (F, S, C, B) : une bataille dans le Fort, la Station, la Chambre ou les Bureaux. Sans lettre : un salon Papayoo.</p>
+    </form>
   </div>
 </div>
 
@@ -608,14 +621,18 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 // a battle room (#fps-CODE) loads the foam-dart game instead of the card table;
 // the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE, #fps-bureaux-CODE for the others
 const FPS = /^#fps-/i.test(location.hash);
+// `tag`: the letter in front of a battle's code when you give it to someone (F-K7MPQ), so the
+// code alone says which game and map to join; a bare code is a card-game room
 const MAPS = {
-  fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-', blurb: 'Un fort en carton, la nuit' },
-  station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-', blurb: 'Une station spatiale' },
-  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', blurb: 'Une chambre d\'enfant géante' },
-  bureaux: { name: 'les Bureaux', icon: '🏢', file: './js/fpsbureaux.js', prefix: 'fps-bureaux-', blurb: 'Des bureaux, la nuit' }
+  fort: { name: 'le Fort', icon: '🏰', file: './js/fpsmap.js', prefix: 'fps-', tag: 'F', blurb: 'Un fort en carton, la nuit' },
+  station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-', tag: 'S', blurb: 'Une station spatiale' },
+  chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', tag: 'C', blurb: 'Une chambre d\'enfant géante' },
+  bureaux: { name: 'les Bureaux', icon: '🏢', file: './js/fpsbureaux.js', prefix: 'fps-bureaux-', tag: 'B', blurb: 'Des bureaux, la nuit' }
 };
 // the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
 const HUB = !location.hash.replace(/^#/, '');
+// the code to give a friend: K7MPQ for a card-game room, F-K7MPQ for a battle in the Fort
+const shareCode = c => (FPS ? MAPS[MAP].tag + '-' : '') + c;
 const mapFromHash = h => Object.keys(MAPS).find(k => k !== 'fort' && h.toLowerCase().startsWith('#' + MAPS[k].prefix)) || 'fort';
 const MAP = FPS ? mapFromHash(location.hash) : null;
 const PREFIX = FPS ? MAPS[MAP].prefix : '';
@@ -1825,7 +1842,7 @@ function renderStatus() {
   chip.classList.toggle('on', !!room && online);
   if (!room) t.textContent = booting ? 'Connexion…' : 'Hors ligne : partie solo avec robots';
   else if (!online) t.textContent = 'Reconnexion…';
-  else t.textContent = (room.code ? `Salon ${room.code} · ` : '') + (n <= 1 ? 'seul pour l\'instant' : `${n} dans le salon`);
+  else t.textContent = (room.code ? `${FPS ? 'Bataille' : 'Salon'} ${shareCode(room.code)} · ` : '') + (n <= 1 ? 'seul pour l\'instant' : `${n} dans le salon`);
   $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? booting ? 'Connexion au salon…' : 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
@@ -2327,6 +2344,24 @@ addEventListener('hashchange', () => {
   const fps = /^#fps-/i.test(location.hash);
   if (fps !== FPS || (FPS && mapFromHash(location.hash) !== MAP) || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
 });
+// where a code or a link leads (the address's hash), or null if it doesn't look like one
+function joinTarget(text) {
+  let s = String(text || '').trim();
+  const h = s.indexOf('#');
+  if (h >= 0) { // a link: its own room, as long as it looks like one of ours
+    const tail = s.slice(h + 1);
+    return /^(fps-([a-z]+-)?)?[a-z0-9]{4,8}$/i.test(tail) && (!/^fps-[a-z]+-/i.test(tail) || Object.values(MAPS).some(m => m.prefix !== 'fps-' && tail.toLowerCase().startsWith(m.prefix))) ? '#' + tail : null;
+  }
+  s = s.toUpperCase().replace(/[\s._]/g, '');
+  // a letter in front: a battle on that map (F-K7MPQ, or FK7MPQ since our codes are five long)
+  const m = s.match(/^([A-Z])-([A-Z0-9]{4,8})$/) || (s.length === 6 ? s.match(/^([A-Z])([A-Z0-9]{5})$/) : null);
+  if (m) {
+    const k = Object.keys(MAPS).find(k => MAPS[k].tag === m[1]);
+    if (k) return '#' + MAPS[k].prefix + m[2];
+    if (s.includes('-')) return null; // a letter that's no map
+  }
+  return /^[A-Z0-9]{4,8}$/.test(s) ? '#' + s : null;
+}
 // back to the home screen, to pick another game or another map
 $('#modeSwitch').addEventListener('click', () => { location.href = location.pathname + location.search; });
 // the home screen: one card per game, the battle's map to pick, and a fresh room for the one chosen
@@ -2352,6 +2387,15 @@ if (HUB) {
     renderMaps(); maps.querySelector(`[data-map="${pick}"]`).focus();
   });
   renderMaps();
+  // join with what a friend gave: a code (K7MPQ, F-K7MPQ, "f k7mpq") or a whole invitation link
+  $('#hubJoin').addEventListener('submit', e => {
+    e.preventDefault();
+    const to = joinTarget($('#joinCode').value);
+    $('#joinCode').setAttribute('aria-invalid', String(!to));
+    if (!to) { toast('Code introuvable : c\'est 5 lettres ou chiffres, avec parfois une lettre devant (F-K7MPQ).', 4500); $('#joinCode').focus(); return; }
+    location.hash = to;
+  });
+  $('#joinCode').addEventListener('input', () => $('#joinCode').removeAttribute('aria-invalid'));
   $('#hubSalon').addEventListener('click', () => { location.hash = newCode(); });
   $('#hubFps').addEventListener('click', () => { location.hash = MAPS[pick].prefix + newCode(); });
   $('#hubSalon').focus();
@@ -2375,7 +2419,7 @@ if (HUB) {
   room = r;
   if (room.onStream) room.onStream((s, peer) => addVoice(peer, s));
   keysReady.then(pk => { if (pk) room.presence({ pk }).catch(() => {}); }); // so the host can seal my cards for me
-  if (room.code) { $('#roomCode').textContent = room.code; $('#invite').hidden = false; }
+  if (room.code) { $('#roomCode').textContent = shareCode(room.code); $('#invite').hidden = false; }
   room.onConnection(c => { online = c; renderStatus(); }, () => { online = false; renderStatus(); });
   room.onPeers(ch => {
     peers = ch.peers;
