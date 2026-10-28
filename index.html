@@ -2308,7 +2308,8 @@ async function startBattle() {
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol, cleanLook, CLOTH,
     blocked: () => editor.isOpen() || !!document.querySelector('dialog[open]') || !$('#chatForm').hidden
   });
-  if (me.entered) fps.onEnter();}
+  if (me.entered) fps.onEnter();
+}
 })();
 </script>
 </body>
