@@ -348,19 +348,19 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29",
-  "./js/world.js": "./js/world.js?v=2026-10-29"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-2",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-2",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-2",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-2",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-2",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-2",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-2",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-2",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-2",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-2",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-2",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-2",
+  "./js/world.js": "./js/world.js?v=2026-10-29-2"
 } }
 </script>
 <script>
@@ -1891,7 +1891,7 @@ function emote(i) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
-if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer</span><kbd>🔍</kbd><span>viser</span><kbd>🔁</kbd><span>changer d\'arme</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
+if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer (pendant un rechargement, dans la zone jaune : rechargement express)</span><kbd>🔍</kbd><span>viser</span><kbd>🔁</kbd><span>changer d\'arme</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
 // the keyboard help on the intro card, with the keys as the player set them up
 function renderHelp() {
   if (coarse) return;
@@ -1900,7 +1900,7 @@ function renderHelp() {
   $('#help').innerHTML = FPS
     ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil, la mitraillette ou le railgun)') + row('Clic droit', 'viser (zoom, lunette du sniper)')
       + row(`${k('weapon1')} ${k('weapon2')} ${k('weapon3')} ${k('weapon4')}`, 'pistolet, fusil, mitraillette, sniper (ou molette)')
-      + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger') + row(k('scores'), 'tableau des scores (maintenir)')
+      + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger, et encore une fois dans la zone jaune de la jauge pour un rechargement express') +row(k('scores'), 'tableau des scores (maintenir)')
       + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'libérer la souris') + row(k('chat'), `écrire un message (${k('mic')} : micro)`)
     : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'libérer la souris')
       + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)

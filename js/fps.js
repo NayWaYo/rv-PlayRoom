@@ -25,6 +25,7 @@ const WEAPONS = {
 const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun'];
 const BASIC = 4; // the first four are always in your hands; the others only once picked up
 const ROCKET_SPEED = 20;
+const QUICK = [0.4, 0.6]; // the quick-reload zone, as a share of the reload time
 // on the floor of the map, coming back a while after someone takes them
 const PICKUPS = {
   health: { name: 'Soin', every: 15 },
@@ -80,6 +81,10 @@ const CSS = `
 #fpsScope::after{width:2px;height:min(68vw,68vh);transform:translate(-50%,-50%)}
 #fpsScope.on{opacity:1}
 #fpsDown{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(234,106,79,.25),rgba(120,20,30,.55));pointer-events:none;font-family:var(--display);font-weight:800;font-size:26px;text-align:center;text-shadow:0 3px 0 rgba(0,0,0,.4);padding:16px}
+#fpsReload{position:fixed;left:50%;top:calc(50% + 26px);width:120px;height:9px;transform:translateX(-50%);background:rgba(28,21,36,.8);border:1px solid rgba(255,255,255,.25);border-radius:999px;overflow:hidden;pointer-events:none}
+#fpsReload .zone{position:absolute;top:0;bottom:0;background:var(--marigold)}
+#fpsReload .fill{position:absolute;left:0;top:0;bottom:0;background:var(--cream);opacity:.85}
+#fpsReload.miss .zone{background:var(--coral);opacity:.5}
 #fpsHurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 30px rgba(234,106,79,.75);opacity:0;transition:opacity .35s}
 #fpsHurt.on{opacity:1;transition:none}
 #fpsFeed{position:fixed;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;font-weight:800;font-size:14px}
@@ -157,6 +162,11 @@ export function startFps(ctx) {
   swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(1); });
   const teamEl = el('span', 'team'), clockEl = el('span', 'clock'); bar.prepend(teamEl); bar.append(clockEl);
   const dirsEl = el('div'); dirsEl.id = 'fpsDirs';           // where the shots you take come from
+  // under the crosshair while reloading: how far along, and the zone for a quick reload
+  const reloadEl = el('div'); reloadEl.id = 'fpsReload'; reloadEl.hidden = true;
+  const reloadZone = el('div', 'zone'), reloadFill = el('div', 'fill');
+  reloadZone.style.left = QUICK[0] * 100 + '%'; reloadZone.style.width = (QUICK[1] - QUICK[0]) * 100 + '%';
+  reloadEl.append(reloadZone, reloadFill);
   const tabEl = el('div', 'fpsCard'); tabEl.id = 'fpsTab'; tabEl.hidden = true; // the full scoreboard, while Tab is held
   const endEl = el('div', 'fpsCard'); endEl.id = 'fpsEnd'; endEl.hidden = true; // the end of a round
   const specEl = el('div'); specEl.id = 'fpsSpec'; specEl.hidden = true;        // watching the others
@@ -167,7 +177,7 @@ export function startFps(ctx) {
   specEl.append(specName, nextBtn, joinBtn);
   // the window to set up a round
   const matchDlg = el('dialog'); matchDlg.id = 'fpsMatch'; matchDlg.setAttribute('aria-labelledby', 'fpsMatchTitle');
-  document.body.append(scopeEl, hurtEl, dirsEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, tabEl, endEl, matchDlg);
+  document.body.append(scopeEl, hurtEl, dirsEl, reloadEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, tabEl, endEl, matchDlg);
   $('#scores').after(board); // top right, like the card game's scores
   fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); trigger(true); });
   fireBtn.addEventListener('pointerup', () => trigger(false));
@@ -433,6 +443,7 @@ export function startFps(ctx) {
   const has = i => i < BASIC || SLOTS[i] === heavy;
   function trigger(down) {
     if (watching) { if (down) watchIdx++; return; } // a spectator clicks to watch someone else
+    if (coarse && down && reloadUntil > now()) { quickReload(); return; } // no R on a phone: the fire button does it
     triggerDown = down;
     if (down) shoot();
     else if (chargeAt) { chargeAt = 0; sfx.uncharge(); renderBar(); } // let go too soon: no shot
@@ -479,12 +490,26 @@ export function startFps(ctx) {
     if (was) select(last < BASIC ? last : 0);
     renderBar(); pushMine();
   }
+  // reloading; pressed again while it's going, a quick reload: in the yellow zone it's done at once,
+  // outside it the chance is gone for this reload (one try each, so mashing the key doesn't work)
+  let reloadTry = 0; // 0: not tried yet, 1: done fast, -1: missed
   function reload() {
     const k = SLOTS[slot], w = W();
-    if (w.heavy || reloadUntil > now() || ammo[k] === w.mag || !alive()) return;
-    reloadUntil = now() + w.reload; sfx.reload();
+    if (reloadUntil > now()) { quickReload(); return; }
+    if (w.heavy || ammo[k] === w.mag || !alive()) return;
+    reloadUntil = now() + w.reload; reloadTry = 0; sfx.reload();
     const seq = ++reloadSeq;
     setTimeout(() => { if (seq === reloadSeq) { ammo[k] = w.mag; renderBar(); } }, w.reload * 1000);
+    renderBar();
+  }
+  const reloadDone = () => 1 - (reloadUntil - now()) / W().reload; // from 0 to 1
+  function quickReload() {
+    if (reloadTry || !alive() || watching) return;
+    const p = reloadDone();
+    if (p >= QUICK[0] && p <= QUICK[1]) {
+      reloadTry = 1; reloadSeq++; reloadUntil = now(); ammo[SLOTS[slot]] = W().mag;
+      sfx.pickup(0.8); toast('Rechargement express ⚡', 900);
+    } else { reloadTry = -1; sfx.uncharge(); }
     renderBar();
   }
   // take out another weapon (a switch cancels a reload)
@@ -1312,6 +1337,8 @@ export function startFps(ctx) {
     updatePads(dt);
     if (watching && me.entered) watchCamera(dt);
     updateDirs();
+    reloadEl.hidden = !(playing && t < reloadUntil);
+    if (!reloadEl.hidden) { reloadFill.style.width = Math.min(100, reloadDone() * 100).toFixed(1) + '%'; reloadEl.classList.toggle('miss', reloadTry < 0); }
     $('#cross').hidden = !playing || match.over || ctx.blocked();
     fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && playing);
     aimBtn.setAttribute('aria-pressed', String(aiming));
