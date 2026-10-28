@@ -434,21 +434,22 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-6",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-6",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-6",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-6",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-6",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-6",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-6",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-6",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-6",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-6",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-6",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-6",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-6",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-6",
-  "./js/world.js": "./js/world.js?v=2026-10-29-6"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-7",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-7",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-7",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-7",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-7",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-7",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-7",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-7",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-7",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-7",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-7",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-7",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-7",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-7",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-7",
+  "./js/world.js": "./js/world.js?v=2026-10-29-7"
 } }
 </script>
 <script>
@@ -629,7 +630,8 @@ const MAPS = {
   station: { name: 'la Station', icon: '🚀', file: './js/fpsstation.js', prefix: 'fps-station-', tag: 'S', blurb: 'Une station spatiale' },
   chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', tag: 'C', blurb: 'Une chambre d\'enfant géante' },
   bureaux: { name: 'les Bureaux', icon: '🏢', file: './js/fpsbureaux.js', prefix: 'fps-bureaux-', tag: 'B', blurb: 'Des bureaux, la nuit' },
-  labo: { name: 'le Labo', icon: '🧪', file: './js/fpslabo.js', prefix: 'fps-labo-', tag: 'L', blurb: 'Couloir, conduits, générateurs' }
+  labo: { name: 'le Labo', icon: '🧪', file: './js/fpslabo.js', prefix: 'fps-labo-', tag: 'L', blurb: 'Couloir, conduits, générateurs' },
+  forts: { name: 'les Deux Forts', icon: '🚩', file: './js/fpsforts.js', prefix: 'fps-forts-', tag: 'D', blurb: 'Grande vallée, capture du drapeau' }
 };
 // the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
 const HUB = !location.hash.replace(/^#/, '');
@@ -2444,8 +2446,9 @@ async function startBattle() {
   for (const o of [...scene.children]) scene.remove(o);
   const map = buildMap(scene);
   setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [] });
+  if (map.far) { camera.far = map.far; camera.updateProjectionMatrix(); } // a big map: see further
   fps = startFps({
-    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], movers: map.movers || [], doors: map.doors || [], keyLabel: label,
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], movers: map.movers || [], doors: map.doors || [], flags: map.flags || [], keyLabel: label,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol, cleanLook, CLOTH,
     blocked: () => editor.isOpen() || !!document.querySelector('dialog[open]') || !$('#chatForm').hidden
   });

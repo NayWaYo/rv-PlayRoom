@@ -58,6 +58,9 @@ const LEVELS = {
 };
 const LEVEL_KEYS = Object.keys(LEVELS);
 const SCORE_GOALS = [10, 15, 25], TIME_GOALS = [3, 5, 10]; // eliminations, minutes
+const CAP_GOALS = [1, 3, 5];  // captures, in capture the flag
+const FLAG_REACH = 1.4;       // how close you have to be to take, bring back or score a flag
+const FLAG_BACK = 20;         // seconds before a dropped flag goes home by itself
 const FREE = { id: '', mode: 'ffa', end: 'free', goal: 0, start: 0, over: 0 };
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -86,6 +89,10 @@ const CSS = `
 #fpsReload .zone{position:absolute;top:0;bottom:0;background:var(--marigold)}
 #fpsReload .fill{position:absolute;left:0;top:0;bottom:0;background:var(--cream);opacity:.85}
 #fpsReload.miss .zone{background:var(--coral);opacity:.5}
+#fpsFlags{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(28,21,36,.84);border:1px solid var(--line);border-radius:14px;padding:6px 14px;font-weight:800;font-size:14px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 24px)}
+#fpsFlags b{color:var(--marigold)}
+#fpsFlags.carry{border-color:var(--marigold);box-shadow:0 0 0 3px rgba(244,182,63,.35)}
+@media (max-width:560px){#fpsFlags{left:12px;transform:none;top:calc(118px + env(safe-area-inset-top,0px));align-items:flex-start;max-width:calc(100% - 200px);font-size:12px;white-space:normal;padding:5px 10px}}
 #fpsHurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 30px rgba(234,106,79,.75);opacity:0;transition:opacity .35s}
 #fpsHurt.on{opacity:1;transition:none}
 #fpsFeed{position:fixed;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;font-weight:800;font-size:14px}
@@ -133,7 +140,7 @@ const CSS = `
 #fpsMatch .rules-body label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px 0}
 #fpsMatch select{font:inherit;font-weight:700;background:var(--plum-2);color:var(--cream);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
 #fpsMatch .btn{width:100%;margin-top:12px}
-@media (max-width:560px){#fpsBoard{min-width:150px;max-width:170px;font-size:12px;padding:8px 10px}}
+@media (max-width:560px){#fpsBoard{min-width:150px;max-width:170px;font-size:12px;padding:8px 10px}#fpsFeed{top:calc(176px + env(safe-area-inset-top,0px))}}
 @media (pointer:coarse){#fpsBar{bottom:calc(150px + env(safe-area-inset-bottom,0px));font-size:16px}}
 #fpsBar{white-space:nowrap}
 @media (max-width:560px){#fpsBar{gap:8px;padding:5px 12px;font-size:15px}#fpsBar .hp{letter-spacing:0}#fpsBar .team{font-size:12px;padding:2px 8px}#fpsBar .clock{display:none}}
@@ -163,6 +170,7 @@ export function startFps(ctx) {
   swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(1); });
   const teamEl = el('span', 'team'), clockEl = el('span', 'clock'); bar.prepend(teamEl); bar.append(clockEl);
   const dirsEl = el('div'); dirsEl.id = 'fpsDirs';           // where the shots you take come from
+  const flagsEl = el('div'); flagsEl.id = 'fpsFlags'; flagsEl.hidden = true; // capture the flag: where each flag is
   // under the crosshair while reloading: how far along, and the zone for a quick reload
   const reloadEl = el('div'); reloadEl.id = 'fpsReload'; reloadEl.hidden = true;
   const reloadZone = el('div', 'zone'), reloadFill = el('div', 'fill');
@@ -178,7 +186,7 @@ export function startFps(ctx) {
   specEl.append(specName, nextBtn, joinBtn);
   // the window to set up a round
   const matchDlg = el('dialog'); matchDlg.id = 'fpsMatch'; matchDlg.setAttribute('aria-labelledby', 'fpsMatchTitle');
-  document.body.append(scopeEl, hurtEl, dirsEl, reloadEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, tabEl, endEl, matchDlg);
+  document.body.append(scopeEl, hurtEl, dirsEl, reloadEl, flagsEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, tabEl, endEl, matchDlg);
   $('#scores').after(board); // top right, like the card game's scores
   fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); trigger(true); });
   fireBtn.addEventListener('pointerup', () => trigger(false));
@@ -231,7 +239,8 @@ export function startFps(ctx) {
   }
   /* ---------- rounds and teams ---------- */
   let match = { ...FREE }, team = -1, watching = false, watchIdx = 0, enteredAt = 0;
-  const teamsOn = () => match.mode === 'teams';
+  const teamsOn = () => match.mode === 'teams' || match.mode === 'ctf';
+  const ctfOn = () => match.mode === 'ctf' && flags.length === 2; // capture the flag: teams, and a flag each
   const mates = (a, b) => teamsOn() && a >= 0 && a === b; // no friendly fire
   const running = () => !!match.start && match.end !== 'free' && !match.over;
   function teamOf(id) {
@@ -552,7 +561,7 @@ export function startFps(ctx) {
   function pushMine() {
     const room = ctx.room(); if (!room) return;
     const fm = match.id ? [match.id, match.mode, match.end, match.goal, match.start, match.over ? 1 : 0] : null;
-    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot, team, watching ? 1 : 0], fm }).catch(() => {});
+    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot, team, watching ? 1 : 0], fm, fc: flagsPresence() }).catch(() => {});
   }
   // a dart landed on `target`, fired by `from` from `o`: only the target's owner applies it
   function damage(target, from, dmg, head, o) {
@@ -573,7 +582,7 @@ export function startFps(ctx) {
     hurtEl.classList.add('on'); setTimeout(() => hurtEl.classList.remove('on'), 60);
     if (o && from !== ctx.myKey()) hitFrom(o);
     if (hp <= 0) {
-      deaths++; downUntil = now() + RESPAWN; chargeAt = 0;
+      deaths++; downUntil = now() + RESPAWN; chargeAt = 0; dropFlag(ctx.myKey(), me.x, me.jy, me.z); // a flag you carry falls where you fall
       downBy = from === ctx.myKey() ? 'ta propre roquette' : nameOf(from) + (head ? ', en pleine tête' : '');
       if (heavy) { heavy = null; if (slot >= BASIC) slot = last; } // a picked-up weapon is lost
       knockedOut(ctx.myKey(), from, head);
@@ -655,7 +664,7 @@ export function startFps(ctx) {
     if (b.hp <= 0 || now() < b.shieldUntil) return;
     b.hp = Math.max(0, b.hp - soak(b, dmg));
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
-    if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; knockedOut(b.id, from, head); }
+    if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; dropFlag(b.id, b.x, b.y, b.z); knockedOut(b.id, from, head); }
     else if (!b.target) b.think = 0; // look around for whoever did that
   }
   function canSee(o, x, base, z, height) {
@@ -666,9 +675,10 @@ export function startFps(ctx) {
   }
   // walk somewhere: a friend's last known spot, or anywhere at all
   function planWalk(b, t) {
-    const to = b.lastSeen && t - b.lastSeen.t < 8 ? nearestSpot(b.lastSeen.x, b.lastSeen.y, b.lastSeen.z) : randomSpot();
+    const goal = ctfOn() && b.team >= 0 ? ctfGoal(b) : null; // capture the flag: where the flags send this bot
+    const to = goal ? nearestSpot(goal.x, goal.y, goal.z) : b.lastSeen && t - b.lastSeen.t < 8 ? nearestSpot(b.lastSeen.x, b.lastSeen.y, b.lastSeen.z) : randomSpot();
     b.path = findPath(nearestSpot(b.x, b.y, b.z), to) || []; b.step = 1;
-    b.repath = t + (b.path.length ? 6 + Math.random() * 4 : 1); // no way there: try elsewhere in a second
+    b.repath = t + (b.path.length ? (goal ? 2.5 : 6 + Math.random() * 4) : 1); // no way there: try elsewhere in a second
     if (b.lastSeen && to && Math.hypot(to.x - b.x, to.z - b.z) < 1) b.lastSeen = null;
   }
   const botO = new THREE.Vector3();
@@ -692,7 +702,9 @@ export function startFps(ctx) {
       if (!best && b.target) b.repath = 0; // lost them: go and look where they were
       b.target = best;
     }
-    const f = !match.over && b.target && fighters().find(q => q.id === b.target && q.alive);
+    // a bot carrying the flag doesn't stop to fight: it runs home
+    const runner = ctfOn() && !!flagOf(b.id);
+    const f = !match.over && !runner && b.target && fighters().find(q => q.id === b.target && q.alive);
     let mx = 0, mz = 0, face = null, wantCrouch = false;
     if (f) {
       b.lastSeen = { x: f.x, y: f.base, z: f.z, t };
@@ -912,6 +924,191 @@ export function startFps(ctx) {
     }
   }
 
+  /* ---------- capture the flag ---------- */
+  // Each team's flag is at home on its base, carried by someone, or dropped where its carrier fell
+  // (it goes home by itself after FLAG_BACK seconds). Whoever changes a flag (you, or one of your
+  // bots) tells the others on `flag` with the next version number: the highest version wins, and
+  // two changes at once are settled by who made them, so everyone ends up with the same flag.
+  // A capture is told on `cap` with an id of its own, so it's never counted twice; arriving, you
+  // read the flags and the score from the others' presence (`fc`).
+  const flags = (ctx.flags || []).map(([x, y, z], i) => {
+    const home = new THREE.Vector3(x, y, z);
+    return { i, home, v: 0, by: '', s: 'home', who: '', p: home.clone(), at: 0, lost: 0, ...flagModel(i) };
+  });
+  let caps = [0, 0];
+  const capsSeen = new Set();
+  // a pole, a cloth in the team's colour, and a marker high above it, seen from anywhere
+  function flagModel(i) {
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), toon('#e8ecf5')); pole.position.y = 1.3; g.add(pole);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), yellow); knob.position.y = 2.65; g.add(knob);
+    const clothGeo = new THREE.PlaneGeometry(1.2, 0.75, 12, 1); clothGeo.translate(0.62, 0, 0);
+    const cloth = new THREE.Mesh(clothGeo, toon(TEAMS[i].col, { side: THREE.DoubleSide })); cloth.position.y = 2.18; g.add(cloth);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const c = cv.getContext('2d');
+    c.fillStyle = TEAMS[i].col; c.beginPath(); c.arc(32, 32, 28, 0, Math.PI * 2); c.fill();
+    c.lineWidth = 5; c.strokeStyle = '#fbf3e4'; c.stroke();
+    c.fillStyle = '#fbf3e4'; c.fillRect(22, 16, 4, 32); c.beginPath(); c.moveTo(26, 16); c.lineTo(46, 23); c.lineTo(26, 30); c.fill();
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    tag.scale.set(0.9, 0.9, 1); tag.position.y = 3.7; tag.renderOrder = 10; g.add(tag);
+    g.visible = false; scene.add(g);
+    return { g, cloth, flat: clothGeo.attributes.position.array.slice() };
+  }
+  const flagName = i => 'le drapeau ' + TEAMS[i].one;
+  const who_ = id => id === ctx.myKey() ? 'Tu' : nameOf(id);
+  function flagOf(id) { return flags.find(f => f.s === 'carried' && f.who === id); }
+  function resetFlags() {
+    caps = [0, 0]; capsSeen.clear();
+    for (const f of flags) { Object.assign(f, { v: 0, by: '', s: 'home', who: '', at: 0, lost: 0 }); f.p.copy(f.home); }
+  }
+  function say(text) {
+    const line = el('div', null, text); feed.append(line);
+    setTimeout(() => { line.style.opacity = '0'; setTimeout(() => line.remove(), 700); }, 3500);
+    while (feed.children.length > 4) feed.firstChild.remove();
+  }
+  // a change made here: apply it, and tell everyone
+  function setFlag(f, s, who, p) {
+    const d = { m: match.id, i: f.i, v: f.v + 1, by: ctx.myKey(), s, who: who || '', p: p ? [r2(p.x), r2(p.y), r2(p.z)] : null, at: Date.now() };
+    applyFlag(f, d);
+    const room = ctx.room(); if (room) room.emit('flag', d).catch(() => {});
+    pushMine();
+  }
+  // a change from here or elsewhere; `quiet` when it's only catching up (nothing to announce)
+  function applyFlag(f, d, quiet) {
+    if (d.v < f.v || (d.v === f.v && d.by <= f.by)) return false; // older news, or a clash this one loses
+    const was = f.s;
+    Object.assign(f, { v: d.v, by: d.by, s: d.s, who: d.who, at: d.at, lost: 0 });
+    if (d.s === 'dropped' && d.p) f.p.set(...d.p); else f.p.copy(f.home);
+    if (quiet) return true;
+    const ours = f.i === team;
+    if (d.s === 'carried') {
+      say(`${who_(d.who)} ${d.who === ctx.myKey() ? 'as' : 'a'} pris ${flagName(f.i)} 🚩`);
+      if (d.who === ctx.myKey()) { sfx.pickup(); toast(`Tu as ${flagName(f.i)} : ramène-le à ta base !`, 3000); } else if (ours) sfx.uncharge(); else sfx.pickup(0.6);
+    } else if (d.s === 'dropped') say(`${flagName(f.i)[0].toUpperCase() + flagName(f.i).slice(1)} est tombé !`);
+    else if (was === 'dropped') { say(`${who_(d.who)} ${d.who === ctx.myKey() ? 'as' : 'a'} ramené ${flagName(f.i)} à sa base`); sfx.chime(); }
+    return true;
+  }
+  function dropFlag(id, x, y, z) {
+    const f = ctfOn() && flagOf(id);
+    if (f) setFlag(f, 'dropped', id, new THREE.Vector3(x, y, z));
+  }
+  function capture(tm, who) {
+    const d = { m: match.id, id: Math.random().toString(36).slice(2, 10), t: tm, who };
+    gotCap(d);
+    const room = ctx.room(); if (room) room.emit('cap', d).catch(() => {});
+  }
+  function gotCap(d) {
+    if (d.m !== match.id || capsSeen.has(d.id) || !(d.t === 0 || d.t === 1)) return;
+    capsSeen.add(d.id); caps[d.t]++;
+    say(`${who_(d.who)} ${d.who === ctx.myKey() ? 'as' : 'a'} capturé le drapeau ! ${TEAMS[0].dot} ${caps[0]} – ${caps[1]} ${TEAMS[1].dot}`);
+    if (d.t === team) { sfx.fanfare(); setTimeout(() => sfx.confetti(), 300); } else sfx.wahwah();
+    pushMine(); renderBoard(); renderBar();
+  }
+  // for presence: [round, captures ×2, then each flag: version, by, state, carrier, x, y, z, when]
+  function flagsPresence() {
+    if (!ctfOn()) return null;
+    const out = [match.id, caps[0], caps[1]];
+    for (const f of flags) out.push(f.v, f.by, f.s, f.who, r2(f.p.x), r2(f.p.y), r2(f.p.z), f.at);
+    return out;
+  }
+  function readFlags() {
+    if (!ctfOn()) return;
+    for (const p of ctx.peers()) {
+      const c = p.presence && p.presence.fc;
+      if (p.sameTab || !Array.isArray(c) || c[0] !== match.id) continue;
+      caps[0] = Math.max(caps[0], c[1] | 0); caps[1] = Math.max(caps[1], c[2] | 0);
+      for (const f of flags) {
+        const o = 3 + f.i * 8, s = c[o + 2];
+        if (!['home', 'carried', 'dropped'].includes(s)) continue;
+        const pos = [c[o + 4], c[o + 5], c[o + 6]];
+        applyFlag(f, { v: c[o] | 0, by: String(c[o + 1] || ''), s, who: String(c[o + 3] || ''), p: pos.every(Number.isFinite) ? pos : null, at: +c[o + 7] || 0 }, true);
+      }
+    }
+  }
+  function onFlag(m) {
+    if (m.isMe) return;
+    const d = m.data || {}, f = flags[d.i | 0];
+    if (!f || d.m !== match.id || !Number.isInteger(d.v) || typeof d.by !== 'string' || !['home', 'carried', 'dropped'].includes(d.s)) return;
+    const p = Array.isArray(d.p) && d.p.length === 3 && d.p.every(Number.isFinite) ? d.p : null;
+    if (d.s === 'dropped' && !p) return;
+    applyFlag(f, { v: d.v, by: d.by, s: d.s, who: typeof d.who === 'string' ? d.who : '', p, at: +d.at || Date.now() });
+  }
+  function onCap(m) {
+    if (m.isMe) return;
+    const d = m.data || {};
+    if (typeof d.id === 'string' && typeof d.who === 'string') gotCap(d);
+  }
+  // you and your bots, near a flag: take theirs, bring yours back, score
+  function touchFlags(id, tm, x, y, z) {
+    const mine = flags[tm], theirs = flags[1 - tm];
+    const near = p => Math.hypot(x - p.x, z - p.z) < FLAG_REACH && Math.abs(y - p.y) < 1.6;
+    if (theirs.s !== 'carried' && near(theirs.p)) setFlag(theirs, 'carried', id);
+    else if (mine.s === 'dropped' && near(mine.p)) setFlag(mine, 'home', id);
+    else if (theirs.s === 'carried' && theirs.who === id && mine.s === 'home' && near(mine.home)) { setFlag(theirs, 'home', id); capture(tm, id); }
+  }
+  // where a bot should be heading, in capture the flag
+  function ctfGoal(b) {
+    const mine = flags[b.team], theirs = flags[1 - b.team];
+    if (theirs.s === 'carried' && theirs.who === b.id) return mine.home;     // bring it home
+    if (mine.s === 'dropped') return mine.p;                                // fetch ours back
+    if (mine.s === 'carried') { const c = fighters().find(q => q.id === mine.who); if (c) return { x: c.x, y: c.base, z: c.z }; } // after our flag
+    const attacker = b.seed % 3 !== 0;                                      // two in three go for theirs, the others guard
+    if (attacker && theirs.s !== 'carried') return theirs.p;
+    if (attacker) { const c = fighters().find(q => q.id === theirs.who); if (c) return { x: c.x, y: c.base, z: c.z }; } // escort the carrier
+    const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 7;
+    return { x: mine.home.x + Math.cos(a) * r * 0.6, y: mine.home.y, z: mine.home.z + Math.sin(a) * r };
+  }
+  let flagsSig = '';
+  function updateFlags(dt) {
+    const on = ctfOn(), t = now();
+    for (const f of flags) f.g.visible = on;
+    flagsEl.hidden = !on || !me.entered;
+    if (!on) return;
+    const fs = fighters();
+    for (const f of flags) {
+      // dropped too long: home by itself, on everyone's own clock
+      if (f.s === 'dropped' && Date.now() - f.at > FLAG_BACK * 1000) { f.s = 'home'; f.p.copy(f.home); say(`${flagName(f.i)[0].toUpperCase() + flagName(f.i).slice(1)} est rentré à sa base`); }
+      // carried by someone who isn't there any more (gone, or watching): home too
+      if (f.s === 'carried') {
+        const here = f.who === ctx.myKey() ? me.entered && !watching : fs.some(q => q.id === f.who);
+        if (here) f.lost = 0; else if (!f.lost) f.lost = t; else if (t - f.lost > 3) { f.s = 'home'; f.p.copy(f.home); f.lost = 0; }
+      }
+      // draw it: on its base, on its carrier's back, or lying where it fell
+      let x = f.p.x, y = f.p.y, z = f.p.z, yaw = Math.PI / 2, tilt = 0, show = true; // the cloth faces the valley
+      if (f.s === 'carried') {
+        const b = bots.get(f.who), a = [...avatars.values()].find(v => v.who === f.who);
+        if (f.who === ctx.myKey()) show = false;                          // your own back: see the banner instead
+        else if (a) { x = a.x - Math.sin(a.yaw) * -0.3; y = (a.y || 0) + 0.5; z = a.z - Math.cos(a.yaw) * -0.3; yaw = a.yaw; }
+        else if (b) { x = b.x; y = b.y + 0.5; z = b.z; }
+      } else if (f.s === 'dropped') tilt = 0.9;
+      f.g.visible = show;
+      f.g.position.set(x, y, z); f.g.rotation.set(0, yaw, tilt);
+      // the cloth waves
+      const pos = f.cloth.geometry.attributes.position;
+      for (let k = 0; k < pos.count; k++) { const fx = f.flat[k * 3]; pos.array[k * 3 + 2] = Math.sin(t * 6 + fx * 4 + f.i) * 0.09 * fx; }
+      pos.needsUpdate = true;
+    }
+    if (!match.over) {
+      if (me.entered && alive() && !watching && team >= 0) touchFlags(ctx.myKey(), team, me.x, me.jy, me.z);
+      for (const b of bots.values()) if (b.hp > 0 && b.team >= 0) touchFlags(b.id, b.team, b.x, b.y, b.z);
+    }
+    // the banner: where each flag is, and whether you carry one
+    // (shorter on a phone, where it sits in a corner)
+    const short = matchMedia('(max-width:560px)').matches, left = f => Math.max(0, Math.ceil(FLAG_BACK - (Date.now() - f.at) / 1000));
+    const state = f => f.s === 'home' ? (short ? 'base' : 'à sa base') : f.s === 'dropped' ? (short ? `tombé ${left(f)} s` : `tombé (${left(f)} s)`)
+      : f.who === ctx.myKey() ? (short ? 'toi !' : 'c\'est toi qui l\'as !') : (short ? 'pris' : 'porté par ' + nameOf(f.who));
+    const mineF = flagOf(ctx.myKey());
+    const sig = flags.map(f => `${TEAMS[f.i].dot} ${state(f)}`).join(short ? '  ' : '   ') + (mineF ? (short ? '|Ramène-le !' : '|Ramène-le à ta base !') : '');
+    if (sig !== flagsSig) {
+      flagsSig = sig; flagsEl.textContent = '';
+      const [line, carry] = sig.split('|');
+      flagsEl.append(el('span', null, line));
+      if (carry) flagsEl.append(el('b', null, '🚩 ' + carry));
+      flagsEl.classList.toggle('carry', !!carry);
+    }
+  }
+
   /* ---------- network ---------- */
   function onDart(m) {
     if (m.isMe) return;
@@ -954,8 +1151,8 @@ export function startFps(ctx) {
   // a round as it travels: { id, mode, end, goal, start, over }, checked
   function cleanMatch(d) {
     if (!d || typeof d.id !== 'string' || !d.id || d.id.length > 16) return null;
-    const mode = d.mode === 'teams' ? 'teams' : 'ffa', end = ['score', 'time'].includes(d.end) ? d.end : 'free';
-    const goals = end === 'score' ? SCORE_GOALS : end === 'time' ? TIME_GOALS : [0];
+    const mode = ['teams', 'ctf'].includes(d.mode) ? d.mode : 'ffa', end = ['score', 'time'].includes(d.end) ? d.end : 'free';
+    const goals = end === 'score' ? (mode === 'ctf' ? CAP_GOALS : SCORE_GOALS) : end === 'time' ? TIME_GOALS : [0];
     const start = +d.start;
     if (!Number.isFinite(start) || start <= 0) return null;
     return { id: d.id, mode, end, goal: goals.includes(d.goal) ? d.goal : goals[0], start, over: d.over ? 1 : 0 };
@@ -983,17 +1180,18 @@ export function startFps(ctx) {
     p.back = now() + PICKUPS[p.kind].every;
   }
   const room0 = ctx.room();
-  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend]]) room0.on(topic, fn, () => {});
+  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap]]) room0.on(topic, fn, () => {});
 
   /* ---------- rounds: starting, joining late, ending ---------- */
-  let setup = { mode: 'ffa', end: 'score', score: 15, time: 5 }; // what the round window shows
+  let setup = { mode: 'ffa', end: 'score', score: 15, caps: 3, time: 5 }; // what the round window shows
   try { Object.assign(setup, JSON.parse(store.get('playroom-round')) || {}); } catch (e) {}
+  if (setup.mode === 'ctf' && flags.length !== 2) setup.mode = 'teams'; // no flags on this map
   function startMatch(s) {
-    const goal = s.end === 'score' ? s.score : s.end === 'time' ? s.time : 0;
+    const goal = s.end === 'score' ? (s.mode === 'ctf' ? s.caps : s.score) : s.end === 'time' ? s.time : 0;
     const m = cleanMatch({ id: Math.random().toString(36).slice(2, 10), mode: s.mode, end: s.end, goal, start: Math.max(Date.now(), match.start + 1) });
     // the teams: people first, one each side in a random order, then the bots to even things out
     let t = null;
-    if (m.mode === 'teams') {
+    if (m.mode !== 'ffa') {
       t = {};
       const rows = standings(), people = rows.filter(r => !r.bot).sort(() => Math.random() - 0.5), robots = rows.filter(r => r.bot);
       const n = [0, 0];
@@ -1008,13 +1206,14 @@ export function startFps(ctx) {
   function adopt(m, t, fresh, by) {
     const was = match;
     match = m;
-    if (m.mode === 'teams') {
+    if (m.mode !== 'ffa') {
       const pick = id => t && (t[id] === 0 || t[id] === 1) ? t[id] : null;
       // a team you were given, the one you were already on, or the smaller one
-      team = pick(ctx.myKey()) ?? (was.mode === 'teams' && team >= 0 ? team : smallerTeam(ctx.myKey()));
+      team = pick(ctx.myKey()) ?? (was.mode !== 'ffa' && team >= 0 ? team : smallerTeam(ctx.myKey()));
       for (const b of bots.values()) b.team = -1;
       for (const b of bots.values()) b.team = pick(b.id) ?? smallerTeam(b.id);
     } else { team = -1; for (const b of bots.values()) b.team = -1; }
+    if (fresh || was.id !== m.id) resetFlags(); // every round starts with both flags at home
     if (fresh) {
       kills = deaths = 0;
       const t0 = now();
@@ -1030,8 +1229,9 @@ export function startFps(ctx) {
     pushMine(); renderBoard(); renderBar();
   }
   function describe(m) {
-    const mode = m.mode === 'teams' ? 'Rouges contre Bleus' : 'chacun pour soi';
-    return m.end === 'score' ? `${mode}, premier à ${m.goal}` : m.end === 'time' ? `${mode}, ${m.goal} minutes` : `${mode}, sans fin`;
+    const mode = m.mode === 'ctf' ? 'capture du drapeau' : m.mode === 'teams' ? 'Rouges contre Bleus' : 'chacun pour soi';
+    const goal = m.mode === 'ctf' ? `${m.goal} capture${m.goal > 1 ? 's' : ''}` : m.goal;
+    return m.end === 'score' ? `${mode}, premier à ${goal}` : m.end === 'time' ? `${mode}, ${m.goal} minutes` : `${mode}, sans fin`;
   }
   // what friends' presence says about the round: arriving, I join the latest one
   function readMatch() {
@@ -1051,12 +1251,14 @@ export function startFps(ctx) {
     for (const r of rows) if (r.team >= 0) t[r.team] += r.k;
     return t;
   }
+  // each team's score: its captures in capture the flag, its eliminations otherwise
+  const teamScores = rows => ctfOn() ? caps.slice() : totals(rows);
   function checkEnd() {
     if (!running()) return;
     if (match.end === 'time' && timeLeft() <= 0) { finish(true); return; }
     if (match.end === 'score') {
       const rows = standings();
-      const best = teamsOn() ? Math.max(...totals(rows)) : Math.max(0, ...rows.map(r => r.k));
+      const best = teamsOn() ? Math.max(...teamScores(rows)) : Math.max(0, ...rows.map(r => r.k));
       if (best >= match.goal) finish(true);
     }
   }
@@ -1069,10 +1271,10 @@ export function startFps(ctx) {
     const rows = standings().filter(r => !r.spec);
     let title, sub, won = false;
     if (teamsOn()) {
-      const t = totals(rows);
+      const t = teamScores(rows);
       if (t[0] === t[1]) title = 'Égalité !';
       else { const w = t[0] > t[1] ? 0 : 1; title = `Victoire des ${TEAMS[w].name} ${TEAMS[w].dot}`; won = w === team; }
-      sub = `${TEAMS[0].dot} ${t[0]} – ${t[1]} ${TEAMS[1].dot}`;
+      sub = `${TEAMS[0].dot} ${t[0]} – ${t[1]} ${TEAMS[1].dot}` + (ctfOn() ? ' (captures)' : '');
     } else {
       const [a, b] = rows;
       if (!a) title = 'Fin de la manche';
@@ -1087,7 +1289,7 @@ export function startFps(ctx) {
     endEl.append(el('h2', null, title), el('p', 'muted', sub + ' · ' + describe(match)), table(rows, 8));
     const btns = el('div', 'btns');
     const again = el('button', 'btn', 'Revanche'); again.type = 'button';
-    again.addEventListener('click', () => startMatch({ mode: match.mode, end: match.end, score: match.goal, time: match.goal }));
+    again.addEventListener('click', () => startMatch({ mode: match.mode, end: match.end, score: match.goal, caps: match.goal, time: match.goal }));
     const set = el('button', 'btn ghost', 'Régler la partie'); set.type = 'button';
     set.addEventListener('click', openSetup);
     btns.append(again, set); endEl.append(btns);
@@ -1112,9 +1314,12 @@ export function startFps(ctx) {
     function render() {
       body.textContent = '';
       body.append(el('p', 'muted', 'Tout le monde repart de zéro. En équipes, les tirs passent à travers les coéquipiers.'));
-      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']], v => { setup.mode = v; });
+      // capture the flag only on a map with flags
+      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']].concat(flags.length === 2 ? [['ctf', 'Capture du drapeau']] : []), v => { setup.mode = v; });
+      if (setup.mode === 'ctf') body.append(el('p', 'muted', 'Prends le drapeau adverse et ramène-le à ta base pendant que le tien y est. S\'il tombe, touche-le pour le ramener chez toi.'));
       select('Fin de la manche', setup.end, [['score', 'Score à atteindre'], ['time', 'Chronomètre'], ['free', 'Sans fin']], v => { setup.end = v; });
-      if (setup.end === 'score') select(teamsOn() || setup.mode === 'teams' ? 'Éliminations (par équipe)' : 'Éliminations', setup.score, SCORE_GOALS.map(n => [n, String(n)]), v => { setup.score = +v; });
+      if (setup.end === 'score' && setup.mode === 'ctf') select('Captures', setup.caps, CAP_GOALS.map(n => [n, String(n)]), v => { setup.caps = +v; });
+      else if (setup.end === 'score') select(setup.mode === 'teams' ? 'Éliminations (par équipe)' : 'Éliminations', setup.score, SCORE_GOALS.map(n => [n, String(n)]), v => { setup.score = +v; });
       if (setup.end === 'time') select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
       const go = el('button', 'btn', 'Lancer la manche'); go.type = 'button';
       go.addEventListener('click', () => { store.set('playroom-round', JSON.stringify(setup)); matchDlg.close(); startMatch(setup); });
@@ -1127,6 +1332,7 @@ export function startFps(ctx) {
   }
   function switchTeam() {
     if (!teamsOn() || team < 0) return;
+    dropFlag(ctx.myKey(), me.x, me.jy, me.z);
     team = 1 - team;
     toast(`Tu passes chez les ${TEAMS[team].name} ${TEAMS[team].dot}`);
     if (!watching) respawnMe(); else pushMine();
@@ -1138,6 +1344,7 @@ export function startFps(ctx) {
     if (on === watching || !me.entered) return;
     watching = on; camSet = false;
     triggerDown = false; aiming = false; chargeAt = 0;
+    if (on) dropFlag(ctx.myKey(), me.x, me.jy, me.z);
     if (on) { hp = MAX_HP; me.fling = null; if (late) toast(`Une manche est en cours : tu regardes. ${coarse ? 'Touche « Rejoindre »' : ctx.keyLabel('jump') + ' ou « Rejoindre »'} pour jouer.`, 4500); }
     else respawnMe();
     pushMine(); renderBoard(); renderBar();
@@ -1188,10 +1395,12 @@ export function startFps(ctx) {
   }
   // the time left, or how close the leader is to the score to reach
   function clockText() {
-    if (!match.start || match.end === 'free') return '';
+    const capsTxt = ctfOn() ? `🚩 ${caps[0]} – ${caps[1]}` : ''; // the captures, Rouges first
+    if (!match.start || match.end === 'free') return capsTxt;
     if (match.over) return 'Manche finie';
-    if (match.end === 'time') return '⏱ ' + mmss(timeLeft());
-    const rows = standings(), best = teamsOn() ? Math.max(...totals(rows)) : Math.max(0, ...rows.map(r => r.k));
+    if (match.end === 'time') return '⏱ ' + mmss(timeLeft()) + (capsTxt ? ' · ' + capsTxt : '');
+    if (capsTxt) return `${capsTxt} (sur ${match.goal})`;
+    const rows = standings(), best = teamsOn() ? Math.max(...teamScores(rows)) : Math.max(0, ...rows.map(r => r.k));
     return `🎯 ${best}/${match.goal}`;
   }
   // everyone in the battle: you, friends, bots (yours and others'), with their team; spectators last
@@ -1221,7 +1430,7 @@ export function startFps(ctx) {
     };
     const play = rows.filter(r => !r.spec);
     if (teamsOn()) {
-      const t = totals(play);
+      const t = teamScores(play);
       for (const k of [0, 1]) {
         const tr = el('tr', 'tm'), td = el('td', null, `${TEAMS[k].dot} ${TEAMS[k].name}`); td.style.color = TEAMS[k].col;
         tr.append(td, el('td', null, String(t[k])), el('td'), el('td')); tb.append(tr);
@@ -1262,7 +1471,7 @@ export function startFps(ctx) {
     };
     const play = rows.filter(r => !r.spec);
     if (teamsOn()) {
-      const t = totals(play);
+      const t = teamScores(play);
       for (const k of [0, 1]) {
         const th = el('div', 'team'); th.style.color = TEAMS[k].col;
         th.append(el('span', null, `${TEAMS[k].dot} ${TEAMS[k].name}`), el('span', null, String(t[k])));
@@ -1348,7 +1557,7 @@ export function startFps(ctx) {
     me.frozen = me.entered && (!alive() || watching);
     // lying on the floor while knocked out
     if (me.frozen && !watching) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
-    updateMovers(); updateDoors(dt);
+    updateMovers(); updateDoors(dt); updateFlags(dt);
     for (const b of bots.values()) updateBot(b, dt);
     streamBots();
     // knocked-out avatars fall over backwards, shielded ones blink, spectators aren't there
@@ -1399,7 +1608,7 @@ export function startFps(ctx) {
     $('#cross').hidden = !playing || match.over || ctx.blocked();
     fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && playing);
     aimBtn.setAttribute('aria-pressed', String(aiming));
-    if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
+    if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
   }
   return {
     update, syncAvatars, peerAvatar, dress, trigger, reload, select, aim, scores, join,
