@@ -891,6 +891,27 @@ export function startFps(ctx) {
     }
   }
 
+  /* ---------- automatic sliding doors ---------- */
+  // each opens when anyone (you, a friend, a bot) comes near and closes behind them; everyone works it
+  // out from where they see people, so it opens for everybody at about the same moment, no network
+  const doors = (ctx.doors || []).map(d => ({ ...d, open: 0, want: 0, at: new THREE.Vector3(d.x, 1.3, d.z) }));
+  function updateDoors(dt) {
+    if (!doors.length) return;
+    const fs = fighters();
+    for (const d of doors) {
+      const want = fs.some(f => Math.hypot(f.x - d.x, f.z - d.z) < d.r && f.base < 2.5) ? 1 : 0;
+      if (want !== d.want) { d.want = want; playNear(d.at, 'swoosh', 14); }
+      const was = d.open;
+      d.open = Math.max(0, Math.min(1, d.open + (want ? 1 : -1) * dt * 2.5));
+      const k = d.open - was;
+      if (!k) continue;
+      for (const p of d.panels) { // each panel slides into the wall beside it
+        p.box.x0 += p.dx * k; p.box.x1 += p.dx * k; p.box.z0 += p.dz * k; p.box.z1 += p.dz * k;
+        for (const o of p.objs) { o.position.x += p.dx * k; o.position.z += p.dz * k; }
+      }
+    }
+  }
+
   /* ---------- network ---------- */
   function onDart(m) {
     if (m.isMe) return;
@@ -1327,7 +1348,7 @@ export function startFps(ctx) {
     me.frozen = me.entered && (!alive() || watching);
     // lying on the floor while knocked out
     if (me.frozen && !watching) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
-    updateMovers();
+    updateMovers(); updateDoors(dt);
     for (const b of bots.values()) updateBot(b, dt);
     streamBots();
     // knocked-out avatars fall over backwards, shielded ones blink, spectators aren't there
