@@ -20,6 +20,8 @@ gh api -X POST repos/NayWaYo/rv-PlayRoom/pages -f "source[branch]=main" -f "sour
 
 Pas de build : HTML, CSS et modules ES chargés par une import map. three.js 0.186.1 et Trystero 0.26.0 viennent de jsDelivr, en versions figées.
 
+L'import map donne aussi une version à chaque fichier de `js/` (`./js/fps.js?v=AAAA-MM-JJ`). GitHub Pages fait garder chaque fichier 10 minutes au navigateur, chacun de son côté : sans cette version, un joueur peut recevoir le nouvel `index.html` avec un ancien module, et le jeu plante. **À chaque mise en ligne qui touche `js/`, changer la date dans toutes les entrées de l'import map** (index.html). Un nouveau fichier dans `js/` doit y être ajouté aussi. La boucle d'animation attrape les erreurs : une image qui plante ne fige plus le jeu, une alerte invite à recharger.
+
 - `index.html` (environ 2000 lignes) : interface, règles du Papayoo (objet `PY`), scène 3D, réseau, avatars, social. Le script principal est un module.
 - `js/fx.js` : matériaux toon, `roundedBox`, halos, poussière, confettis.
 - `js/avatar.js` : personnages articulés, visage dessiné sur canvas, options de look, expressions, animations.

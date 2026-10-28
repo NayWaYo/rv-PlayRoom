@@ -347,7 +347,20 @@ table.res tr.win td{color:var(--marigold)}
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29",
+  "./js/world.js": "./js/world.js?v=2026-10-29"
 } }
 </script>
 <script>
@@ -2115,17 +2128,23 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 let lastT = performance.now(), uiTick = 0;
+let loopErrors = 0;
 function loop(now) {
+  requestAnimationFrame(loop); // first: an error in one frame must not freeze the game for good
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
-  updateMe(dt);
-  updateAvatars(dt, now / 1000);
-  updateTable(dt);
-  if (fps) fps.update(dt);
-  updateDecor(dt, now / 1000);
-  updateSocial(dt, now);
-  if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); }
+  try {
+    updateMe(dt);
+    updateAvatars(dt, now / 1000);
+    updateTable(dt);
+    if (fps) fps.update(dt);
+    updateDecor(dt, now / 1000);
+    updateSocial(dt, now);
+    if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); }
+  } catch (e) {
+    if (loopErrors++ % 300 === 0) console.error(e); // not 60 times a second
+    if (loopErrors === 1) toast('Oups, un souci dans le jeu. Si ça coince, recharge la page.', 5000);
+  }
   outlines.render(scene, camera);
-  requestAnimationFrame(loop);
 }
 camera.position.set(me.x, 1.55, me.z);
 requestAnimationFrame(loop);
