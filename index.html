@@ -348,19 +348,19 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-2",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-2",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-2",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-2",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-2",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-2",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-2",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-2",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-2",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-2",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-2",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-2",
-  "./js/world.js": "./js/world.js?v=2026-10-29-2"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-3",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-3",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-3",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-3",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-3",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-3",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-3",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-3",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-3",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-3",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-3",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-3",
+  "./js/world.js": "./js/world.js?v=2026-10-29-3"
 } }
 </script>
 <script>
@@ -1373,7 +1373,7 @@ function updateMe(dt) {
     // crouch while C is held (or the touch button is on), or while something low is overhead
     const lowRoof = ceilingAt(me.x, me.z, me.jy) < me.jy + TALL;
     me.crouch += ((held('crouch') || crouchLatch || lowRoof ? 1 : 0) - me.crouch) * (1 - Math.exp(-dt * 10));
-    const sp = (held('run') && me.crouch < 0.5 ? 6.5 : 4.2) * (1 - me.crouch * 0.55) * dt;
+    const sp = (held('run') && me.crouch < 0.5 ? (FPS ? 8.2 : 6.5) : 4.2) * (1 - me.crouch * 0.55) * dt; // a faster sprint in a battle
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     me.x += (-sy * f + cy * r) * sp;
     me.z += (-cy * f - sy * r) * sp;

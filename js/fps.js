@@ -26,6 +26,7 @@ const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun'];
 const BASIC = 4; // the first four are always in your hands; the others only once picked up
 const ROCKET_SPEED = 20;
 const QUICK = [0.4, 0.6]; // the quick-reload zone, as a share of the reload time
+const QUICK_MISS = 0.3;   // missing it adds this share of a normal reload
 // on the floor of the map, coming back a while after someone takes them
 const PICKUPS = {
   health: { name: 'Soin', every: 15 },
@@ -491,25 +492,35 @@ export function startFps(ctx) {
     renderBar(); pushMine();
   }
   // reloading; pressed again while it's going, a quick reload: in the yellow zone it's done at once,
-  // outside it the chance is gone for this reload (one try each, so mashing the key doesn't work)
-  let reloadTry = 0; // 0: not tried yet, 1: done fast, -1: missed
+  // outside it the reload takes 30 % longer (one try each, so mashing the key doesn't work)
+  let reloadTry = 0, reloadLen = 1; // try: 0 not yet, 1 done fast, -1 missed; len: how long this reload lasts
   function reload() {
     const k = SLOTS[slot], w = W();
     if (reloadUntil > now()) { quickReload(); return; }
     if (w.heavy || ammo[k] === w.mag || !alive()) return;
-    reloadUntil = now() + w.reload; reloadTry = 0; sfx.reload();
-    const seq = ++reloadSeq;
-    setTimeout(() => { if (seq === reloadSeq) { ammo[k] = w.mag; renderBar(); } }, w.reload * 1000);
+    reloadLen = w.reload; reloadTry = 0; sfx.reload();
+    finishReloadIn(w.reload);
     renderBar();
   }
-  const reloadDone = () => 1 - (reloadUntil - now()) / W().reload; // from 0 to 1
+  // the clip is full in `secs` (and not if the reload is cancelled or redone before)
+  function finishReloadIn(secs) {
+    const k = SLOTS[slot], mag = W().mag, seq = ++reloadSeq;
+    reloadUntil = now() + secs;
+    setTimeout(() => { if (seq === reloadSeq) { ammo[k] = mag; renderBar(); } }, secs * 1000);
+  }
+  const reloadDone = () => 1 - (reloadUntil - now()) / reloadLen; // from 0 to 1
   function quickReload() {
     if (reloadTry || !alive() || watching) return;
-    const p = reloadDone();
+    const p = reloadDone(), w = W();
     if (p >= QUICK[0] && p <= QUICK[1]) {
-      reloadTry = 1; reloadSeq++; reloadUntil = now(); ammo[SLOTS[slot]] = W().mag;
+      reloadTry = 1; reloadSeq++; reloadUntil = now(); ammo[SLOTS[slot]] = w.mag;
       sfx.pickup(0.8); toast('Rechargement express ⚡', 900);
-    } else { reloadTry = -1; sfx.uncharge(); }
+    } else {
+      // missed: the rest of the reload, plus 30 % of a normal one
+      reloadTry = -1; sfx.uncharge();
+      reloadLen = w.reload * (1 + QUICK_MISS);
+      finishReloadIn(reloadUntil - now() + w.reload * QUICK_MISS);
+    }
     renderBar();
   }
   // take out another weapon (a switch cancels a reload)
@@ -1313,7 +1324,7 @@ export function startFps(ctx) {
     // the blaster: the one in your hands, recoil, a dip while reloading or switching
     for (const k of SLOTS) models[k].visible = k === SLOTS[slot];
     kick = Math.max(0, kick - dt * 9);
-    const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / w.reload) * Math.PI) : 0;
+    const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / reloadLen) * Math.PI) : 0;
     const sw = t < switchUntil ? (switchUntil - t) / 0.35 : 0;
     const scoped = !!w.scope && aimed > 0.85; // looking through the sniper's scope
     const playing = me.entered && alive() && !watching;
