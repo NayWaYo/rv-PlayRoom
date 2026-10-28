@@ -107,6 +107,11 @@ export function buildMap(scene) {
     solid(14.1, 14.2, z, z + 0.45, y, y + h, nextToy(), { ghost: true, noShadow: true, flat: true });
   }
 
+  // a long wall shelf up high on the north wall, out to the top of the bookshelf: reached by a trampoline
+  solid(4.5, 14.2, 10, 11.6, 6.2, 6.5, WOOD2);
+  for (const x of [6, 9.5, 13]) solid(x - 0.1, x + 0.1, 11.2, 11.6, 5.4, 6.2, WOOD, { ghost: true }); // brackets
+  crate(7.5, 10.9, 0.8, 0.9, 6.5, nextToy()); crate(11.5, 10.9, 0.7, 0.6, 6.5, nextToy());
+
   /* ----- night outside, a lamp on the desk, a night light under the bed ----- */
   scene.background = new THREE.Color('#1d1838');
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 24, 16), new THREE.MeshBasicMaterial({ color: '#fff4d6' }));
@@ -132,5 +137,7 @@ export function buildMap(scene) {
   // bookshelf; the rocket launcher in the castle, the railgun on the desk
   const pickups = [['health', -11, 0, 6], ['health', 9.5, 0, -6], ['health', 0, 0, -10], ['armor', -14, BED + 0.6, 5], ['armor', 12.5, 0, 7.5],
     ['rocket', 0, 0, 0], ['railgun', 14, DESK, -5.5]];
-  return { bounds: BOUNDS, boxes, discs: [{ x: 5, z: 7, r: 1.3 }], spawns, pickups };
+  // trampolines: one onto the bed, one up to the high shelf
+  const pads = [[-5.5, 0, 1, -3.1, 9.5, 0], [9.5, 0, 7.5, 0, 12.5, 1.9]];
+  return { bounds: BOUNDS, boxes, discs: [{ x: 5, z: 7, r: 1.3 }], spawns, pickups, pads };
 }

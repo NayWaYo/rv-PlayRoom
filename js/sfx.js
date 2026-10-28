@@ -70,6 +70,15 @@ function noise(t, dur, o = {}) {
   src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
 }
 const ready = () => ctx && prefs.sfx && ctx.state === 'running';
+// play an effect from one side (-1 left, 1 right): whatever it plays goes through a panner
+export function panned(pan, play) {
+  if (!ctx || !ctx.createStereoPanner) { play(); return; }
+  const p = ctx.createStereoPanner(), bus = sfxBus;
+  p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(bus);
+  sfxBus = p;
+  try { play(); } finally { sfxBus = bus; }
+  setTimeout(() => p.disconnect(), 2500);
+}
 
 /* ---------- effects ---------- */
 export const sfx = {
@@ -167,6 +176,18 @@ export const sfx = {
   hop() {
     if (!ready()) return; const t = ctx.currentTime;
     tone(260, t, 0.16, { type: 'triangle', gain: 0.12, slideTo: 520 });
+  },
+  spring(g = 1) {
+    // a jump pad: a springy boing
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(180, t, 0.35, { type: 'triangle', gain: 0.2 * g, slideTo: 900, vibrato: 14 });
+    noise(t, 0.12, { filter: 'lowpass', freq: 700, gain: 0.18 * g });
+  },
+  whistle() {
+    // a referee's whistle: a round starts or ends
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(2300, t, 0.22, { type: 'square', gain: 0.06, vibrato: 30, lowpass: 4000 });
+    tone(2300, t + 0.3, 0.5, { type: 'square', gain: 0.07, vibrato: 30, lowpass: 4000 });
   },
   thud() {
     if (!ready()) return; const t = ctx.currentTime;

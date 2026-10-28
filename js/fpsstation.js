@@ -28,7 +28,10 @@ export function buildMap(scene) {
   /* ----- the west hangar: open to the top, catwalks along two walls ----- */
   solid(-15.6, -13, -11.6, 11.6, ROOF, H, SLAB);                       // west catwalk
   solid(-13, -5, 10, 11.6, ROOF, H, SLAB);                              // north catwalk, out to the hall's balcony
-  wallZ(-12.94, -10, 10, H, H + 1, RAIL, [[-1, 1, H, H + 1]], 0.12);    // railing, a gap to drop onto the shuttle
+  wallZ(-12.94, -10, 10, H, H + 1, RAIL, [[-1, 1, H, H + 1], [7.2, 8.4, H, H + 1]], 0.12); // railing, a gap to drop onto the shuttle
+  // a high walkway across the hangar, from the west catwalk to the hall's north balcony
+  solid(-12.94, -5.15, 7.2, 8.4, H - 0.25, H, SLAB);
+  wallX(7.16, -12.8, -5.2, H, H + 0.6, RAIL, [], 0.08); wallX(8.44, -12.8, -5.2, H, H + 0.6, RAIL, [], 0.08);
   wallX(9.94, -12.94, -5.15, H, H + 1, RAIL, [[-10, -8, H, H + 1]], 0.12);
   stairsX(-11.4, -10, -8, -1, H, STAIR);                                // up to the west catwalk, along the south wall
   // the shuttle: a body on four legs (crawl under it), a nose, wings, an engine
@@ -45,7 +48,7 @@ export function buildMap(scene) {
   crate(-14.5, -3, 0.9, 0.9, H, HAZ); crate(-14.3, 4, 1, 1.2, H, BOX); crate(-11.6, 10.8, 0.9, 0.7, H, BOX);
 
   /* ----- the reactor hall: balconies north and south, two bridges past the core ----- */
-  wallZ(-5, -11.6, 11.6, 0, WALL, WALLC, [[-1.6, 1.6, 0, 2.8], door(-8.5, -7), win(5, 7), door(10.1, 11.5, H), win(-10, -8, H)]);
+  wallZ(-5, -11.6, 11.6, 0, WALL, WALLC, [[-1.6, 1.6, 0, 2.8], door(-8.5, -7), win(5, 7), door(7.2, 8.4, H), door(10.1, 11.5, H), win(-10, -8, H)]);
   solid(-4.85, 5, 6.5, 11.6, ROOF, H, SLAB); solid(-4.85, 5, -11.6, -6.5, ROOF, H, SLAB);
   solid(-3.4, -2.2, -6.5, 6.5, H - 0.25, H, SLAB); solid(2.2, 3.4, -6.5, 6.5, H - 0.25, H, SLAB); // bridges
   // stairs up to each balcony, turned the opposite ways
@@ -123,5 +126,7 @@ export function buildMap(scene) {
   // the rocket launcher on the shuttle's roof, the railgun in the middle of a bridge
   const pickups = [['health', -9.5, 0, 0], ['health', 13, 0, -8.6], ['health', -3, 0, 9], ['armor', 8, H, 8], ['armor', -14.3, H, -7],
     ['rocket', -9.5, 3.0, 0], ['railgun', 2.8, H, 0]];
-  return { bounds: BOUNDS, boxes, discs: [{ x: 0, z: 0, r: 1.6 }], spawns, pickups };
+  // jump pads: one in the hangar onto the shuttle's roof, two by the core up to the balconies
+  const pads = [[-9.5, 0, 5, 0, 9, -3.2], [0, 0, -3, 0, 10, -3.1], [0, 0, 3, 0, 10, 3.1]];
+  return { bounds: BOUNDS, boxes, discs: [{ x: 0, z: 0, r: 1.6 }], spawns, pickups, pads };
 }

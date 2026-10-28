@@ -1197,13 +1197,14 @@ let joy = { x: 0, y: 0 }, locked = false, drag = null;
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
-  if ($('#rules').open || $('#controls').open) return;
+  if (document.querySelector('dialog[open]')) return;
   const act = actionFor(e.code, FPS); // what this key does, as the player set it up
   if (me.entered && !e.repeat) {
     if (act === 'chat' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
     if (act === 'paper') throwPaper();
     if (act === 'mic') micToggle();
-    if (act === 'jump') jump();
+    if (act === 'jump') { if (fps && fps.watching()) fps.join(); else jump(); } // a spectator jumps into the game
+    if (fps && act === 'scores') fps.scores(true);
     if (act === 'use') useKey();
     if (fps && act === 'reload') fps.reload();
     if (fps && act === 'weapon1') fps.select(0);
@@ -1216,8 +1217,8 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (act || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
 });
-addEventListener('keyup', e => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (fps) { fps.trigger(false); fps.aim(false); } });
+addEventListener('keyup', e => { keys[e.code] = false; if (fps && actionFor(e.code, FPS) === 'scores') fps.scores(false); });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); } });
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; $('#cross').hidden = !locked; });
 function look(dx, dy, s) {
   const ms = mouse();
@@ -1331,7 +1332,7 @@ function pushPresence(force) {
   room.presence({ a }).catch(() => {});
 }
 let stepDist = 0, shake = 0, crouchLatch = false;
-const JUMP_V = 3.6; // about 0.66 m: enough to get onto the sofa or a crate
+const JUMP_V = 4.3; // about 0.94 m: enough to get onto the sofa, a crate or a low wall
 function jump() {
   if (!me.entered || me.seat >= 0 || me.frozen || me.jv !== 0 || me.jy > groundAt(me.x, me.z, me.jy)) return;
   me.jv = JUMP_V;
@@ -1363,6 +1364,7 @@ function updateMe(dt) {
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     me.x += (-sy * f + cy * r) * sp;
     me.z += (-cy * f - sy * r) * sp;
+    if (me.fling) { me.x += me.fling.x * dt; me.z += me.fling.z * dt; } // thrown by a jump pad, until you land
     // friends are solid: don't walk into them
     for (const a of avatars.values()) {
       if (a.seat >= 0 || Math.abs((a.y || 0) - me.jy) > 1.2) continue;
@@ -1374,6 +1376,7 @@ function updateMe(dt) {
     slide(body, ox, oz);
     const landed = fall(body, dt);
     me.x = body.x; me.z = body.z; me.jy = body.y; me.jv = body.vy;
+    if (me.jv === 0) me.fling = null;
     if (landed > 2.5) { sfx.thud(); shake = Math.max(shake, 0.08); }
     // footsteps
     const moved = Math.hypot(me.x - ox, me.z - oz);
@@ -1401,7 +1404,8 @@ function updateAvatars(dt, t) {
     const seat = Number.isInteger(a[4]) && a[4] >= 0 && a[4] < SEATS ? a[4] : -1;
     let x = +a[0] || 0, z = +a[1] || 0, yaw = +a[2] || 0;
     if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
-    const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), cleanCol(pr.c), pr.l, x, z, yaw, seat);
+    const [look, col] = fps ? fps.dress(pr, pr.l, cleanCol(pr.c)) : [pr.l, cleanCol(pr.c)]; // a team shirt in a team battle
+    const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), col, look, x, z, yaw, seat);
     av.who = peerKey(p); av.talk = levelOf(p.peer);
     av.crouchT = a[5] === 1 ? 1 : 0; av.pitch = Math.max(-1.25, Math.min(1.1, +a[3] || 0));
     av.ty = seat < 0 ? Math.max(0, Math.min(8, +a[6] || 0)) : 0; // feet height: mid-jump, or up on the furniture
@@ -1883,7 +1887,7 @@ function renderHelp() {
   $('#help').innerHTML = FPS
     ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil, la mitraillette ou le railgun)') + row('Clic droit', 'viser (zoom, lunette du sniper)')
       + row(`${k('weapon1')} ${k('weapon2')} ${k('weapon3')} ${k('weapon4')}`, 'pistolet, fusil, mitraillette, sniper (ou molette)')
-      + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger')
+      + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger') + row(k('scores'), 'tableau des scores (maintenir)')
       + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'libérer la souris') + row(k('chat'), `écrire un message (${k('mic')} : micro)`)
     : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'libérer la souris')
       + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)
@@ -2281,12 +2285,11 @@ async function startBattle() {
   const map = buildMap(scene);
   setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [] });
   fps = startFps({
-    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, keyLabel: label,
-    room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol,
-    blocked: () => editor.isOpen() || $('#rules').open || $('#controls').open || !$('#chatForm').hidden
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], keyLabel: label,
+    room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol, cleanLook, CLOTH,
+    blocked: () => editor.isOpen() || !!document.querySelector('dialog[open]') || !$('#chatForm').hidden
   });
-  if (me.entered) fps.onEnter();
-}
+  if (me.entered) fps.onEnter();}
 })();
 </script>
 </body>

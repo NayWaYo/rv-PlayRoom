@@ -15,6 +15,7 @@ const ACTIONS = [
   { id: 'weapon4', label: 'Sniper', key: 'Digit4', group: 'fps' },
   { id: 'weapon5', label: 'Arme lourde ramassée', key: 'Digit5', group: 'fps' },
   { id: 'reload', label: 'Recharger', key: 'KeyR', group: 'fps', letter: 'r' },
+  { id: 'scores', label: 'Tableau des scores (maintenir)', key: 'Tab', group: 'fps' },
   { id: 'use', label: 'S\'asseoir, attraper ou lancer un coussin', key: 'KeyE', group: 'room', letter: 'e' },
   { id: 'paper', label: 'Lancer une boule de papier', key: 'KeyG', group: 'room' },
   { id: 'chat', label: 'Écrire un message', key: 'KeyT', group: 'social', letter: 't' },

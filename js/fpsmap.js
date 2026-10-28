@@ -116,8 +116,12 @@ export function buildMap(scene) {
 
   /* ----- the hall ----- */
   // balcony railings, with a gap where the stairs arrive
-  wallZ(-4.05, -11.6, 1, H, H + 1, RAIL, [], 0.12); wallZ(-4.05, 2.05, 11.6, H, H + 1, RAIL, [], 0.12);
-  wallZ(4.05, -11.6, -2.05, H, H + 1, RAIL, [], 0.12); wallZ(4.05, -1, 11.6, H, H + 1, RAIL, [], 0.12);
+  // and where the footbridge meets them
+  wallZ(-4.05, -11.6, 1, H, H + 1, RAIL, [[-8.6, -7.4, H, H + 1]], 0.12); wallZ(-4.05, 2.05, 11.6, H, H + 1, RAIL, [], 0.12);
+  wallZ(4.05, -11.6, -2.05, H, H + 1, RAIL, [[-8.6, -7.4, H, H + 1]], 0.12); wallZ(4.05, -1, 11.6, H, H + 1, RAIL, [], 0.12);
+  // a footbridge across the hall, from one balcony to the other, with low rails
+  solid(-4, 4, -8.6, -7.4, H - 0.25, H, SLAB);
+  wallX(-8.56, -3.9, 3.9, H, H + 0.6, RAIL, [], 0.08); wallX(-7.44, -3.9, 3.9, H, H + 0.6, RAIL, [], 0.08);
   // stairs: west goes up towards -z, east towards +z
   const topW = stairsZ(-4, -2.6, 7, -1, H, STAIR), topE = stairsZ(2.6, 4, -7, 1, H, STAIR);
   solid(-4, -2.6, 1, topW, 0, H, STAIR);                                // landings
@@ -154,5 +158,7 @@ export function buildMap(scene) {
   // the rocket launcher on top of the stage, the railgun in the hut upstairs
   const pickups = [['health', -10, 0, -5], ['health', 12.9, 0, 0], ['health', 1.6, 0, 5.6], ['armor', -9, H, 2], ['armor', 9.6, H, -4],
     ['rocket', 0, 1.6, 0], ['railgun', -12.2, H, -8]];
-  return { bounds: BOUNDS, boxes, spawns, pickups };
+  // jump pads in the hall, throwing you up onto each wing's upper floor: [x, y, z, push x, push up, push z]
+  const pads = [[-1.5, 0, 4.5, -3, 10.5, 0], [1.5, 0, -4.5, 3, 10.5, 0]];
+  return { bounds: BOUNDS, boxes, spawns, pickups, pads };
 }
