@@ -1,60 +1,52 @@
 // The seventh battle map, "Skyridge", drawn from the players' own plan, made for capture the flag:
-// a floating island split north to south by a gorge with a stream at the bottom. Each team's base
-// sits against its edge of the island with its flag inside, its spawn in the corner beside it.
-// Three ways across: the high route in the north (a lookout tower on each side, a footbridge
-// between them, for snipers), the main bridge in the middle with its platform over a rock pillar,
-// and the low route in the south, down into the gorge and up the other side.
+// a floating island split north to south by a gorge too wide to jump, with nothing at the bottom:
+// fall in and you're out (`fall`). Each team's base sits against its edge of the island with its
+// flag inside, its spawn in the corner beside it. Two ways across: the high footbridge in the
+// north between two lookout towers (for snipers), and the main bridge in the middle with its
+// platform over a rock pillar.
 import * as THREE from 'three';
 import { toon, noOutline } from './fx.js';
 import { makeKit } from './fpsmap.js';
 
-const G = 2.4;      // the island's top; the gorge's bed is at 0
-const GW = 3;       // half the gorge's width
+const G = 2.4;      // the island's top
+const GW = 4.5;     // half the gorge's width: 9 m, more than a sprinting jump
+const DX = GW - 3;  // how far each half is pushed out by the gorge
 const T = 5;        // the lookout towers and the high footbridge
-export const BOUNDS = { x0: -15.6, x1: 15.6, z0: -14.6, z1: 14.6 };
+const FALL = G - 1; // feet below this, in the gorge: gone
+export const BOUNDS = { x0: -17.1, x1: 17.1, z0: -14.6, z1: 14.6 };
 
 export function buildMap(scene) {
-  const { boxes, solid, wallX, wallZ, crate, stairsX } = makeKit(scene);
+  const { boxes, solid, wallX, wallZ, crate } = makeKit(scene);
 
   // colours
   const ROCK = '#a39a8a', ROCK2 = '#8f8676', GRASS = '#7aa35a', GRASS2 = '#6b9450', STONE = '#c9bfae', WOOD = '#b07a45', WOOD2 = '#c98b52';
-  const RED = '#c9483a', BLUE = '#3d6fd1', LEAF = '#5f9a45', WATER = '#5bb8e8';
+  const RED = '#c9483a', BLUE = '#3d6fd1', LEAF = '#5f9a45';
 
-  // under the island: its cliffs, falling away to the sea far below (drawn only)
-  solid(-15.6, 15.6, -14.6, 14.6, -30, 0, ROCK2, { ghost: true });
+  // the sea far below
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), noOutline(toon('#4a9fd8')));
   sea.rotation.x = -Math.PI / 2; sea.position.y = -30; scene.add(sea);
 
   /* ----- the two halves of the island, the gorge between them ----- */
   for (const s of [-1, 1]) {
-    const [x0, x1] = s < 0 ? [-15.6, -GW] : [GW, 15.6];
+    const [x0, x1] = s < 0 ? [-17.1, -GW] : [GW, 17.1];
+    solid(x0, x1, -14.6, 14.6, -30, 0, ROCK2, { ghost: true });       // its cliffs, falling away to the sea (drawn only)
     solid(x0, x1, -14.6, 14.6, 0, G - 0.25, ROCK);
     solid(x0, x1, -14.6, 14.6, G - 0.25, G, GRASS);
     // a rocky rim round the edge
     wallX(-14.4, x0, x1, G, G + 0.9, ROCK2, [], 0.4); wallX(14.4, x0, x1, G, G + 0.9, ROCK2, [], 0.4);
-    wallZ(s * 15.4, -14.6, 14.6, G, G + 0.9, ROCK2, [], 0.4);
+    wallZ(s * 16.9, -14.6, 14.6, G, G + 0.9, ROCK2, [], 0.4);
   }
-  // the stream at the bottom of the gorge, shallow enough to walk in
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(2 * GW, 29.2), noOutline(toon(WATER)));
-  water.rotation.x = -Math.PI / 2; water.position.y = 0.03; water.receiveShadow = true; scene.add(water);
-  // a waterfall pouring off the north end, drawn only
-  const fall = new THREE.Mesh(new THREE.PlaneGeometry(2 * GW, 30), noOutline(toon('#bfe6fa', { side: THREE.DoubleSide })));
-  fall.position.set(0, -15, 14.6); scene.add(fall);
-  // stairs down into the gorge at both ends, on both banks: the low route
-  for (const z of [-12.9, 11.5]) for (const s of [-1, 1]) stairsX(z, z + 1.4, s * (GW - 10 * 0.29), s, G, ROCK2, 10, 0.29);
-  // rocks in the stream to hide behind
-  crate(0, -7.8, 1.3, 1.1, 0, ROCK2); crate(-1.6, -6.4, 1, 0.8, 0, ROCK2); crate(1.6, 6.4, 1.2, 1, 0, ROCK2); crate(0, 8.5, 1, 0.9, 0, ROCK2);
 
   /* ----- the main bridge, with a platform over a rock pillar ----- */
   solid(-GW, GW, -1.2, 1.2, G - 0.25, G, WOOD);
   solid(-1.6, 1.6, -2.4, 2.4, G - 0.3, G, STONE);
-  solid(-1.1, 1.1, -1.9, 1.9, 0, G - 0.3, ROCK);                         // the pillar: walk round it in the stream
+  solid(-1.1, 1.1, -1.9, 1.9, -30, G - 0.3, ROCK, { ghost: true });    // the pillar, rising from the depths (drawn only)
   for (const z of [-1.25, 1.25]) for (const [a, b] of [[-GW, -1.6], [1.6, GW]]) wallX(z, a, b, G, G + 0.5, WOOD2, [], 0.1);
   for (const [x, z] of [[-1.1, -1.9], [1.1, 1.9]]) crate(x, z, 0.8, 0.9, G, WOOD); // cover on the platform
 
   /* ----- built once for each side, s = -1 for the Rouges in the west, +1 for the Bleus ----- */
-  const X = (s, x) => s * x;
-  const span = (s, a, b) => [Math.min(s * a, s * b), Math.max(s * a, s * b)];
+  const X = (s, x) => s * (x + DX);
+  const span = (s, a, b) => [Math.min(X(s, a), X(s, b)), Math.max(X(s, a), X(s, b))];
   function side(s, col) {
     const block = (a, b, z0, z1, y0, y1, c, o) => solid(...span(s, a, b), z0, z1, y0, y1, c, o);
     // the base against the edge: three doors (front, north, south), the flag inside
@@ -93,8 +85,8 @@ export function buildMap(scene) {
   side(-1, RED); side(1, BLUE);
 
   // the high footbridge between the two towers
-  solid(-5, 5, 8.6, 9.9, T - 0.25, T, WOOD2);
-  wallX(8.56, -5, 5, T, T + 0.6, WOOD2, [], 0.08); wallX(9.94, -5, 5, T, T + 0.6, WOOD2, [], 0.08);
+  solid(-5 - DX, 5 + DX, 8.6, 9.9, T - 0.25, T, WOOD2);
+  wallX(8.56, -5 - DX, 5 + DX, T, T + 0.6, WOOD2, [], 0.08); wallX(9.94, -5 - DX, 5 + DX, T, T + 0.6, WOOD2, [], 0.08);
 
   /* ----- far away: other islands, a sunny sky ----- */
   for (const [x, z, r, h] of [[-48, -30, 5, 26], [52, -18, 6, 30], [-40, 36, 7, 24], [44, 40, 4, 34], [0, -55, 8, 22], [10, 58, 6, 28]]) {
@@ -116,14 +108,12 @@ export function buildMap(scene) {
 
   // spawns: Rouges in the west (x < 0), round their spawn ring and by their base; Bleus the same in the east
   const spawns = [];
-  for (const s of [-1, 1]) for (const [x, y, z] of [[12.4, G, -10.6], [10.6, G, -12.4], [14.2, G, -8.6], [10, G, -9.4], [9.4, G, 3.8], [9.4, G, -4], [6.5, T, 9.8]]) spawns.push([s * x, y, z]);
-  // health on each side and down in the gorge, armor on the towers, the rocket launcher on the
-  // bridge's platform, the railgun in the middle of the high footbridge
-  const pickups = [['health', -9, G, -12.2], ['health', 9, G, -12.2], ['health', 0, 0, -10], ['armor', -6.5, T, 8.4], ['armor', 6.5, T, 8.4],
-    ['rocket', 0, G, 0], ['railgun', 0, T, 9.25]];
-  // jump pads at the bottom of the gorge, throwing you back up onto your side
-  const pads = [[-2.2, 0, -4.5, -3, 10, 0], [2.2, 0, 4.5, 3, 10, 0], [-2.2, 0, 4.5, -3, 10, 0], [2.2, 0, -4.5, 3, 10, 0]];
+  for (const s of [-1, 1]) for (const [x, y, z] of [[12.4, G, -10.6], [10.6, G, -12.4], [14.2, G, -8.6], [10, G, -9.4], [9.4, G, 3.8], [9.4, G, -4], [6.5, T, 9.8]]) spawns.push([X(s, x), y, z]);
+  // health by each spawn and each base, armor on the towers, the rocket launcher on the bridge's
+  // platform, the railgun in the middle of the high footbridge
+  const pickups = [['rocket', 0, G, 0], ['railgun', 0, T, 9.25]];
+  for (const s of [-1, 1]) pickups.push(['health', X(s, 9), G, -12.2], ['health', X(s, 12), G, 5], ['armor', X(s, 6.5), T, 8.4]);
   // capture the flag: inside each base
-  const flags = [[-13.2, G, 0], [13.2, G, 0]];
-  return { bounds: BOUNDS, boxes, spawns, pickups, pads, flags };
+  const flags = [[X(-1, 13.2), G, 0], [X(1, 13.2), G, 0]];
+  return { bounds: BOUNDS, boxes, spawns, pickups, flags, fall: FALL };
 }

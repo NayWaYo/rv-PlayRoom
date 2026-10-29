@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { toon, roundedBox, makeGlow } from './fx.js';
 import { randomLook, seededRand } from './avatar.js';
 import { panned } from './sfx.js';
-import { slide, fall, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
+import { slide, fall, groundAt, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
 
 const MAX_HP = 6, RESPAWN = 3, SHIELD = 1.5, RANGE = 60; // health in half hearts; RANGE: the longest shot of all
 const MAX_ARMOR = 4; // armor soaks up damage before health
@@ -149,6 +149,8 @@ const CSS = `
 export function startFps(ctx) {
   const { scene, camera, me, avatars, syncAvatar, sfx, toast, coarse } = ctx;
   const SPAWNS = ctx.spawns; // [x, feet height, z]
+  const VOID = ctx.fall ?? null; // a map with a void: feet below this height and you're out
+  const FELL = 2;                // how a knock-out happened, on `ko`: 1 in the head, 2 into the void
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const now = () => performance.now() / 1000;
@@ -589,19 +591,28 @@ export function startFps(ctx) {
     }
     pushMine(); renderBar();
   }
+  // fallen into the void: out at once, shield or not, and nobody scores
+  function fellMe() {
+    hp = 0; armor = 0; deaths++; downUntil = now() + RESPAWN; chargeAt = 0; downBy = '';
+    dropFlag(ctx.myKey(), me.x, me.jy, me.z);
+    if (heavy) { heavy = null; if (slot >= BASIC) slot = last; }
+    knockedOut(ctx.myKey(), ctx.myKey(), FELL);
+    pushMine(); renderBar();
+  }
   function knockedOut(victim, by, head) {
     if (by !== victim) { // knocking yourself out scores nothing
       if (by === ctx.myKey()) kills++;
       else { const b = bots.get(by); if (b) b.kills++; }
     }
     const room = ctx.room();
-    if (room) room.emit('ko', { v: victim, k: by, h: head ? 1 : 0 }).catch(() => {});
+    if (room) room.emit('ko', { v: victim, k: by, h: head === FELL ? FELL : head ? 1 : 0 }).catch(() => {});
     announce(victim, by, head);
   }
   function announce(victim, by, head) {
     const me_ = ctx.myKey();
     const v = victim === me_ ? 'toi' : nameOf(victim), k = by === me_ ? 'Tu' : nameOf(by);
-    const text = victim === by ? (by === me_ ? 'Tu t\'es éliminé tout seul 🙃' : `${k} s'est éliminé tout seul 🙃`)
+    const text = head === FELL ? (victim === me_ ? 'Tu es tombé dans le vide 🕳️' : `${nameOf(victim)} est tombé dans le vide 🕳️`)
+      : victim === by ? (by === me_ ? 'Tu t\'es éliminé tout seul 🙃' : `${k} s'est éliminé tout seul 🙃`)
       : (by === me_ ? `Tu as éliminé ${v} 🎯` : victim === me_ ? `${k} t'a éliminé` : `${k} a éliminé ${v}`) + (head ? ' 💥 dans la tête !' : '');
     const line = el('div', null, text);
     feed.append(line);
@@ -751,7 +762,13 @@ export function startFps(ctx) {
     if (b.fling) { b.x += b.fling.x * dt; b.z += b.fling.z * dt; } // off a jump pad
     b.height = b.crouch ? LOW : TALL;
     slide(b, ox, oz);
+    if (VOID !== null && b.vy === 0 && b.y >= VOID && groundAt(b.x, b.z, b.y) < VOID) { b.x = ox; b.z = oz; } // never step off into the void
     fall(b, dt);
+    if (VOID !== null && b.y < VOID) {
+      b.hp = 0; b.armor = 0; b.deaths++; b.downUntil = t + RESPAWN; b.fling = null;
+      dropFlag(b.id, b.x, b.y, b.z); knockedOut(b.id, b.id, FELL);
+      return;
+    }
     if (b.fling && b.vy === 0) { b.fling = null; b.repath = 0; } // landed somewhere new: find the way again
     else if (!b.fling && b.vy === 0) bounce(b, b.x, b.y, b.z, v => { b.vy = v.y; b.fling = v; });
     // stuck against something: think again
@@ -1001,7 +1018,9 @@ export function startFps(ctx) {
   }
   function dropFlag(id, x, y, z) {
     const f = ctfOn() && flagOf(id);
-    if (f) setFlag(f, 'dropped', id, new THREE.Vector3(x, y, z));
+    if (!f) return;
+    if (VOID !== null && y < VOID) { setFlag(f, 'home', id); say(`${flagName(f.i)[0].toUpperCase() + flagName(f.i).slice(1)} est rentré à sa base`); } // lost in the void: straight home
+    else setFlag(f, 'dropped', id, new THREE.Vector3(x, y, z));
   }
   function capture(tm, who) {
     const d = { m: match.id, id: Math.random().toString(36).slice(2, 10), t: tm, who };
@@ -1138,7 +1157,7 @@ export function startFps(ctx) {
     if (d.v === d.k) { /* knocked themselves out: nobody scores */ }
     else if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
     else { const b = bots.get(d.k); if (b) b.kills++; }
-    announce(d.v, d.k, d.h === 1);
+    announce(d.v, d.k, d.h === FELL ? FELL : d.h === 1);
   }
   function onBots(m) {
     if (m.isMe || !Array.isArray(m.data)) return;
@@ -1580,12 +1599,13 @@ export function startFps(ctx) {
     const t = now();
     if (me.entered && !alive() && !watching) {
       const left = Math.ceil(downUntil - t);
-      downEl.hidden = false; downEl.textContent = `Touché par ${downBy} ! Retour dans ${Math.max(1, left)}…`;
+      downEl.hidden = false; downEl.textContent = `${downBy ? `Touché par ${downBy}` : 'Tombé dans le vide'} ! Retour dans ${Math.max(1, left)}…`;
       if (t > downUntil) { downEl.hidden = true; respawnMe(); }
     } else downEl.hidden = true;
     me.frozen = me.entered && (!alive() || watching);
     // lying on the floor while knocked out
     if (me.frozen && !watching) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
+    if (VOID !== null && me.entered && alive() && !watching && me.jy < VOID) fellMe();
     updateMovers(); updateDoors(dt); updateFlags(dt);
     for (const b of bots.values()) updateBot(b, dt);
     streamBots();

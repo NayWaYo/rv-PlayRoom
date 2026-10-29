@@ -74,6 +74,7 @@ function buildGrid() {
     for (const B of W.boxes) if (over(B, x, z, BODY_R * 0.75)) heights.add(B.y1); // as wide as groundAt looks
     for (const y of heights) {
       if (y > 0 && groundAt(x, z, y) !== y) continue;
+      if (W.fall != null && y < W.fall) continue;                        // the bottom of a void: nowhere to stand
       if (blocked(x, z, y, LOW)) continue;
       const crouch = blocked(x, z, y, TALL);
       const n = { id: nodes.length, i, k, x, z, y, crouch, next: [] };
