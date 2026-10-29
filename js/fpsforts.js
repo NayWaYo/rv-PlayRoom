@@ -1,11 +1,11 @@
 // The sixth battle map, "les Deux Forts", made for capture the flag: a big open valley (about
 // 120 x 70 m) with a fort at each end, the Rouges' in the west and the Bleus' in the east, the
 // same both sides. Each fort has three front gates and two side gates, a rampart with
-// battlements, and its flag on a pedestal at the back of the courtyard. In the middle, open
+// battlements, and its flag at the back of the courtyard. In the middle, open
 // ruins with a raised platform; on each side of it, a lane: crates and a footbridge in the
 // north, zig-zag trenches in the south.
 import * as THREE from 'three';
-import { toon, noOutline, makeGlow } from './fx.js';
+import { toon, noOutline } from './fx.js';
 import { makeKit } from './fpsmap.js';
 
 const RAMP = 3.9;   // the ramparts' walkway
@@ -46,11 +46,7 @@ export function buildMap(scene) {
     // the rampart's walkway behind the front wall, stairs up to it along both side walls
     block(44.4, 46.4, -19.6, 19.6, RAMP - 0.3, RAMP, ROCK);
     for (const [z0, z1] of [[16.8, 18.4], [-18.4, -16.8]]) stairsX(z0, z1, X(51.4), -s, RAMP, STAIR);
-    // the flag's pedestal, low enough to walk onto, in the team's colour, with a glow
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.2, 28), toon(col)); ped.position.set(X(FLAG_X), 0.1, 0); ped.receiveShadow = true; scene.add(ped);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.08, 8, 32), toon(RAIL)); ring.rotation.x = Math.PI / 2; ring.position.set(X(FLAG_X), 0.21, 0); scene.add(ring);
-    const glow = makeGlow(col, 4, 0.5); glow.position.set(X(FLAG_X), 1.2, 0); scene.add(glow);
-    // behind the flag: the keep, a solid block with the team's banners
+    // behind the flag (its base is drawn by the battle, only in capture the flag): the keep, a solid block with the team's banners
     block(57, 59.6, -9, 9, 0, 6.5, ROCK);
     for (const z of [-5, 5]) block(56.9, 57, z - 1, z + 1, 2.5, 6, col, { ghost: true, noShadow: true });
     // cover in the courtyard

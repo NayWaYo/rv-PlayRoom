@@ -160,5 +160,7 @@ export function buildMap(scene) {
     ['rocket', 0, 1.6, 0], ['railgun', -12.2, H, -8]];
   // jump pads in the hall, throwing you up onto each wing's upper floor: [x, y, z, push x, push up, push z]
   const pads = [[-1.5, 0, 4.5, -3, 10.5, 0], [1.5, 0, -4.5, 3, 10.5, 0]];
-  return { bounds: BOUNDS, boxes, spawns, pickups, pads };
+  // capture the flag: at the back of each wing's upper floor, the Rouges' behind the low wall, the Bleus' behind the chimney
+  const flags = [[-14.5, H, 0], [14.5, H, 0]];
+  return { bounds: BOUNDS, boxes, spawns, pickups, pads, flags };
 }

@@ -933,7 +933,7 @@ export function startFps(ctx) {
   // read the flags and the score from the others' presence (`fc`).
   const flags = (ctx.flags || []).map(([x, y, z], i) => {
     const home = new THREE.Vector3(x, y, z);
-    return { i, home, v: 0, by: '', s: 'home', who: '', p: home.clone(), at: 0, lost: 0, ...flagModel(i) };
+    return { i, home, v: 0, by: '', s: 'home', who: '', p: home.clone(), at: 0, lost: 0, base: flagBase(i, home), ...flagModel(i) };
   });
   let caps = [0, 0];
   const capsSeen = new Set();
@@ -954,6 +954,16 @@ export function startFps(ctx) {
     tag.scale.set(0.9, 0.9, 1); tag.position.y = 3.7; tag.renderOrder = 10; g.add(tag);
     g.visible = false; scene.add(g);
     return { g, cloth, flat: clothGeo.attributes.position.array.slice() };
+  }
+  // its base: a flat disc in the team's colour with a ring and a glow, drawn only (nothing to trip on),
+  // and only in capture the flag, like the flag itself
+  function flagBase(i, home) {
+    const g = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.6, 0.06, 28), toon(TEAMS[i].col)); disc.position.y = 0.03; disc.receiveShadow = true; g.add(disc);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.07, 8, 32), yellow); ring.rotation.x = Math.PI / 2; ring.position.y = 0.07; g.add(ring);
+    const glow = makeGlow(TEAMS[i].col, 4, 0.5); glow.position.y = 1.2; g.add(glow);
+    g.position.copy(home); g.visible = false; scene.add(g);
+    return g;
   }
   const flagName = i => 'le drapeau ' + TEAMS[i].one;
   const who_ = id => id === ctx.myKey() ? 'Tu' : nameOf(id);
@@ -1062,7 +1072,7 @@ export function startFps(ctx) {
   let flagsSig = '';
   function updateFlags(dt) {
     const on = ctfOn(), t = now();
-    for (const f of flags) f.g.visible = on;
+    for (const f of flags) f.g.visible = f.base.visible = on;
     flagsEl.hidden = !on || !me.entered;
     if (!on) return;
     const fs = fighters();

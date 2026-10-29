@@ -154,5 +154,7 @@ export function buildMap(scene) {
   // jump pads: in the lobby up to the north mezzanine, in the conference room's aisle up to the booth
   const pads = [[-7.5, 0, 4.5, 0, 10.5, 3], [11.5, 0, -5.45, -3.2, 10.5, 0]];
   const movers = [{ box: liftBox, objs: [cabin, ...panes, lamp], at: liftAt, stops: [LIFT.low, H] }];
-  return { bounds: BOUNDS, boxes, spawns, pickups, pads, movers };
+  // capture the flag: the Rouges' at the back of the lobby, under the mezzanine, the Bleus' on the stage
+  const flags = [[-14.4, 0, -7], [14.8, 0.5, -8.5]];
+  return { bounds: BOUNDS, boxes, spawns, pickups, pads, movers, flags };
 }

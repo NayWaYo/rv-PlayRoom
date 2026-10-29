@@ -128,5 +128,7 @@ export function buildMap(scene) {
     ['rocket', -9.5, 3.0, 0], ['railgun', 2.8, H, 0]];
   // jump pads: one in the hangar onto the shuttle's roof, two by the core up to the balconies
   const pads = [[-9.5, 0, 5, 0, 9, -3.2], [0, 0, -3, 0, 10, -3.1], [0, 0, 3, 0, 10, 3.1]];
-  return { bounds: BOUNDS, boxes, discs: [{ x: 0, z: 0, r: 1.6 }], spawns, pickups, pads };
+  // capture the flag: the Rouges' at the back of the hangar behind the shuttle, the Bleus' at the end of the labs' corridor
+  const flags = [[-14.5, 0, 0], [14.6, 0, 2.2]];
+  return { bounds: BOUNDS, boxes, discs: [{ x: 0, z: 0, r: 1.6 }], spawns, pickups, pads, flags };
 }

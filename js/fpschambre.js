@@ -139,5 +139,7 @@ export function buildMap(scene) {
     ['rocket', 0, 0, 0], ['railgun', 14, DESK, -5.5]];
   // trampolines: one onto the bed, one up to the high shelf
   const pads = [[-5.5, 0, 1, -3.1, 9.5, 0], [9.5, 0, 7.5, 0, 12.5, 1.9]];
-  return { bounds: BOUNDS, boxes, discs: [{ x: 5, z: 7, r: 1.3 }], spawns, pickups, pads };
+  // capture the flag: the Rouges' on the bed, by the pillow, the Bleus' on the desk
+  const flags = [[-12, BED, 4], [13, DESK, -6.5]];
+  return { bounds: BOUNDS, boxes, discs: [{ x: 5, z: 7, r: 1.3 }], spawns, pickups, pads, flags };
 }
