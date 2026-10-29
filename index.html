@@ -174,9 +174,24 @@ table.res tr.win td{color:var(--marigold)}
 }
 .intro-btns{display:flex;gap:8px;margin-bottom:10px}
 .intro-btns .btn{flex:1;padding-inline:12px}
-#rules,#controls{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
-#rules::backdrop,#controls::backdrop{background:rgba(20,14,27,.72);backdrop-filter:blur(3px)}
-#rules[open],#controls[open]{display:flex;flex-direction:column}
+#rules,#controls,#menu{width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:22px;background:var(--plum);color:var(--cream);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+#rules::backdrop,#controls::backdrop,#menu::backdrop{background:rgba(20,14,27,.72);backdrop-filter:blur(3px)}
+#rules[open],#controls[open],#menu[open]{display:flex;flex-direction:column}
+/* the Échap menu */
+.menu-resume{width:100%;font-size:18px;padding:12px}
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+.menu-grid .btn{padding:9px 12px;font-size:14px}
+.menu-grid .btn:disabled{opacity:.45;cursor:default}
+#menu .mode-switch{margin-top:10px}
+#menuBtn{cursor:pointer}
+#menuBtn kbd{font:inherit;font-size:10px;font-weight:800;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+/* the expression wheel, held on a key */
+#wheel{position:fixed;left:50%;top:50%;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;background:radial-gradient(circle,rgba(28,21,36,.55) 0 28%,rgba(28,21,36,.82) 29% 100%);border:1px solid var(--line);z-index:4}
+.wheel-item{position:absolute;left:50%;top:50%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:2px solid transparent;background:none;color:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:32px;line-height:1;cursor:pointer;padding:0;transition:transform .08s}
+.wheel-item small{font-size:11px;font-weight:800;color:var(--muted)}
+.wheel-item.on{border-color:var(--marigold);background:rgba(244,182,63,.18);transform:scale(1.15)}
+.wheel-item.on small{color:var(--cream)}
+.wheel-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:800;color:var(--muted);text-align:center;width:80px}
 .rules-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px 10px}
 .rules-head h2{margin:0;font-family:var(--display);font-weight:800;font-size:28px;line-height:1}
 .rules-head h2 span{color:var(--payoo)}
@@ -270,6 +285,7 @@ table.res tr.win td{color:var(--marigold)}
   <div class="top">
     <div class="top-left">
       <div class="chip" id="status"><span class="dot"></span><span id="statusText">Connexion…</span></div>
+      <button class="chip" id="menuBtn" type="button" hidden>☰ Menu <kbd>Échap</kbd></button>
       <div class="row-chips">
         <button class="chip" id="inviteBtn" type="button" hidden>Inviter</button>
         <button class="chip" id="lookBtn" type="button" hidden>Mon perso</button>
@@ -299,6 +315,24 @@ table.res tr.win td{color:var(--marigold)}
   <form id="chatForm" hidden><input id="chatInput" maxlength="100" placeholder="Écris un message…" autocomplete="off" aria-label="Message"><button class="btn" type="submit">Envoyer</button></form>
 </div>
 <div id="selfEmote" hidden></div>
+<div id="wheel" hidden aria-label="Roue des expressions"><div class="wheel-center" id="wheelLabel"></div></div>
+<dialog id="menu" aria-labelledby="menuTitle">
+  <div class="rules-head"><h2 id="menuTitle">Menu</h2><button class="rules-close" type="button" aria-label="Fermer">×</button></div>
+  <div class="rules-body">
+    <button class="btn menu-resume" id="menuResume" type="button">Reprendre</button>
+    <section id="menuGame" hidden><h3>Partie</h3><div id="menuGameBody"></div></section>
+    <h3>Réglages</h3>
+    <div class="menu-grid">
+      <button class="btn ghost" id="menuInvite" type="button">🔗 Inviter des amis</button>
+      <button class="btn ghost" id="menuLook" type="button">🧑 Mon perso</button>
+      <button class="btn ghost" id="menuRules" type="button">📜 Règles</button>
+      <button class="btn ghost" id="menuControls" type="button">⌨️ Contrôles</button>
+      <button class="btn ghost" id="menuSfx" type="button"></button>
+      <button class="btn ghost" id="menuMusic" type="button"></button>
+    </div>
+    <button class="mode-switch" id="menuHub" type="button">← Quitter vers l'accueil</button>
+  </div>
+</dialog>
 <button id="actBtn" class="btn" hidden></button>
 <div id="moveBtns" hidden>
   <button class="emote" id="crouchBtn" type="button" aria-pressed="false" aria-label="S'accroupir">🧎</button>
@@ -434,23 +468,23 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-9",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-9",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-9",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-9",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-9",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-9",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-9",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-9",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-9",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-9",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-9",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-9",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-9",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-9",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-9",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-9",
-  "./js/world.js": "./js/world.js?v=2026-10-29-9"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-11",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-11",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-11",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-11",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-11",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-11",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-11",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-11",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-11",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-11",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-11",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-11",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-11",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-11",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-11",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-11",
+  "./js/world.js": "./js/world.js?v=2026-10-29-11"
 } }
 </script>
 <script>
@@ -1311,9 +1345,11 @@ addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (editor.isOpen()) return;
   if (document.querySelector('dialog[open]')) return;
+  if (e.code === 'Escape' && me.entered && !coarse) { e.preventDefault(); openMenu(); return; }
   const act = actionFor(e.code, FPS); // what this key does, as the player set it up
   if (me.entered && !e.repeat) {
     if (act === 'chat' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
+    if (act === 'emotes') openWheel();
     if (act === 'paper') throwPaper();
     if (act === 'mic') micToggle();
     if (act === 'jump') { if (fps && fps.watching()) fps.join(); else jump(); } // a spectator jumps into the game
@@ -1330,9 +1366,23 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (act || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
 });
-addEventListener('keyup', e => { keys[e.code] = false; if (fps && actionFor(e.code, FPS) === 'scores') fps.scores(false); });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); } });
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; $('#cross').hidden = !locked; });
+addEventListener('keyup', e => {
+  keys[e.code] = false;
+  const act = actionFor(e.code, FPS);
+  if (fps && act === 'scores') fps.scores(false);
+  if (act === 'emotes') closeWheel(true);
+});
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; closeWheel(false); if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); } });
+// letting go of the mouse ourselves (a window opens) is quiet; the player's Échap opens the menu: the
+// browser frees the mouse on Échap without passing the key on, so it's seen here
+let quietUnlock = false;
+function releaseMouse() { if (locked) { quietUnlock = true; try { document.exitPointerLock(); } catch (e) {} } }
+document.addEventListener('pointerlockchange', () => {
+  const was = locked;
+  locked = document.pointerLockElement === canvas; $('#cross').hidden = !locked;
+  if (was && !locked && !quietUnlock) openMenu();
+  if (!locked) quietUnlock = false;
+});
 function look(dx, dy, s) {
   const ms = mouse();
   s *= ms.sens;
@@ -1350,6 +1400,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   if (!me.entered) return;
   canvas.focus();
+  if (wheel) return;
   if (e.button === 2) { throwPaper(); return; } // right click: paper ball
   if (fps && e.button === 0 && locked) return; // firing is handled on mousedown below
   if (!coarse && me.seat < 0 && e.pointerType === 'mouse' && !locked) {
@@ -1359,6 +1410,7 @@ canvas.addEventListener('pointerdown', e => {
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
 });
 canvas.addEventListener('pointermove', e => {
+  if (wheel) return; // the mouse points at a face on the wheel instead
   if (locked) { look(e.movementX, e.movementY, 0.0024); return; }
   if (drag && drag.id === e.pointerId) {
     look(e.clientX - drag.x, e.clientY - drag.y, e.pointerType === 'touch' ? 0.006 : 0.004);
@@ -1369,7 +1421,8 @@ const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; };
 // in a battle: left button fires (held for the rifle), right button aims. Mouse events, because
 // a second button pressed while the first is held never makes a new pointerdown
 canvas.addEventListener('mousedown', e => {
-  if (!fps || !me.entered) return;
+  if (wheel && e.button === 0) { closeWheel(true); return; } // a click picks the face pointed at
+  if (!fps || !me.entered || wheel) return;
   if (e.button === 0 && locked) fps.trigger(true);
   if (e.button === 2) fps.aim(true);
 });
@@ -1427,7 +1480,7 @@ function toggleSit() {
     const s = nearestFreeSeat(); if (s < 0) return;
     me.seat = s; me.yaw = ang(s); me.pitch = -0.46;
     me.jy = me.jv = me.crouch = 0; crouchLatch = false;
-    if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+    releaseMouse();
   }
   sfx.poof();
   pushPresence(true); refreshUI();
@@ -1942,7 +1995,7 @@ const editor = createEditor({
   onClose: () => { if (me.entered) canvas.focus(); else $('#customize').focus(); refreshUI(); }
 });
 function openEditor() {
-  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  releaseMouse();
   for (const k in keys) keys[k] = false;
   editor.open(me.look); refreshUI();
 }
@@ -1951,7 +2004,7 @@ $('#lookBtn').addEventListener('click', openEditor);
 // the rules, from the intro card or the room
 const rules = $('#rules');
 function openRules() {
-  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  releaseMouse();
   for (const k in keys) keys[k] = false;
   rules.showModal();
 }
@@ -1963,7 +2016,7 @@ $('#rulesIntro').addEventListener('click', openRules);
 // the controls: which key does what, mouse speed (no keyboard on a phone)
 const controlsDlg = $('#controls');
 function openControlsDlg() {
-  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  releaseMouse();
   for (const k in keys) keys[k] = false;
   openControls(controlsDlg, FPS);
 }
@@ -1991,6 +2044,82 @@ function emote(i) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
   clearTimeout(emoteTimer); emoteTimer = setTimeout(() => { s.hidden = true; }, 1400);
 }
+// with a keyboard, the faces are on a wheel: hold U, point at one (mouse held or not), let go or click
+const wheelEl = $('#wheel');
+const wheelItems = EXPRESSIONS.map((x, i) => {
+  const a = i / EXPRESSIONS.length * Math.PI * 2, b = el('button', 'wheel-item');
+  b.type = 'button'; b.setAttribute('aria-label', x.label);
+  b.append(x.icon, el('small', null, x.label));
+  b.style.left = `calc(50% + ${Math.sin(a) * 105}px)`; b.style.top = `calc(50% - ${Math.cos(a) * 105}px)`;
+  b.addEventListener('pointerenter', () => setPick(i));
+  b.addEventListener('click', () => { setPick(i); closeWheel(true); });
+  wheelEl.append(b); return b;
+});
+let wheel = null; // { x, y, pick } while the wheel is open
+function openWheel() {
+  if (!me.entered || wheel || editor.isOpen()) return;
+  wheel = { x: 0, y: 0, pick: -1 };
+  if (fps) { fps.trigger(false); fps.aim(false); }
+  wheelEl.hidden = false; setPick(-1);
+}
+function setPick(i) {
+  if (!wheel) return;
+  wheel.pick = i;
+  wheelItems.forEach((b, k) => b.classList.toggle('on', k === i));
+  $('#wheelLabel').textContent = i >= 0 ? '' : `Vise une tête, puis lâche ${label('emotes')}`;
+}
+addEventListener('pointermove', e => {
+  if (!wheel) return;
+  if (locked) { // the mouse is held: its moves steer a pointer from the middle
+    wheel.x += e.movementX; wheel.y += e.movementY;
+    const d = Math.hypot(wheel.x, wheel.y); if (d > 110) { wheel.x *= 110 / d; wheel.y *= 110 / d; }
+  } else { wheel.x = e.clientX - innerWidth / 2; wheel.y = e.clientY - innerHeight / 2; }
+  if (Math.hypot(wheel.x, wheel.y) < 30) { setPick(-1); return; }
+  const n = EXPRESSIONS.length, a = Math.atan2(wheel.x, -wheel.y);
+  setPick(((Math.round(a / (Math.PI * 2 / n)) % n) + n) % n);
+});
+function closeWheel(go) {
+  if (!wheel) return;
+  const i = wheel.pick; wheel = null; wheelEl.hidden = true;
+  if (go && i >= 0) emote(i);
+}
+
+/* the Échap menu (keyboard and mouse): settings, and in a battle the game's buttons */
+const menu = $('#menu');
+function openMenu() {
+  if (!me.entered || coarse || editor.isOpen() || document.querySelector('dialog[open]')) return;
+  closeWheel(false); releaseMouse();
+  for (const k in keys) keys[k] = false;
+  if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); }
+  renderMenu();
+  menu.showModal();
+}
+// close it; back to the game with the mouse held again when asked (a click allows that)
+function closeMenu(resume) {
+  menu.close();
+  if (resume && me.seat < 0) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+}
+function renderMenu() {
+  const p = getPrefs();
+  $('#menuSfx').textContent = `🔊 Sons : ${p.sfx ? 'oui' : 'non'}`;
+  $('#menuMusic').textContent = `🎵 Musique : ${p.music ? 'oui' : 'non'}`;
+  $('#menuRules').hidden = FPS;
+  $('#menuInvite').hidden = !(room && room.code);
+  $('#menuGame').hidden = !fps;
+  if (fps) fps.fillMenu($('#menuGameBody'), () => closeMenu(false));
+}
+menu.addEventListener('close', () => { if (me.entered) canvas.focus(); });
+menu.addEventListener('click', e => { if (e.target === menu) closeMenu(false); });
+menu.querySelector('.rules-close').addEventListener('click', () => closeMenu(false));
+$('#menuResume').addEventListener('click', () => closeMenu(true));
+$('#menuBtn').addEventListener('click', openMenu);
+$('#menuInvite').addEventListener('click', copyInvite);
+$('#menuLook').addEventListener('click', () => { closeMenu(false); openEditor(); });
+$('#menuRules').addEventListener('click', () => { closeMenu(false); openRules(); });
+$('#menuControls').addEventListener('click', () => { closeMenu(false); openControlsDlg(); });
+$('#menuSfx').addEventListener('click', () => { $('#sfxBtn').click(); renderMenu(); });
+$('#menuMusic').addEventListener('click', () => { $('#musicBtn').click(); renderMenu(); });
+$('#menuHub').addEventListener('click', () => { location.href = location.pathname + location.search; });
 if (coarse) $('#help').innerHTML = '<kbd>Joystick</kbd><span>se déplacer (en bas à gauche)</span><kbd>Glisser</kbd><span>regarder autour</span>' + (FPS ? '<kbd>🎯</kbd><span>tirer (pendant un rechargement, dans la zone jaune : rechargement express)</span><kbd>🔍</kbd><span>viser</span><kbd>🔁</kbd><span>changer d\'arme</span>' : '<kbd>Bouton</kbd><span>s\'asseoir ou se lever</span>') + '<kbd>🦘 🧎</kbd><span>sauter, s\'accroupir</span>';
 // the keyboard help on the intro card, with the keys as the player set them up
 function renderHelp() {
@@ -2001,10 +2130,10 @@ function renderHelp() {
     ? move + row('Souris', 'viser (clique dans la pièce)') + row('Clic gauche', 'tirer (maintenir avec le fusil, la mitraillette ou le railgun)') + row('Clic droit', 'viser (zoom, lunette du sniper)')
       + row(`${k('weapon1')} ${k('weapon2')} ${k('weapon3')} ${k('weapon4')}`, 'pistolet, fusil, mitraillette, sniper (ou molette)')
       + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger, et encore une fois dans la zone jaune de la jauge pour un rechargement express') +row(k('scores'), 'tableau des scores (maintenir)')
-      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'libérer la souris') + row(k('chat'), `écrire un message (${k('mic')} : micro)`)
-    : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'libérer la souris')
+      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'menu : réglages, robots, manche, équipe') + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row(k('emotes'), 'roue des expressions (maintenir)')
+    : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'menu : réglages')
       + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)
-      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('1 à 6', 'faire une tête');
+      + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row(`1 à 6, ${k('emotes')}`, 'faire une tête, roue des expressions (maintenir)');
 }
 renderHelp();
 onControlsChange(() => { renderHelp(); labelSocial(); renderPrompt(); });
@@ -2031,7 +2160,10 @@ function renderAudioBtns() {
   $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = !me.entered;
   $('#rulesBtn').hidden = !me.entered || FPS; // the Papayoo rules, only where Papayoo is played
   $('#controlsBtn').hidden = !me.entered || coarse; // keyboard and mouse only
-  $('#emotes').hidden = !me.entered || editor.isOpen();
+  // with a keyboard, the settings are in the Échap menu and the faces on the wheel; a phone keeps its buttons
+  $('#emotes').hidden = !me.entered || editor.isOpen() || !coarse;
+  document.querySelector('.row-chips').hidden = !coarse;
+  $('#menuBtn').hidden = !me.entered || coarse;
 }
 $('#sfxBtn').addEventListener('click', () => { const v = !getPrefs().sfx; setPrefs({ sfx: v }); store.set('playroom-sfx', v ? '1' : '0'); renderAudioBtns(); });
 $('#musicBtn').addEventListener('click', () => { const v = !getPrefs().music; setPrefs({ music: v }); store.set('playroom-music', v ? '1' : '0'); renderAudioBtns(); });
@@ -2160,7 +2292,7 @@ function addChatLine(nick, col, text) {
 let lastSay = 0;
 function openChat() {
   if (!me.entered || editor.isOpen()) return;
-  if (locked) { try { document.exitPointerLock(); } catch (e) {} }
+  releaseMouse();
   for (const k in keys) keys[k] = false;
   $('#chatForm').hidden = false; $('#chatInput').focus();
 }
@@ -2450,7 +2582,7 @@ async function startBattle() {
   setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [] });
   if (map.far) { camera.far = map.far; camera.updateProjectionMatrix(); } // a big map: see further
   fps = startFps({
-    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], movers: map.movers || [], doors: map.doors || [], flags: map.flags || [], keyLabel: label,
+    scene, camera, me, avatars, syncAvatar, react, sfx, toast, coarse, spawns: map.spawns, pickups: map.pickups, pads: map.pads || [], movers: map.movers || [], doors: map.doors || [], flags: map.flags || [], keyLabel: label, releaseMouse,
     room: () => room, myKey: () => myKey, peers: () => peers, peerKey, cleanNick, cleanCol, cleanLook, CLOTH,
     blocked: () => editor.isOpen() || !!document.querySelector('dialog[open]') || !$('#chatForm').hidden
   });

@@ -19,7 +19,8 @@ const ACTIONS = [
   { id: 'use', label: 'S\'asseoir, attraper ou lancer un coussin', key: 'KeyE', group: 'room', letter: 'e' },
   { id: 'paper', label: 'Lancer une boule de papier', key: 'KeyG', group: 'room' },
   { id: 'chat', label: 'Écrire un message', key: 'KeyT', group: 'social', letter: 't' },
-  { id: 'mic', label: 'Micro', key: 'KeyM', group: 'social', letter: 'm' }
+  { id: 'mic', label: 'Micro', key: 'KeyM', group: 'social', letter: 'm' },
+  { id: 'emotes', label: 'Roue des expressions (maintenir)', key: 'KeyU', group: 'social' }
 ];
 const GROUPS = { move: 'Se déplacer', fps: 'Bataille', room: 'Salon', social: 'Parler' };
 const STORE = 'playroom-controls';

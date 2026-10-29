@@ -1304,7 +1304,7 @@ export function startFps(ctx) {
     set.addEventListener('click', openSetup);
     btns.append(again, set); endEl.append(btns);
     endEl.hidden = !me.entered;
-    if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } // the buttons need the mouse
+    ctx.releaseMouse(); // the buttons need the mouse
     pushMine(); renderBoard();
   }
   // the round window
@@ -1337,7 +1337,7 @@ export function startFps(ctx) {
     }
     render();
     matchDlg.append(head, body);
-    if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} }
+    ctx.releaseMouse();
     matchDlg.showModal();
   }
   function switchTeam() {
@@ -1491,6 +1491,7 @@ export function startFps(ctx) {
       play.filter(r => r.team < 0).forEach(line);
     } else play.forEach(line);
     rows.filter(r => r.spec).forEach(line);
+    if (!ctx.coarse) return; // with a keyboard, the game's buttons are in the Échap menu (fillMenu)
     // on a narrow screen, icons only (the full name stays as the label)
     const short = matchMedia('(max-width:560px)').matches;
     const button = (text, icon, fn, parent) => {
@@ -1506,6 +1507,24 @@ export function startFps(ctx) {
     if (teamsOn() && !watching) button(`Passer ${TEAMS[1 - Math.max(0, team)].one}`, TEAMS[1 - Math.max(0, team)].dot, switchTeam, mb);
     button(watching ? '▶ Jouer' : '👁️ Regarder', watching ? '▶' : '👁️', () => watch(!watching), mb);
     board.append(bb, mb);
+  }
+  // the same buttons in the Échap menu: robots stay open for more clicks, the others close it
+  function fillMenu(box, close) {
+    box.textContent = '';
+    const row = () => { const r = el('div', 'menu-grid'); box.append(r); return r; };
+    const button = (parent, text, fn, keep) => {
+      const b = el('button', 'btn ghost', text); b.type = 'button';
+      b.addEventListener('click', () => { if (keep) { fn(); fillMenu(box, close); } else { close(); fn(); } });
+      parent.append(b); return b;
+    };
+    const r1 = row();
+    button(r1, '+ Ajouter un robot', addBot, true);
+    button(r1, '− Retirer un robot', removeBot, true).disabled = !bots.size;
+    button(r1, `🤖 Robots ${LEVELS[botLevel].name}`, cycleLevel, true);
+    const r2 = row();
+    button(r2, '⚙️ Régler la manche', openSetup);
+    if (teamsOn() && !watching && team >= 0) button(r2, `${TEAMS[1 - team].dot} Passer chez les ${TEAMS[1 - team].name}`, switchTeam, true);
+    button(r2, watching ? '▶ Rejoindre la partie' : '👁️ Passer spectateur', () => watch(!watching));
   }
   // where the darts that hit you came from: an arc around the crosshair, turning as you turn
   const dirs = [];
@@ -1621,7 +1640,7 @@ export function startFps(ctx) {
     if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
   }
   return {
-    update, syncAvatars, peerAvatar, dress, trigger, reload, select, aim, scores, join,
+    update, syncAvatars, peerAvatar, dress, trigger, reload, select, aim, scores, join, fillMenu,
     cycle,
     watching: () => watching,
     selectHeavy() { if (heavy) select(SLOTS.indexOf(heavy)); },
