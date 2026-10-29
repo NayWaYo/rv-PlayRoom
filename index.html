@@ -61,7 +61,7 @@ button{font:inherit;color:inherit}
 #charge.full{animation:chargeFull .5s ease-in-out infinite alternate}
 @keyframes chargeFull{to{box-shadow:0 0 0 4px rgba(234,106,79,.55),0 3px 10px rgba(0,0,0,.4)}}
 #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(251,243,228,.85);box-shadow:0 0 0 2px rgba(0,0,0,.35)}
-#toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);background:var(--plum);border:2px solid var(--marigold);border-radius:18px;padding:14px 22px;font-family:var(--display);font-weight:800;font-size:20px;text-align:center;max-width:min(440px,calc(100% - 32px));box-shadow:0 10px 30px rgba(0,0,0,.45);text-wrap:balance;animation:pop .25s ease-out}
+#toast{position:fixed;z-index:60;left:50%;top:38%;transform:translate(-50%,-50%);background:var(--plum);border:2px solid var(--marigold);border-radius:18px;padding:14px 22px;font-family:var(--display);font-weight:800;font-size:20px;text-align:center;max-width:min(440px,calc(100% - 32px));box-shadow:0 10px 30px rgba(0,0,0,.45);text-wrap:balance;animation:pop .25s ease-out}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.85);opacity:0}}
 .bottom{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
 #prompt{pointer-events:auto;background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-weight:800;display:flex;gap:10px;align-items:center}
@@ -402,6 +402,7 @@ table.res tr.win td{color:var(--marigold)}
       <button class="btn ghost" id="menuControls" type="button">⌨️ Contrôles</button>
       <button class="btn ghost" id="menuSfx" type="button"></button>
       <button class="btn ghost" id="menuMusic" type="button"></button>
+      <button class="btn ghost" id="menuKeep" type="button" hidden>💾 Garder cette carte</button>
     </div>
     <button class="mode-switch" id="menuHub" type="button">← Quitter vers l'accueil</button>
   </div>
@@ -469,6 +470,7 @@ table.res tr.win td{color:var(--marigold)}
         <ul class="tags"><li>Seul ou à plusieurs</li><li>Robots</li><li>Action</li></ul>
         <fieldset class="maps" id="hubMaps" role="radiogroup" aria-label="Carte"></fieldset>
         <button class="btn" id="hubFps" type="button">Créer une bataille</button>
+        <button class="mode-switch" id="hubEdit" type="button">✏️ Éditeur de cartes : crée les tiennes</button>
       </section>
     </div>
     <form class="hub-join" id="hubJoin" novalidate>
@@ -641,27 +643,29 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-20",
-  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-20",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-20",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-20",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-20",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-20",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-20",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-20",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-20",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-20",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-20",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-20",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-20",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-20",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-20",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-20",
-  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-20",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-20",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-20",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-20",
-  "./js/world.js": "./js/world.js?v=2026-10-29-20"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-21",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-21",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-21",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-21",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-21",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-21",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-21",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-21",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-21",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-21",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-21",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-21",
+  "./js/fpscustom.js": "./js/fpscustom.js?v=2026-10-29-21",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-21",
+  "./js/mapeditor.js": "./js/mapeditor.js?v=2026-10-29-21",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-21",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-21",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-21",
+  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-21",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-21",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-21",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-21",
+  "./js/world.js": "./js/world.js?v=2026-10-29-21"
 } }
 </script>
 <script>
@@ -889,10 +893,14 @@ const MAPS = {
   labo: { name: 'le Labo', icon: '🧪', file: './js/fpslabo.js', prefix: 'fps-labo-', tag: 'L', blurb: 'Couloir, conduits, générateurs' },
   forts: { name: 'les Deux Forts', icon: '🚩', file: './js/fpsforts.js', prefix: 'fps-forts-', tag: 'D', blurb: 'Grande vallée, capture du drapeau' },
   skyridge: { name: 'Skyridge', icon: '🌉', file: './js/fpsskyridge.js', prefix: 'fps-skyridge-', tag: 'R', blurb: 'Une île coupée par un ravin' },
-  manoir: { name: 'le Manoir', icon: '🕯️', file: './js/fpsmanoir.js', prefix: 'fps-manoir-', tag: 'M', blurb: 'Un manoir et son jardin, la nuit' }
+  manoir: { name: 'le Manoir', icon: '🕯️', file: './js/fpsmanoir.js', prefix: 'fps-manoir-', tag: 'M', blurb: 'Un manoir et son jardin, la nuit' },
+  // a map made in the map editor: whoever creates the room sends it to those who join (roomMap())
+  perso: { name: 'une carte perso', icon: '✏️', file: './js/fpscustom.js', prefix: 'fps-perso-', tag: 'P', custom: true }
 };
 // the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
 const HUB = !location.hash.replace(/^#/, '');
+// #editeur: the map editor (js/mapeditor.js), no room either
+const EDIT = /^#editeur$/i.test(location.hash);
 // the code to give a friend: K7MPQ for a card-game room, F-K7MPQ for a battle in the Fort
 const shareCode = c => (FPS ? MAPS[MAP].tag + '-' : '') + c;
 const mapFromHash = h => Object.keys(MAPS).find(k => k !== 'fort' && h.toLowerCase().startsWith('#' + MAPS[k].prefix)) || 'fort';
@@ -902,7 +910,7 @@ const fpsModule = FPS ? import('./js/fps.js') : null;
 let fps = null;
 if (FPS) {
   document.querySelector('.intro-card h1').innerHTML = 'Bataille de <span>fléchettes</span>';
-  document.querySelector('.intro-card .lede').textContent = `Carte : ${MAPS[MAP].name}. Quatre armes à fléchettes en mousse, des bonus à ramasser, trois cœurs chacun. Ajoute des robots pour t'entraîner, ou invite tes amis avec le lien.`;
+  document.querySelector('.intro-card .lede').textContent = `Carte : ${MAP === 'perso' ? (roomMapStored() || {}).name || MAPS[MAP].name : MAPS[MAP].name}. Quatre armes à fléchettes en mousse, des bonus à ramasser, trois cœurs chacun. Ajoute des robots pour t'entraîner, ou invite tes amis avec le lien.`;
   document.querySelector('#rulesIntro').hidden = true;
 }
 const cleanNick = n => String(n || '').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮]/g, '').trim().slice(0, 14) || 'Joueur';
@@ -2883,6 +2891,7 @@ function renderMenu() {
   $('#menuRules').hidden = FPS;
   $('#menuInvite').hidden = !(room && room.code);
   $('#menuGame').hidden = !fps;
+  $('#menuKeep').hidden = !roomMapData || roomMapKept;
   if (fps) fps.fillMenu($('#menuGameBody'), () => closeMenu(false));
 }
 menu.addEventListener('close', () => { if (me.entered) canvas.focus(); });
@@ -2891,6 +2900,11 @@ menu.querySelector('.rules-close').addEventListener('click', () => closeMenu(fal
 $('#menuResume').addEventListener('click', () => closeMenu(true));
 $('#menuBtn').addEventListener('click', openMenu);
 $('#menuInvite').addEventListener('click', copyInvite);
+$('#menuKeep').addEventListener('click', async () => {
+  const cm = await import(MAPS.perso.file);
+  roomMapKept = true;
+  toast(cm.keepMap(JSON.parse(JSON.stringify(roomMapData))) ? `« ${roomMapData.name} » est dans ton éditeur de cartes` : 'Impossible de la garder : la mémoire du navigateur est pleine.');
+});
 $('#menuLook').addEventListener('click', () => { closeMenu(false); openEditor(); });
 $('#menuRules').addEventListener('click', () => { closeMenu(false); openRules(); });
 $('#menuControls').addEventListener('click', () => { closeMenu(false); openControlsDlg(); });
@@ -3517,6 +3531,7 @@ addEventListener('resize', resize); resize();
 let lastT = performance.now(), uiTick = 0;
 let loopErrors = 0;
 function loop(now) {
+  if (EDIT) return; // the map editor draws on its own
   requestAnimationFrame(loop); // first: an error in one frame must not freeze the game for good
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   try {
@@ -3636,7 +3651,7 @@ async function copyInvite() {
 $('#copyLink').addEventListener('click', copyInvite);
 $('#inviteBtn').addEventListener('click', copyInvite);
 addEventListener('hashchange', () => {
-  if (HUB) { location.reload(); return; } // a game was picked on the home screen
+  if (HUB || EDIT) { location.reload(); return; } // a game was picked on the home screen, or a map to play in the editor
   const fps = /^#fps-/i.test(location.hash);
   if (fps !== FPS || (FPS && mapFromHash(location.hash) !== MAP) || (room && room.code && roomCodeFromUrl() !== room.code)) location.reload();
 });
@@ -3663,21 +3678,26 @@ $('#modeSwitch').addEventListener('click', () => { location.href = location.path
 // the home screen: one card per game, the battle's map to pick, and a fresh room for the one chosen
 if (HUB) {
   $('#intro').hidden = true; $('#hub').hidden = false; document.title = 'PlayRoom';
-  let pick = MAPS[store.get('playroom-map')] ? store.get('playroom-map') : 'fort';
+  // the maps made in the editor come after ours, as perso:ID
+  const mine = (() => { try { const a = JSON.parse(store.get('playroom-maps') || '[]'); return Array.isArray(a) ? a.filter(e => e && e.id && e.map) : []; } catch (e) { return []; } })();
+  const tiles = Object.keys(MAPS).filter(k => !MAPS[k].custom).concat(mine.map(e => 'perso:' + e.id));
+  const tileOf = k => k.startsWith('perso:') ? { icon: '✏️', name: String(mine.find(e => 'perso:' + e.id === k).map.name || 'Ma carte'), blurb: 'Ta carte' } : MAPS[k];
+  let pick = tiles.includes(store.get('playroom-map')) ? store.get('playroom-map') : 'fort';
   const maps = $('#hubMaps');
   const renderMaps = () => maps.querySelectorAll('.map').forEach(b => {
     const on = b.dataset.map === pick;
     b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1;
   });
-  for (const k of Object.keys(MAPS)) {
+  for (const k of tiles) {
     const b = el('button', 'map'); b.type = 'button'; b.dataset.map = k; b.setAttribute('role', 'radio');
-    b.append(el('b', null, MAPS[k].icon), el('span', null, MAPS[k].name[0].toUpperCase() + MAPS[k].name.slice(1)), el('small', null, MAPS[k].blurb));
+    const t = tileOf(k);
+    b.append(el('b', null, t.icon), el('span', null, t.name[0].toUpperCase() + t.name.slice(1)), el('small', null, t.blurb));
     b.addEventListener('click', () => { pick = k; store.set('playroom-map', k); renderMaps(); sfx.pop(); });
     maps.append(b);
   }
   // arrow keys move between the maps, like any group of radio buttons
   maps.addEventListener('keydown', e => {
-    const ks = Object.keys(MAPS), d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    const ks = tiles, d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
     if (!d) return;
     e.preventDefault(); pick = ks[(ks.indexOf(pick) + d + ks.length) % ks.length]; store.set('playroom-map', pick);
     renderMaps(); maps.querySelector(`[data-map="${pick}"]`).focus();
@@ -3693,12 +3713,70 @@ if (HUB) {
   });
   $('#joinCode').addEventListener('input', () => $('#joinCode').removeAttribute('aria-invalid'));
   $('#hubSalon').addEventListener('click', () => { location.hash = newCode(); });
-  $('#hubFps').addEventListener('click', () => { location.hash = MAPS[pick].prefix + newCode(); });
+  $('#hubFps').addEventListener('click', async () => {
+    if (!pick.startsWith('perso:')) { location.hash = MAPS[pick].prefix + newCode(); return; }
+    const cm = await import(MAPS.perso.file), m = cm.cleanMap(mine.find(e => 'perso:' + e.id === pick).map);
+    if (cm.checkMap(m).errors.length) { toast('Cette carte n\'est pas prête : ouvre l\'éditeur et touche « Vérifier ».', 4000); return; }
+    playMap(m);
+  });
+  $('#hubEdit').addEventListener('click', () => { location.hash = 'editeur'; });
   $('#hubSalon').focus();
+}
+// the map editor: your maps, and a battle on one of them
+if (EDIT) {
+  $('#intro').hidden = true; document.title = 'Éditeur de cartes · PlayRoom';
+  import('./js/mapeditor.js').then(m => m.openMapEditor({ toast, sfx, onPlay: playMap, onQuit: () => { location.href = location.pathname + location.search; } }));
+}
+// a battle on a map from the editor: this tab keeps the map for its room, and sends it to those who join
+function playMap(m) {
+  const code = newCode();
+  try { sessionStorage.setItem('playroom-room-map', JSON.stringify({ code, map: m })); } catch (e) {}
+  location.hash = MAPS.perso.prefix + code;
+}
+function roomMapStored() {
+  const code = location.hash.replace(/^#fps-perso-/i, '').toUpperCase();
+  try { const s = JSON.parse(sessionStorage.getItem('playroom-room-map') || 'null'); return s && s.code === code ? s.map : null; } catch (e) { return null; }
+}
+// the room's map: the one this tab has, or the one someone in the room sends (asked on `mapq`,
+// answered on `map` by whoever has it with the smallest key, or by everyone who has it after a few asks)
+let roomMapData = null, roomMapKept = false;
+async function roomMap(cm) {
+  const hold = m => {
+    roomMapData = m;
+    roomMapKept = cm.savedMaps().some(e => JSON.stringify(cm.cleanMap(e.map)) === JSON.stringify(m)); // already in my editor
+    try { sessionStorage.setItem('playroom-room-map', JSON.stringify({ code: roomCodeFromUrl(), map: m })); } catch (e) {}
+    if (room) room.presence({ mh: 1 }).catch(() => {});
+    document.querySelector('.intro-card .lede').textContent = `Carte : ${m.name}. Une carte faite dans l'éditeur. Ajoute des robots pour t'entraîner, ou invite tes amis avec le lien.`;
+  };
+  if (room) {
+    let lastOffer = 0;
+    room.on('mapq', ({ data, isMe }) => {
+      if (isMe || !roomMapData || Date.now() - lastOffer < 1500) return;
+      const holders = peers.filter(p => p.presence && p.presence.mh).map(peerKey).concat(myKey).sort();
+      if (holders[0] !== myKey && !(data >= 3)) return;
+      lastOffer = Date.now(); room.emit('map', roomMapData);
+    }, () => {});
+  }
+  const have = cm.cleanMap(roomMapStored());
+  if (have) { hold(have); return have; }
+  if (!room) return null;
+  toast('Réception de la carte…', 4000);
+  return new Promise(res => {
+    let n = 0;
+    const ask = () => room.emit('mapq', ++n);
+    const timer = setInterval(() => { ask(); if (n === 8) toast('La carte n\'arrive pas : celui qui t\'a invité est-il encore là ?', 5000); }, 2000);
+    room.on('map', ({ data, isMe }) => {
+      if (isMe || roomMapData) return;
+      const m = cm.cleanMap(data);
+      if (!m) return;
+      clearInterval(timer); hold(m); res(m);
+    }, () => {});
+    ask();
+  });
 }
 
 (async () => {
-  if (HUB) return; // no room to join until a game is picked
+  if (HUB || EDIT) return; // no room to join until a game is picked
   const cl = window.claude;
   let r = null;
   if (cl && cl.use) {
@@ -3739,10 +3817,12 @@ if (HUB) {
 })();
 async function startBattle() {
   if (!fpsModule) return;
-  const [{ startFps }, { buildMap }] = await Promise.all([fpsModule, import(MAPS[MAP].file)]);
+  const [{ startFps }, mod] = await Promise.all([fpsModule, import(MAPS[MAP].file)]);
+  const data = MAP === 'perso' ? await roomMap(mod) : null;
+  if (MAP === 'perso' && !data) { toast('Cette carte n\'est plus là : retour à l\'accueil.', 4000); setTimeout(() => { location.href = location.pathname + location.search; }, 2500); return; }
   // swap the living room for the fort
   for (const o of [...scene.children]) scene.remove(o);
-  const map = buildMap(scene);
+  const map = mod.buildMap(scene, data);
   setWorld({ ...map.bounds, boxes: map.boxes, discs: map.discs || [], fall: map.fall });
   if (map.far) { camera.far = map.far; camera.updateProjectionMatrix(); } // a big map: see further
   fps = startFps({
