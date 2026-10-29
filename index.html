@@ -82,15 +82,19 @@ kbd{font-family:var(--display);background:var(--cream);color:var(--night);border
 .card.recv::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:8px;border-radius:50%;background:var(--coral)}
 .card.papa{box-shadow:0 0 0 3px var(--coral),0 3px 6px rgba(0,0,0,.35)}
 /* the other card games: what you can do on your turn, above your cards */
-#moves{pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:100%}
-#moves .info{flex-basis:100%;text-align:center;font-weight:800;font-size:13px;color:var(--cream);text-shadow:0 1px 3px rgba(0,0,0,.8)}
-#moves .info b{color:var(--marigold)}
-#moves .btn{padding:8px 16px;font-size:15px}
-#moves .btn.fold{background:var(--plum-2);color:var(--cream);box-shadow:0 3px 0 #1a1222}
-#moves .btn.all{background:var(--coral);color:#2a0d06;box-shadow:0 3px 0 #a8432f}
-#moves .step{background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:999px;padding:3px}
-#moves .step output{font-size:17px;min-width:3.4ch}
-#moves .step button{width:30px;height:30px;font-size:18px}
+#moves,#bjBar{pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:100%}
+#moves .info,#bjBar .info{flex-basis:100%;text-align:center;font-weight:800;font-size:13px;color:var(--cream);text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#moves .info b,#bjBar .info b{color:var(--marigold)}
+#moves .btn,#bjBar .btn{padding:8px 16px;font-size:15px}
+#moves .btn.fold,#bjBar .btn.fold{background:var(--plum-2);color:var(--cream);box-shadow:0 3px 0 #1a1222}
+#moves .btn.all,#bjBar .btn.all{background:var(--coral);color:#2a0d06;box-shadow:0 3px 0 #a8432f}
+#moves .step,#bjBar .step{background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:999px;padding:3px}
+#moves .step output,#bjBar .step output{font-size:17px;min-width:3.4ch}
+#moves .step button,#bjBar .step button{width:30px;height:30px;font-size:18px}
+#bjBar .bjcards{flex-basis:100%;display:flex;justify-content:center}
+.card.mini{width:42px;height:60px;margin-left:-12px;cursor:default}
+.card.mini:first-child{margin-left:0}
+.card.mini .r{font-size:15px;left:5px;top:4px}.card.mini .m{font-size:12px;top:20px;left:4px}.card.mini .s{font-size:18px;bottom:6px}
 #scores .pot{display:flex;justify-content:space-between;gap:6px;margin-bottom:6px;font-weight:800}
 #scores .pot b{color:var(--marigold);font-family:var(--display);font-size:16px}
 .srow.out{opacity:.5}
@@ -327,6 +331,7 @@ table.res tr.win td{color:var(--marigold)}
   <div class="bottom">
     <div id="prompt" hidden></div>
     <button id="passBtn" class="btn" hidden></button>
+    <div id="bjBar" hidden></div>
     <div id="moves" hidden></div>
     <div id="hand" hidden><div class="inner"></div></div>
   </div>
@@ -369,7 +374,7 @@ table.res tr.win td{color:var(--marigold)}
 <div id="intro">
   <form class="intro-card" id="introForm">
     <h1>Salon <span>Chill</span></h1>
-    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis : Payoo, Président, Poker ou Texas Hold'em. Des robots peuvent compléter la table.</p>
+    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis : Payoo, Président, Poker ou Texas Hold'em. Des robots peuvent compléter la table, et un croupier tient le blackjack dans un coin du salon.</p>
     <label class="field"><span>Ton pseudo</span><input id="nick" maxlength="14" autocomplete="off" placeholder="Ton pseudo" required></label>
     <div class="field"><span>Ta couleur</span><div class="swatches" id="swatches"></div></div>
     <div class="help" id="help">
@@ -410,8 +415,8 @@ table.res tr.win td{color:var(--marigold)}
           <div class="mode-art" aria-hidden="true">🃏</div>
           <h2 id="hubSalonTitle"><span class="kind">Jeux de cartes</span>Salon Chill</h2>
         </div>
-        <p>Payoo, Président, Poker ou Texas Hold'em autour de la table (jetons fictifs), dans un salon à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
-        <ul class="tags"><li>4 jeux</li><li>2 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
+        <p>Payoo, Président, Poker ou Texas Hold'em autour de la table, un blackjack avec son croupier dans le coin (jetons fictifs), et un salon avec cheminée à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
+        <ul class="tags"><li>5 jeux</li><li>2 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
         <button class="btn" id="hubSalon" type="button">Créer un salon</button>
       </section>
       <section class="mode fps" aria-labelledby="hubFpsTitle">
@@ -540,6 +545,25 @@ table.res tr.win td{color:var(--marigold)}
     <p>Comme au Poker fermé : parler, suivre, miser ou relancer (au moins 20 jetons, sans plafond), tapis ou se coucher. Mêmes combinaisons, de la quinte flush à la carte la plus haute.</p>
     <p class="muted">Ta meilleure combinaison du moment s'affiche au-dessus de tes cartes.</p>
    </section>
+   <section data-g="blackjack" hidden>
+    <p><b>La table de blackjack, dans le coin du salon, contre le croupier.</b> Assieds-toi sur un tabouret : jusqu'à 5 joueurs, chacun contre le croupier, pendant qu'une autre partie continue à la grande table. Chacun reçoit 1000 jetons <b>fictifs</b> (aucun argent réel) ; à court de jetons, le croupier t'en prête 1000.</p>
+    <h3>But du jeu</h3>
+    <p>Faire un total plus proche de 21 que le croupier, sans dépasser 21. Les figures valent 10, l'As 1 ou 11, les autres cartes leur valeur.</p>
+    <h3>Une donne</h3>
+    <ul>
+      <li>Chacun mise de 10 à 500 jetons. La donne part 10 secondes après la première mise, ou dès que tout le monde a misé.</li>
+      <li>Tu reçois 2 cartes visibles, le croupier une visible et une cachée.</li>
+      <li>À ton tour : <b>Tirer</b> une carte, <b>Rester</b>, ou <b>Doubler</b> (sur tes 2 premières cartes : tu doubles ta mise et reçois une seule carte). Au-dessus de 21, tu as sauté et tu perds ta mise.</li>
+      <li>Le croupier retourne sa carte et tire jusqu'à avoir au moins 17.</li>
+    </ul>
+    <h3>Les gains</h3>
+    <ul>
+      <li>Plus proche de 21 que le croupier, ou croupier au-dessus de 21 : tu gagnes ta mise.</li>
+      <li>Égalité : ta mise est rendue.</li>
+      <li><b>Blackjack</b> (un As et une carte qui vaut 10 dès la donne) : payé 3 pour 2. Si le croupier en a un aussi, égalité ; s'il a un blackjack et toi non, il le montre tout de suite et la donne s'arrête.</li>
+    </ul>
+    <p class="muted">Tu as 30 secondes pour jouer ta main, sinon tu restes.</p>
+   </section>
   </div>
 </dialog>
 
@@ -559,25 +583,26 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-15",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-15",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-15",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-15",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-15",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-15",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-15",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-15",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-15",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-15",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-15",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-15",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-15",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-15",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-15",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-15",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-15",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-15",
-  "./js/world.js": "./js/world.js?v=2026-10-29-15"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-16",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-16",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-16",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-16",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-16",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-16",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-16",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-16",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-16",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-16",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-16",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-16",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-16",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-16",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-16",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-16",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-16",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-16",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-16",
+  "./js/world.js": "./js/world.js?v=2026-10-29-16"
 } }
 </script>
 <script>
@@ -730,6 +755,8 @@ import { Toys } from './js/toys.js';
 import { setWorld, groundAt, ceilingAt, slide, fall, TALL, LOW } from './js/world.js';
 import { key, label, actionFor, mouse, openControls, onChange as onControlsChange } from './js/controls.js';
 import { GAMES, deck52, bestOf, handName, presValue, titleAt } from './js/cards.js';
+import * as BJ from './js/blackjack.js';
+const BJ_SEATS = BJ.BJ_SEATS;
 const keysReady = initKeys().catch(() => null);
 (() => {
 'use strict';
@@ -763,6 +790,19 @@ const POKER_G = { poker: 1, holdem: 1 }, PCFG_BB = 20;
 const TITLE_ICON = { 'Président': '👑', 'Vice-président': '⭐', 'Vice-trou': '🥄', 'Trou': '🕳️' };
 const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
+// the blackjack table in the front-left corner: a half-moon turned toward the room, the dealer
+// behind its straight edge, five stools on the curve (seats 8 to 12, after the main table's)
+const BJX = -3.5, BJZ = 3.5, BJ_R = 1.0, STOOL_R = 1.42, BJ_FACE = Math.atan2(-BJX, -BJZ);
+const ALL_SEATS = SEATS + BJ_SEATS;
+const isStool = s => s >= SEATS && s < ALL_SEATS;
+const stoolAng = k => BJ_FACE + (k - 2) * 0.48;
+// where seat i is (x, z, a bit further out with `extra`) and which way it looks
+function seatSpot(i, extra = 0) {
+  if (!isStool(i)) { const p = seatXZ(i, CHAIR_R + extra); return { x: p.x, z: p.z, yaw: ang(i) }; }
+  const b = stoolAng(i - SEATS), r = STOOL_R + extra;
+  return { x: BJX + Math.sin(b) * r, z: BJZ + Math.cos(b) * r, yaw: b };
+}
+const atMain = () => me.seat >= 0 && me.seat < SEATS;
 const coarse = matchMedia('(pointer: coarse)').matches;
 // a battle room (#fps-CODE) loads the foam-dart game instead of the card table;
 // the map is in the address too: #fps-CODE for the Fort, #fps-station-CODE, #fps-chambre-CODE, #fps-bureaux-CODE for the others
@@ -1211,6 +1251,108 @@ function crate(s, h, x, z) {
 }
 crate(0.8, 0.5, -4.2, -4.9);
 crate(0.8, 1.0, -5.1, -4.9);
+// the fireplace on the back wall: a brick chimney breast, a mantel, a fire that flickers
+const FX = 1.8, FZ = -6;
+const brickTex = canvasTex(256, 256, (x, w, h) => {
+  x.fillStyle = '#5e2c22'; x.fillRect(0, 0, w, h);
+  for (let r = 0; r < 8; r++) for (let c = -1; c < 5; c++) {
+    x.fillStyle = ['#a4523c', '#b45f45', '#9a4a37', '#ad5a41'][(r * 7 + c * 3) & 3];
+    rr(x, c * 64 + (r % 2) * 32 + 3, r * 32 + 3, 58, 26, 5); x.fill();
+  }
+}, [1.5, 3]);
+const brick = toon('#ffffff', { map: brickTex }), soot = toon('#1a0f0c'), stone = toon('#b9aa98');
+const hearth = new THREE.Group(); hearth.position.set(FX, 0, FZ); scene.add(hearth);
+box(0.45, 3.2, 0.5, brick, -0.725, 1.6, 0.25, hearth); box(0.45, 3.2, 0.5, brick, 0.725, 1.6, 0.25, hearth); // pillars
+box(1.0, 2.35, 0.5, brick, 0, 2.025, 0.25, hearth); // above the opening
+box(1.0, 0.85, 0.1, soot, 0, 0.425, 0.05, hearth); // the back of the firebox
+box(1.1, 0.1, 0.1, stone, 0, 0.88, 0.52, hearth); // lintel
+box(2.2, 0.1, 0.62, wood, 0, 1.15, 0.31, hearth); // mantel shelf
+box(2.1, 0.06, 0.55, stone, 0, 0.03, 0.78, hearth); // hearth stone
+for (const [x, rz] of [[-0.12, 0.25], [0.12, -0.25]]) { const l = mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.62, 10), toon('#6b3f22'), x, 0.12, 0.3, hearth); l.rotation.set(Math.PI / 2, 0, Math.PI / 2 + rz); }
+const flames = [];
+[['#ff6a1a', 0.17, 0.5, 0, 0.3], ['#ff9a2a', 0.13, 0.42, -0.17, 0.32], ['#ff9a2a', 0.13, 0.4, 0.18, 0.28], ['#ffd25a', 0.09, 0.32, -0.05, 0.36], ['#ffe9a0', 0.06, 0.22, 0.07, 0.38]].forEach(([col, r, h, x, z], k) => {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), noOutline(new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false })));
+  m.position.set(x, 0.16 + h / 2, z); hearth.add(m);
+  flames.push({ m, h, x, ph: k * 1.7 });
+});
+const fireGlow = makeGlow('#ff8a2c', 1.7, 0.75); fireGlow.position.set(0, 0.45, 0.45); hearth.add(fireGlow);
+const fireLight = new THREE.PointLight(0xff8a3a, 4, 0, 2); fireLight.position.set(FX, 0.7, FZ + 0.9); scene.add(fireLight);
+const sparks = [];
+for (let k = 0; k < 7; k++) {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), noOutline(new THREE.MeshBasicMaterial({ color: '#ffc46a' })));
+  hearth.add(s); sparks.push({ s, t: Math.random() });
+}
+// on the mantel: two candles, a little clock; above it, a round mirror
+for (const x of [-0.85, 0.85]) mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 12), toon('#fbf3e4'), x, 1.3, 0.35, hearth);
+const clock = mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 24), toon('#f4b63f'), 0.35, 1.32, 0.3, hearth); clock.rotation.x = Math.PI / 2;
+mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.01, 24), noOutline(toon('#fbf3e4')), 0.35, 1.32, 0.345, hearth).rotation.x = Math.PI / 2;
+const mirror = mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 32), toon('#e0c08f'), 0, 2.15, 0.52, hearth); mirror.rotation.x = Math.PI / 2;
+mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.02, 32), noOutline(toon('#9fc2d8', { emissive: '#1d3440' })), 0, 2.15, 0.555, hearth).rotation.x = Math.PI / 2;
+// a fur rug and a reading armchair by the fire, under the floor lamp
+const furTex = canvasTex(256, 128, (x, w, h) => {
+  x.fillStyle = '#efe1c6'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) { x.fillStyle = Math.random() < 0.5 ? 'rgba(160,130,90,.18)' : 'rgba(255,255,255,.35)'; x.fillRect(Math.random() * w, Math.random() * h, 2, 5); }
+});
+const fur = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.2), noOutline(toon('#ffffff', { map: furTex })));
+fur.rotation.x = -Math.PI / 2; fur.position.set(FX, 0.008, -4.45); fur.receiveShadow = true; scene.add(fur);
+const arm = new THREE.Group(); arm.position.set(3.55, 0, -4.0); arm.rotation.y = Math.atan2(3.55 - FX, 1.4); scene.add(arm); // facing the fire
+const armMat = toon('#ea6a4f'), armDark = toon('#c8513a');
+box(0.8, 0.3, 0.78, armDark, 0, 0.2, 0, arm); box(0.62, 0.14, 0.62, armMat, 0, 0.42, -0.04, arm);
+box(0.8, 0.62, 0.18, armMat, 0, 0.66, 0.32, arm);
+for (const s of [-1, 1]) box(0.14, 0.52, 0.78, armDark, s * 0.36, 0.38, 0, arm);
+for (const [lx, lz] of [[-0.33, -0.33], [0.33, -0.33], [-0.33, 0.33], [0.33, 0.33]]) box(0.06, 0.08, 0.06, woodDark, lx, 0.04, lz, arm);
+// plants in two more corners, a little stool of books by the shelf
+function plant(x, z, s) {
+  mesh(new THREE.CylinderGeometry(0.24 * s, 0.19 * s, 0.42 * s, 18), toon('#d0724f'), x, 0.21 * s, z);
+  for (let i = 0; i < 6; i++) {
+    const l = mesh(new THREE.SphereGeometry(0.24 * s, 12, 9), toon(i % 2 ? '#4e8a4a' : '#6aa35b'), x + Math.cos(i * 1.1) * 0.18 * s, (0.62 + (i % 3) * 0.24) * s, z + Math.sin(i * 1.1) * 0.18 * s);
+    l.scale.y = 1.35;
+  }
+}
+plant(-5.15, 5.15, 1.05);
+plant(-0.45, -5.45, 0.8);
+
+// the blackjack table: a half-moon of green felt, the dealer behind the straight edge
+const bjT = new THREE.Group(); bjT.position.set(BJX, 0, BJZ); scene.add(bjT);
+const half0 = BJ_FACE - Math.PI / 2;
+mesh(new THREE.CylinderGeometry(BJ_R, BJ_R * 0.97, 0.09, 40, 1, false, half0, Math.PI), wood, 0, TOP_Y - 0.045, 0, bjT);
+const bjFeltTex = canvasTex(512, 512, (x, w) => {
+  const c = w / 2;
+  x.fillStyle = '#1f7a5a'; x.fillRect(0, 0, w, w);
+  for (let i = 0; i < 2000; i++) { x.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)'; x.fillRect(Math.random() * w, Math.random() * w, 2, 2); }
+  x.strokeStyle = 'rgba(244,182,63,.7)'; x.lineWidth = 5; x.beginPath(); x.arc(c, c, 200, 0, Math.PI * 2); x.stroke();
+  x.lineWidth = 2; x.beginPath(); x.arc(c, c, 120, 0, Math.PI * 2); x.stroke();
+});
+mesh(new THREE.CylinderGeometry(BJ_R - 0.08, BJ_R - 0.08, 0.012, 40, 1, false, half0, Math.PI), noOutline(toon('#ffffff', { map: bjFeltTex })), 0, TOP_Y + 0.002, 0, bjT);
+const edge = box(BJ_R * 2, 0.11, 0.08, woodDark, 0, TOP_Y - 0.03, 0, bjT); edge.rotation.y = BJ_FACE;
+const bjDir = (a, r) => ({ x: Math.sin(a) * r, z: Math.cos(a) * r });
+for (const a of [BJ_FACE - 0.9, BJ_FACE + 0.9]) { const p = bjDir(a, 0.45); mesh(new THREE.CylinderGeometry(0.07, 0.1, TOP_Y - 0.08, 14), woodDark, p.x, (TOP_Y - 0.08) / 2, p.z, bjT); }
+// the dealer's chip rack and the shoe, on the straight edge
+const rackP = bjDir(BJ_FACE, 0.02);
+const rack = box(0.5, 0.05, 0.14, woodDark, rackP.x, TOP_Y + 0.03, rackP.z, bjT); rack.rotation.y = BJ_FACE;
+for (let k = 0; k < 5; k++) {
+  const o = (k - 2) * 0.09, cx = rackP.x + Math.cos(BJ_FACE) * o, cz = rackP.z - Math.sin(BJ_FACE) * o;
+  const tube = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.12, 14), toon(['#ea6a4f', '#4fb3a9', '#f4b63f', '#8f73e3', '#fbf3e4'][k]), cx, TOP_Y + 0.08, cz, bjT);
+}
+const shoeP = bjDir(BJ_FACE, 0.12), shoeO = 0.62;
+const shoeBox = box(0.2, 0.12, 0.3, toon('#8f2f3a'), shoeP.x + Math.cos(BJ_FACE) * shoeO, TOP_Y + 0.06, shoeP.z - Math.sin(BJ_FACE) * shoeO, bjT); shoeBox.rotation.y = BJ_FACE;
+const BJ_SHOE = { x: BJX + shoeP.x + Math.cos(BJ_FACE) * shoeO, z: BJZ + shoeP.z - Math.sin(BJ_FACE) * shoeO };
+// stools
+const stoolMat = toon('#4fb3a9');
+for (let k = 0; k < BJ_SEATS; k++) {
+  const s = seatSpot(SEATS + k);
+  mesh(new THREE.CylinderGeometry(0.21, 0.19, 0.08, 20), stoolMat, s.x, 0.48, s.z);
+  mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.44, 10), woodDark, s.x, 0.22, s.z);
+  mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.03, 16), woodDark, s.x, 0.015, s.z);
+}
+// a green banker's lamp hanging over it
+mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.1, 6), toon('#222'), BJX, 2.65, BJZ).castShadow = false;
+const bjShade = mesh(new THREE.ConeGeometry(0.3, 0.2, 28, 1, true), toon('#2f8a5f', { side: THREE.DoubleSide, emissive: '#0d2a1d' }), BJX, 2.06, BJZ); bjShade.castShadow = false;
+const bjGlow = makeGlow('#ffe0a0', 1.0, 0.5); bjGlow.position.set(BJX, 1.98, BJZ); scene.add(bjGlow);
+const bjLight = new THREE.PointLight(0xffd9a0, 3, 0, 2); bjLight.position.set(BJX, 1.9, BJZ); scene.add(bjLight);
+// the dealer: a fixed look, a bow tie colour, standing behind the table
+const DEALER_LOOK = (() => { const l = randomLook(seededRand(21)); l.tc = CLOTH.indexOf('#2b2036'); l.hat = 0; return cleanLook(l); })();
+const DEALER_POS = (() => { const p = bjDir(BJ_FACE + Math.PI, 0.42); return { x: BJX + p.x, z: BJZ + p.z }; })();
 // where you can stand: boxes (x0..x1, z0..z1) with a top height, shared with the toys
 const PLATFORMS = [
   { x0: 4.85, x1: 5.6, z0: -1.0, z1: 1.0, top: 0.61 },     // sofa seat
@@ -1219,10 +1361,12 @@ const PLATFORMS = [
   { x0: 5.5, x1: 5.75, z0: -1.21, z1: 1.21, top: 1.09 },   // sofa back
   { x0: 3.95, x1: 4.55, z0: -0.8, z1: -0.2, top: 0.41 },   // pouf
   { x0: -4.6, x1: -3.8, z0: -5.3, z1: -4.5, top: 0.5 },    // low crate
-  { x0: -5.5, x1: -4.7, z0: -5.3, z1: -4.5, top: 1.0 }     // tall crate
+  { x0: -5.5, x1: -4.7, z0: -5.3, z1: -4.5, top: 1.0 },    // tall crate
+  { x0: FX - 1.1, x1: FX + 1.1, z0: -6, z1: -5.38, top: 1.2 }, // fireplace, up to the mantel
+  { x0: 3.15, x1: 3.95, z0: -4.4, z1: -3.6, top: 0.49 }     // armchair seat
 ];
 // the living room as solid shapes: bounds, the round table, and what you can climb on
-setWorld({ x0: -HALF, x1: HALF, z0: -HALF, z1: HALF, discs: [{ x: 0, z: 0, r: TABLE_R + 0.35 }], boxes: PLATFORMS.map(P => ({ x0: P.x0, x1: P.x1, z0: P.z0, z1: P.z1, y0: 0, y1: P.top })) });
+setWorld({ x0: -HALF, x1: HALF, z0: -HALF, z1: HALF, discs: [{ x: 0, z: 0, r: TABLE_R + 0.35 }, { x: BJX, z: BJZ, r: BJ_R + 0.3 }], boxes: PLATFORMS.map(P => ({ x0: P.x0, x1: P.x1, z0: P.z0, z1: P.z1, y0: 0, y1: P.top })) });
 // side table, candle and mug next to the sofa
 const side = new THREE.Group(); side.position.set(5.2, 0, 1.9); scene.add(side);
 mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 28), wood, 0, 0.6, 0, side);
@@ -1272,15 +1416,35 @@ function stringLights(from, to, sag, n) {
   }
 }
 stringLights(new THREE.Vector3(-5.85, 2.95, -5.85), new THREE.Vector3(0, 2.95, -5.85), 0.35, 12);
-stringLights(new THREE.Vector3(0, 2.95, -5.85), new THREE.Vector3(5.85, 2.95, -5.85), 0.35, 12);
+stringLights(new THREE.Vector3(2.85, 2.95, -5.85), new THREE.Vector3(5.85, 2.95, -5.85), 0.25, 7); // the chimney breast in between
 stringLights(new THREE.Vector3(-5.85, 2.95, -5.85), new THREE.Vector3(-5.85, 2.95, 5.85), 0.5, 20);
 const dust = new Dust(scene);
 const confetti = new Confetti(scene);
+let nextCrackle = 0;
 function updateDecor(dt, t) {
   for (const b of bulbs) b.gl.material.opacity = 0.38 + Math.sin(t * 1.6 + b.ph) * 0.14;
   const fl = 1 + Math.sin(t * 13) * 0.08 + Math.sin(t * 29) * 0.05;
   flame.scale.set(1, 1.8 * fl, 1); flameGlow.material.opacity = 0.5 * fl; flameGlow.scale.setScalar(0.7 * fl);
   sofaGlow.intensity = 1.2 * fl;
+  // the fire: flames that lick and sway, a light and a glow that waver with them, sparks going up
+  const ff = 1 + Math.sin(t * 7.3) * 0.12 + Math.sin(t * 17.9) * 0.07 + Math.sin(t * 31) * 0.04;
+  for (const f of flames) {
+    const s = 1 + Math.sin(t * 9 + f.ph) * 0.22 + Math.sin(t * 23 + f.ph * 2) * 0.1;
+    f.m.scale.set(1 - (s - 1) * 0.4, s, 1 - (s - 1) * 0.4);
+    f.m.position.set(f.x + Math.sin(t * 5 + f.ph) * 0.02, 0.16 + f.h * s / 2, f.m.position.z);
+  }
+  fireLight.intensity = 4 * ff; fireGlow.material.opacity = 0.62 * ff; fireGlow.scale.setScalar(1.7 * ff);
+  for (const p of sparks) {
+    p.t += dt * (0.5 + (p.t * 7 % 1) * 0.4);
+    if (p.t > 1) p.t = 0;
+    p.s.position.set(Math.sin(p.t * 9 + p.s.id) * 0.18, 0.25 + p.t * 0.75, 0.3 + Math.cos(p.t * 7 + p.s.id) * 0.06);
+    p.s.visible = p.t < 0.85;
+  }
+  if (!FPS && me.entered && t > nextCrackle) {
+    nextCrackle = t + 0.12 + Math.random() * 0.55;
+    const d = Math.hypot(camera.position.x - FX, camera.position.z - (FZ + 0.5));
+    if (d < 7) sfx.crackle(Math.min(1, 1.6 / (d + 0.6)));
+  }
   const br = 1 + Math.sin(t * 1.4) * 0.05; catBody.scale.set(1.35, 0.7 * br, 1 * br);
   dust.update(t);
   confetti.update(dt);
@@ -1401,7 +1565,7 @@ function updateTable(dt) {
   // cards face up on the table: { c, seat (where it flies from), x, z, y, s (size), win }
   const items = [];
   // laid out for the one looking: the board reads left to right from my chair
-  const view = me.seat >= 0 ? ang(me.seat) : 0, tx = Math.cos(view), tz = -Math.sin(view), rx = Math.sin(view), rz = Math.cos(view);
+  const view = atMain() ? ang(me.seat) : 0, tx = Math.cos(view), tz = -Math.sin(view), rx = Math.sin(view), rz = Math.cos(view);
   if (active && G.trick && !ENG()) {
     G.trick.forEach(([i, c], order) => {
       const seat = G.players[i].seat, t = seatXZ(seat, 0.58);
@@ -1480,7 +1644,7 @@ function updateTable(dt) {
   die.visible = !!showDie;
   if (showDie) {
     // each viewer sees the die near their own seat, so it never hides a card played across the table
-    const dp = me.seat >= 0 ? { x: Math.sin(ang(me.seat) + 0.8) * 1.0, z: Math.cos(ang(me.seat) + 0.8) * 1.0 } : { x: 0, z: 0 };
+    const dp = atMain() ? { x: Math.sin(ang(me.seat) + 0.8) * 1.0, z: Math.cos(ang(me.seat) + 0.8) * 1.0 } : { x: 0, z: 0 };
     die.position.x = dp.x; die.position.z = dp.z;
     if (now < dieRollUntil) {
       const left = (dieRollUntil - now) / 1500;
@@ -1584,7 +1748,7 @@ function look(dx, dy, s) {
   me.yaw -= dx * s; me.pitch -= dy * s;
   me.pitch = Math.max(-1.25, Math.min(1.1, me.pitch));
   if (me.seat >= 0) {
-    const base = ang(me.seat); let d = me.yaw - base;
+    const base = seatSpot(me.seat).yaw; let d = me.yaw - base;
     d = Math.atan2(Math.sin(d), Math.cos(d));
     me.yaw = base + Math.max(-1.5, Math.min(1.5, d));
   }
@@ -1656,22 +1820,32 @@ function nearestFreeSeat() {
   const mi = myIdx();
   if (isActive() && mi >= 0) {
     const s = G.players[mi].seat, p = seatXZ(s, CHAIR_R);
+    if (Math.hypot(BJX - me.x, BJZ - me.z) < 2.4) return nearestStool(); // by the blackjack table: a stool there
     return (Math.hypot(p.x - me.x, p.z - me.z) < 1.3 && !seatTakenBy(s)) ? s : -1;
   }
   let best = -1, bd = 1.3;
-  for (let i = 0; i < SEATS; i++) {
-    const p = seatXZ(i, CHAIR_R), d = Math.hypot(p.x - me.x, p.z - me.z);
+  for (let i = 0; i < ALL_SEATS; i++) {
+    const p = seatSpot(i), d = Math.hypot(p.x - me.x, p.z - me.z);
+    if (d < bd && !seatTakenBy(i)) { bd = d; best = i; }
+  }
+  return best;
+}
+// while playing at the main table, only a blackjack stool is free to take
+function nearestStool() {
+  let best = -1, bd = 1.3;
+  for (let i = SEATS; i < ALL_SEATS; i++) {
+    const p = seatSpot(i), d = Math.hypot(p.x - me.x, p.z - me.z);
     if (d < bd && !seatTakenBy(i)) { bd = d; best = i; }
   }
   return best;
 }
 function toggleSit() {
   if (me.seat >= 0) {
-    const p = seatXZ(me.seat, CHAIR_R + 0.7);
+    const p = seatSpot(me.seat, 0.7);
     me.x = p.x; me.z = p.z; me.seat = -1; me.pitch = -0.08;
   } else {
     const s = nearestFreeSeat(); if (s < 0) return;
-    me.seat = s; me.yaw = ang(s); me.pitch = -0.46;
+    me.seat = s; me.yaw = seatSpot(s).yaw; me.pitch = isStool(s) ? -0.55 : -0.46;
     me.jy = me.jv = me.crouch = 0; crouchLatch = false;
     releaseMouse();
   }
@@ -1700,7 +1874,7 @@ function jump() {
 function setCrouchLatch(v) { crouchLatch = v; renderMoveBtns(); }
 function updateMe(dt) {
   if (me.seat >= 0) {
-    const p = seatXZ(me.seat, CHAIR_R + 0.12);
+    const p = seatSpot(me.seat, 0.12);
     me.x = p.x; me.z = p.z;
     camera.position.set(p.x, 1.7, p.z);
   } else if (me.entered) {
@@ -1760,9 +1934,9 @@ function updateAvatars(dt, t) {
     if (p.sameTab || p.kind !== 'viewer') continue;
     const pr = p.presence || {}, a = pr.a;
     if (!Array.isArray(a) || a.length < 5 || !pr.n) continue;
-    const seat = Number.isInteger(a[4]) && a[4] >= 0 && a[4] < SEATS ? a[4] : -1;
+    const seat = Number.isInteger(a[4]) && a[4] >= 0 && a[4] < ALL_SEATS ? a[4] : -1;
     let x = +a[0] || 0, z = +a[1] || 0, yaw = +a[2] || 0;
-    if (seat >= 0) { const s = seatXZ(seat, CHAIR_R); x = s.x; z = s.z; yaw = ang(seat); }
+    if (seat >= 0) { const s = seatSpot(seat); x = s.x; z = s.z; yaw = s.yaw; }
     const [look, col] = fps ? fps.dress(pr, pr.l, cleanCol(pr.c)) : [pr.l, cleanCol(pr.c)]; // a team shirt in a team battle
     const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), col, look, x, z, yaw, seat);
     av.who = peerKey(p); av.talk = levelOf(p.peer);
@@ -1783,6 +1957,9 @@ function updateAvatars(dt, t) {
     const s = seatXZ(p.seat, CHAIR_R);
     syncAvatar('b:' + p.seat, p.nick, p.col, p.l, s.x, s.z, ang(p.seat), p.seat).who = p.k;
   });
+  if (!FPS) { // the blackjack dealer, always at the table
+    syncAvatar('dealer', 'Croupier', '#f4b63f', DEALER_LOOK, DEALER_POS.x, DEALER_POS.z, BJ_FACE + Math.PI, -1).who = 'dealer'; // facing the players
+  }
   if (fps) fps.syncAvatars(); // battle bots
   for (const [id, a] of avatars) {
     if (a.seen !== frameNo) { dropAvatar(id); continue; }
@@ -2089,7 +2266,7 @@ function renderScores() {
 }
 function seatedHumans() {
   const list = [], seen = new Set(), seatsUsed = new Set();
-  if (me.seat >= 0 && myKey) { list.push({ k: myKey, seat: me.seat, nick: me.nick, col: me.col, bot: false }); seen.add(myKey); seatsUsed.add(me.seat); }
+  if (atMain() && myKey) { list.push({ k: myKey, seat: me.seat, nick: me.nick, col: me.col, bot: false }); seen.add(myKey); seatsUsed.add(me.seat); }
   for (const p of peers) {
     if (p.sameTab || p.kind !== 'viewer') continue;
     const a = p.presence && p.presence.a, k = peerKey(p);
@@ -2106,7 +2283,7 @@ function renderPanel() {
   if (me.entered) {
     if (G.phase === 'roundEnd') mode = POKER() ? '' : 'round'; // poker: the cards stay in view, the next hand comes by itself
     else if (G.phase === 'gameEnd' && dismissedEnd !== G.epoch) mode = 'end';
-    else if (!isActive() && me.seat >= 0) mode = 'start';
+    else if (!isActive() && atMain()) mode = 'start';
   }
   if (!mode) { panel.hidden = true; panelSig = ''; return; }
   const humans = mode === 'start' ? seatedHumans() : [];
@@ -2275,7 +2452,7 @@ function renderStatus() {
   $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? booting ? 'Connexion au salon…' : 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
-function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); renderMoveBtns(); }
+function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderBj(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); renderMoveBtns(); }
 
 let seenRoll = '', seenPhase = '', prevEv = null;
 function stateChanged() {
@@ -2428,21 +2605,22 @@ $('#lookBtn').addEventListener('click', openEditor);
 const rules = $('#rules');
 // one tab per game; it opens on the game at the table, else the one picked for the next game
 const rulesTabs = rules.querySelector('.rules-tabs');
+const RULES = { ...GAME, blackjack: { name: 'Blackjack', icon: '🎩' } }; // the main table's games, and the second table
 function showRules(g) {
   rules.querySelectorAll('.rules-body section').forEach(s => { s.hidden = s.dataset.g !== g; });
   rulesTabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.g === g)));
-  $('#rulesTitle').innerHTML = `Règles du <span>${GAME[g].name}</span>`;
+  $('#rulesTitle').innerHTML = `Règles du <span>${RULES[g].name}</span>`;
   rules.querySelector('.rules-body').scrollTop = 0;
 }
-for (const k of Object.keys(GAME)) {
-  const b = el('button', null, GAME[k].icon + ' ' + GAME[k].name); b.type = 'button'; b.dataset.g = k; b.setAttribute('role', 'tab');
+for (const k of Object.keys(RULES)) {
+  const b = el('button', null, RULES[k].icon + ' ' + RULES[k].name); b.type = 'button'; b.dataset.g = k; b.setAttribute('role', 'tab');
   b.onclick = () => showRules(k);
   rulesTabs.append(b);
 }
 function openRules() {
   releaseMouse();
   for (const k in keys) keys[k] = false;
-  showRules(G.players && G.phase !== 'idle' ? gameOf() : gameWanted);
+  showRules(myStool() >= 0 ? 'blackjack' : G.players && G.phase !== 'idle' ? gameOf() : gameWanted);
   rules.showModal();
 }
 rules.addEventListener('close', () => { if (me.entered) canvas.focus(); });
@@ -2609,7 +2787,7 @@ $('#musicBtn').addEventListener('click', () => { const v = !getPrefs().music; se
 // Chat lines and throws travel in presence as [counter, ...] so a newcomer
 // doesn't replay them; voice uses the p2p room's audio streams.
 const toys = new Toys(scene, {
-  tableR: TABLE_R, tableY: TOP_Y, blocks: PLATFORMS,
+  tableR: TABLE_R, tableY: TOP_Y, blocks: PLATFORMS, tables: [{ x: BJX, z: BJZ, r: BJ_R, y: TOP_Y }],
   onHit: t => {
     sfx.bonk();
     if (t.key === myKey) shake = Math.max(shake, 0.35);
@@ -2793,6 +2971,189 @@ function updateSocial(dt, now) {
   $('#micBtn').style.boxShadow = micActive() ? `0 0 0 ${Math.min(8, 2 + lv * 60).toFixed(1)}px rgba(127,199,122,.55)` : '';
 }
 
+/* ---------------- blackjack ----------------
+   The second table runs on its own, beside whatever is played at the main one: its own host
+   (whoever opened it, or took over when that one left), its own topics (`bj` for the state,
+   `bja` for the moves), rules in js/blackjack.js. The shoe never leaves the host's browser. */
+let B = null, bjTimer = null, bjTimerKey = '', bjAway = 0, bjBet = 20, bjLastBroadcast = 0, stoolSince = 0, prevBj = null;
+const myStool = () => isStool(me.seat) ? me.seat - SEATS : -1;
+const isBjHost = () => !!B && B.host === myKey;
+// who sits on the stools, from everyone's presence
+function stoolSeats() {
+  const out = Array.from({ length: BJ_SEATS }, () => null);
+  if (myStool() >= 0 && myKey) out[myStool()] = { k: myKey, nick: me.nick, col: me.col };
+  for (const p of peers) {
+    if (p.sameTab || p.kind !== 'viewer') continue;
+    const a = p.presence && p.presence.a, s = Array.isArray(a) ? a[4] : -1;
+    if (isStool(s) && !out[s - SEATS]) out[s - SEATS] = { k: peerKey(p), nick: cleanNick(p.presence.n), col: cleanCol(p.presence.c) };
+  }
+  return out;
+}
+function bjBroadcast() {
+  bjLastBroadcast = Date.now();
+  if (room && B) room.emit('bj', BJ.view(B)).catch(() => {});
+}
+function bjCommit() { B.v++; bjBroadcast(); bjChanged(); bjStep(); }
+function bjStep() {
+  if (!isBjHost()) { clearTimeout(bjTimer); bjTimerKey = ''; return; }
+  if (BJ.sync(B, stoolSeats())) { bjCommit(); return; }
+  let ms = BJ.timer(B, Date.now());
+  if (B.phase === 'play' && B.who[B.turn] && !present(B.who[B.turn])) ms = Math.min(ms, 1500); // gone: stands
+  if (!ms) { clearTimeout(bjTimer); bjTimerKey = ''; return; }
+  const key = B.g + ':' + B.v;
+  if (bjTimerKey === key) return;
+  clearTimeout(bjTimer); bjTimerKey = key;
+  bjTimer = setTimeout(() => { bjTimerKey = ''; if (isBjHost() && BJ.tick(B)) bjCommit(); }, ms);
+}
+function bjHandle(a, k) {
+  if (!isBjHost() || !a || typeof a !== 'object') return;
+  const i = a.t === 'bet' ? B.seats.findIndex(s => s && s.k === k) : B.who[B.turn] === k ? B.turn : -1;
+  if (BJ.act(B, i, k, a)) bjCommit();
+}
+function bjSend(a) {
+  if (!room) { bjHandle(a, myKey); return; }
+  room.emit('bja', a).catch(() => {});
+}
+function onBj(m) {
+  const d = m.data;
+  if (!d || typeof d !== 'object' || typeof d.host !== 'string' || d.host !== peerKey(m) || d.host === myKey) return;
+  if (!Array.isArray(d.seats) || d.seats.length !== BJ_SEATS || !Array.isArray(d.hands) || !Array.isArray(d.dealer) || !Array.isArray(d.bets) || !d.bank || typeof d.bank !== 'object') return;
+  if (!BJ.newer(d, B)) return;
+  if (isBjHost()) { clearTimeout(bjTimer); bjTimerKey = ''; } // two tables opened at once: the older one wins, I give way
+  d.seats = d.seats.map(s => s && typeof s.k === 'string' ? { k: s.k, nick: cleanNick(s.nick), col: cleanCol(s.col) } : null);
+  B = d; bjChanged();
+}
+setInterval(() => {
+  if (FPS || !myKey) return;
+  const now = Date.now();
+  stoolSince = myStool() >= 0 ? stoolSince || now : 0;
+  if (!B) { // nobody runs the table yet (give the room a moment to tell me otherwise): I open it
+    if (stoolSince && now - stoolSince > 2500) { B = BJ.newTable(myKey); bjCommit(); }
+    return;
+  }
+  if (isBjHost()) { bjStep(); if (now - bjLastBroadcast > 3000) bjBroadcast(); return; }
+  bjAway = present(B.host) ? 0 : bjAway || now;
+  if (bjAway && now - bjAway > 5000) { // its host left: the first player on a stool takes over
+    const heir = stoolSeats().find(Boolean);
+    if (heir && heir.k === myKey) { BJ.takeOver(B, myKey); bjAway = 0; bjCommit(); toast('Tu fais tourner la table de blackjack : la donne reprend.'); }
+  }
+}, 1000);
+function bjChanged() {
+  const s = myStool(), mine = B && s >= 0 && B.who[s] === myKey;
+  const ev = B ? { g: B.g, round: B.round, phase: B.phase, cards: B.hands.reduce((n, h) => n + h.length, 0) + B.dealer.length, bets: B.bets.filter(Boolean).length, turn: B.turn, hole: B.hole } : null;
+  const prev = prevBj; prevBj = ev;
+  if (ev && prev && me.entered) {
+    const dealer = avatars.get('dealer');
+    if (ev.cards > prev.cards || (prev.hole && !ev.hole)) { sfx.card(); if (dealer) dealer.lean = 1; }
+    if (ev.bets > prev.bets && ev.round === prev.round) { sfx.pop(); setTimeout(() => sfx.pop(), 90); }
+    if (ev.phase === 'play' && mine && B.turn === s && (prev.turn !== s || prev.phase !== 'play')) sfx.ding();
+    if (ev.phase === 'done' && prev.phase !== 'done' && B.res) {
+      const d = BJ.score(B.dealer).t;
+      if (d > 21) react(dealer, 'sad', 2.4); else if (BJ.isBJ(B.dealer)) react(dealer, 'laugh', 2.4);
+      const r = mine && B.res[s];
+      if (r) {
+        if (r.net > 0) { sfx.chime(); const p = seatSpot(me.seat); confetti.burst(p.x * 0.6 + BJX * 0.4, TOP_Y + 0.3, p.z * 0.6 + BJZ * 0.4, r.label === 'Blackjack !' ? 60 : 25, ['#f4b63f', '#1f7a5a', '#fbf3e4'], 0.5); }
+        else if (r.label === 'Sauté') sfx.wahwah();
+        toast(`${r.label} ${r.net > 0 ? '+' + r.net : r.net < 0 ? r.net : ''}`.trim(), 2000);
+      }
+    }
+    if (B.gift && B.gift.includes(myKey) && ev.round === prev.round && prev.phase === 'done') toast('Plus de jetons : le croupier t\'en prête 1000.', 3000);
+  }
+  renderBj();
+}
+// the buttons over the stool: bet, then hit, stand, double
+function renderBj() {
+  const bar = $('#bjBar'); bar.textContent = '';
+  const s = myStool();
+  bar.hidden = !(me.entered && s >= 0);
+  if (bar.hidden) return;
+  const info = html => { const p = el('div', 'info'); p.innerHTML = html; bar.append(p); return p; };
+  if (!B) { info('Blackjack : le croupier arrive…'); return; }
+  const bank = B.bank[myKey] ?? BJ.START, mine = B.who[s] === myKey, hand = mine ? B.hands[s] : [];
+  const dealer = B.dealer.length ? ` · croupier <b>${B.hole && B.dealer.length > 1 ? BJ.score([B.dealer[0]]).t + ' + ?' : BJ.score(B.dealer).t}</b>` : '';
+  info(`Blackjack · tes jetons : <b>${bank}</b>${dealer}`);
+  if (hand.length) {
+    const row = el('div', 'bjcards'); hand.forEach(c => row.append(cardEl(c, ' mini'))); bar.append(row);
+    const sc = BJ.score(hand);
+    info(`Ta main : <b>${BJ.isBJ(hand) && !B.dbl[s] ? 'Blackjack' : (sc.soft && sc.t < 21 ? 'souple ' : '') + sc.t}</b> · mise ${B.bets[s]}`);
+  }
+  if (B.phase === 'bet') {
+    if (!B.bets[s]) {
+      const max = Math.min(BJ.MAX, bank);
+      bjBet = Math.max(BJ.MIN, Math.min(max, bjBet));
+      const st = el('div', 'step'), minus = el('button', '', '−'), out = el('output', null, String(bjBet)), plus = el('button', '', '+');
+      minus.type = plus.type = 'button'; minus.setAttribute('aria-label', 'Miser moins'); plus.setAttribute('aria-label', 'Miser plus');
+      const stepOf = v => v >= 100 ? 50 : 10;
+      minus.disabled = bjBet <= BJ.MIN; plus.disabled = bjBet >= max;
+      minus.onclick = () => { bjBet = Math.max(BJ.MIN, bjBet - stepOf(bjBet - 1)); renderBj(); };
+      plus.onclick = () => { bjBet = Math.min(max, bjBet + stepOf(bjBet)); renderBj(); };
+      st.append(minus, out, plus);
+      bar.append(st, btn(`Miser ${bjBet}`, '', () => { bjSend({ t: 'bet', n: bjBet }); sfx.pop(); })) ;
+    } else info(`Mise posée : <b>${B.bets[s]}</b>`);
+    if (B.at) info('<span id="bjCount"></span>');
+    else if (B.bets[s]) info('En attente des autres joueurs…');
+    updateBjCount();
+  } else if (B.phase === 'play') {
+    if (B.turn === s && mine) {
+      bar.append(btn('Tirer', '', () => bjSend({ t: 'hit' })), btn('Rester', 'fold', () => bjSend({ t: 'stand' })));
+      if (hand.length === 2 && !B.dbl[s] && bank >= B.bets[s]) bar.append(btn(`Doubler (${B.bets[s]})`, 'all', () => bjSend({ t: 'double' })));
+    } else info(B.seats[B.turn] ? `Au tour de ${B.seats[B.turn].nick}` : 'Au tour d\'un joueur…');
+  } else if (B.phase === 'dealer') info('Le croupier joue : il tire jusqu\'à 17');
+  else if (B.phase === 'done' && mine && B.res && B.res[s]) {
+    const r = B.res[s]; info(`<b>${r.label}</b> ${r.net > 0 ? '+' + r.net : r.net < 0 ? String(r.net) : 'mise rendue'}`);
+  }
+}
+function updateBjCount() {
+  const c = document.getElementById('bjCount');
+  if (c && B && B.phase === 'bet' && B.at) c.textContent = `La donne dans ${Math.max(0, Math.ceil((B.at + BJ.BET_WAIT - Date.now()) / 1000))} s`;
+}
+// its cards on the felt: each player's in front of their stool, the dealer's along the straight edge
+const bjMeshes = new Map();
+const bjPiles = Array.from({ length: BJ_SEATS }, () => { const g = new THREE.Group(); scene.add(g); return g; });
+function updateBjTable(dt) {
+  const want = new Map();
+  if (B && !FPS) {
+    const tg = a => ({ x: Math.cos(a), z: -Math.sin(a) });
+    B.hands.forEach((h, k) => {
+      const a = stoolAng(k), t = tg(a);
+      h.forEach((c, j) => {
+        const o = (j - (h.length - 1) / 2) * 0.1;
+        want.set(`${B.g}:${B.round}:${k}:${j}:${c}`, { c, x: BJX + Math.sin(a) * 0.64 + t.x * o, z: BJZ + Math.cos(a) * 0.64 + t.z * o, y: j * 0.003 });
+      });
+      const p = { x: BJX + Math.sin(a) * 0.8, z: BJZ + Math.cos(a) * 0.8 };
+      setPile(bjPiles[k], chipCount(B.bets[k], 20, 12), p.x, p.z, 6);
+    });
+    const t = tg(BJ_FACE);
+    B.dealer.forEach((c, j) => {
+      const o = (j - (B.dealer.length - 1) / 2) * 0.14;
+      const hid = c === '?' || (B.hole && j === 1); // the host's own copy knows the hidden card: still face down
+      want.set(`${B.g}:${B.round}:d:${j}:${hid ? 'hole' : c}`, { c: hid ? 'back' : c, x: BJX + Math.sin(BJ_FACE) * 0.24 + t.x * o, z: BJZ + Math.cos(BJ_FACE) * 0.24 + t.z * o, y: j * 0.003 });
+    });
+  } else bjPiles.forEach(g => { g.visible = false; });
+  const k = 1 - Math.exp(-dt * 9);
+  for (const [id, w] of want) {
+    let m = bjMeshes.get(id);
+    if (!m) {
+      const g = new THREE.Group();
+      const plane = new THREE.Mesh(cardGeo, noOutline(toon('#ffffff', { map: cardTex(w.c), side: THREE.DoubleSide, alphaTest: 0.5 })));
+      plane.rotation.x = -Math.PI / 2 + 0.35; plane.castShadow = true; g.add(plane); scene.add(g);
+      g.position.set(BJ_SHOE.x, TOP_Y + 0.25, BJ_SHOE.z); g.scale.setScalar(0.5);
+      m = { g, plane }; bjMeshes.set(id, m);
+    }
+    m.dead = false;
+    const ty = TOP_Y + 0.05 + w.y;
+    m.g.position.x += (w.x - m.g.position.x) * k; m.g.position.z += (w.z - m.g.position.z) * k; m.g.position.y += (ty - m.g.position.y) * k;
+    m.g.rotation.y = Math.atan2(camera.position.x - m.g.position.x, camera.position.z - m.g.position.z);
+  }
+  for (const [id, m] of bjMeshes) {
+    if (want.has(id)) continue;
+    // gone from the table: swept back toward the dealer, shrinking
+    m.g.position.x += (DEALER_POS.x - m.g.position.x) * k; m.g.position.z += (DEALER_POS.z - m.g.position.z) * k;
+    m.g.scale.multiplyScalar(1 - dt * 4);
+    if (m.g.scale.x < 0.08) { scene.remove(m.g); m.plane.material.dispose(); bjMeshes.delete(id); }
+  }
+}
+
 /* ---------------- boot ---------------- */
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -2808,10 +3169,11 @@ function loop(now) {
     updateMe(dt);
     updateAvatars(dt, now / 1000);
     updateTable(dt);
+    updateBjTable(dt);
     if (fps) fps.update(dt);
     updateDecor(dt, now / 1000);
     updateSocial(dt, now);
-    if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); }
+    if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); updateBjCount(); }
   } catch (e) {
     if (loopErrors++ % 300 === 0) console.error(e); // not 60 times a second
     if (loopErrors === 1) toast('Oups, un souci dans le jeu. Si ça coince, recharge la page.', 5000);
@@ -3004,11 +3366,14 @@ if (HUB) {
     const mine = ch.peers.find(p => p.sameTab);
     if (mine && !myKey) { myKey = peerKey(mine); refreshUI(); }
     if (isHost() && ch.joined.some(p => !p.sameTab)) broadcast();
+    if (isBjHost() && ch.joined.some(p => !p.sameTab)) bjBroadcast();
     for (const p of ch.left) if (!p.sameTab) { dropAvatar('p:' + p.peer); dropVoice(p.peer); }
     renderStatus(); renderScores(); renderPanel();
   }, () => {});
   room.on('state', onState, () => {});
   room.on('act', m => { if (isHost()) handleAct(m.data, peerKey(m)); }, () => {});
+  room.on('bj', onBj, () => {});
+  room.on('bja', m => bjHandle(m.data, peerKey(m)), () => {});
   if (me.entered) { room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {}); pushPresence(true); }
   refreshUI();
   startBattle();

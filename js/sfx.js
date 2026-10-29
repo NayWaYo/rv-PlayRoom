@@ -189,6 +189,13 @@ export const sfx = {
     tone(2300, t, 0.22, { type: 'square', gain: 0.06, vibrato: 30, lowpass: 4000 });
     tone(2300, t + 0.3, 0.5, { type: 'square', gain: 0.07, vibrato: 30, lowpass: 4000 });
   },
+  // the fire: a pop or two of bright noise, and now and then a soft low hiss under it
+  crackle(g = 1) {
+    if (!ready()) return; const t = ctx.currentTime;
+    const n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) noise(t + i * (0.02 + Math.random() * 0.05), 0.012 + Math.random() * 0.02, { filter: 'highpass', freq: 1800 + Math.random() * 3000, q: 0.5, gain: (0.04 + Math.random() * 0.07) * g });
+    if (Math.random() < 0.25) noise(t, 0.35, { filter: 'lowpass', freq: 500, q: 0.4, gain: 0.025 * g, attack: 0.1 });
+  },
   thud() {
     if (!ready()) return; const t = ctx.currentTime;
     noise(t, 0.1, { filter: 'lowpass', freq: 380, gain: 0.26 });

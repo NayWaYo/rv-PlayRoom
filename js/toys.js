@@ -15,7 +15,8 @@ const CUSHIONS = [
 ];
 
 export class Toys {
-  constructor(scene, { tableR, tableY, blocks = [], onHit, onBounce }) {
+  constructor(scene, { tableR, tableY, tables = [], blocks = [], onHit, onBounce }) {
+    this.tables = tables; // other round table tops: { x, z, r, y }
     this.scene = scene; this.tableR = tableR; this.tableY = tableY; this.blocks = blocks;
     this.onHit = onHit; this.onBounce = onBounce;
     this.balls = [];
@@ -93,6 +94,11 @@ export class Toys {
     }
     // furniture: land on top, bounce off the sides
     let rest = p.y <= r + 0.001 || (p.y <= this.tableY + r + 0.001 && d < this.tableR);
+    for (const T of this.tables) {
+      const dt2 = Math.hypot(p.x - T.x, p.z - T.z);
+      if (dt2 < T.r && p.y - r < T.y && p.y > T.y - 0.15 && v.y < 0) { p.y = T.y + r; bounced = v.y < -1; v.y = -v.y * 0.35; v.x *= 0.75; v.z *= 0.75; }
+      if (dt2 < T.r && p.y <= T.y + r + 0.001) rest = true;
+    }
     for (const b of this.blocks) {
       if (p.x < b.x0 - r || p.x > b.x1 + r || p.z < b.z0 - r || p.z > b.z1 + r || p.y - r > b.top) continue;
       if (p.y > b.top - 0.12) {
