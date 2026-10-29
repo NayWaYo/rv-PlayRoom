@@ -91,7 +91,7 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 ## Pistes en attente
 
 ### Bataille de fléchettes : prochains ajouts (demandés)
-. À valider en vrai entre amis : une carte perso reçue par plusieurs joueurs (testée à deux onglets), et l'éditeur entre les mains de chacun (ce qui manque, ce qui gêne).
+. À valider en vrai entre amis : une carte perso reçue par plusieurs joueurs (testée à deux onglets), et l'éditeur entre les mains de chacun (ce qui manque, ce qui gêne).
 
 Décidé : pas de mode « poser la bombe », trop lent pour une bataille où l'on réapparaît vite. Trois modes : le match à mort (chacun pour soi ou en équipes), la capture du drapeau et le Traître. Toute nouvelle carte doit prévoir la capture du drapeau, donc donner ses `flags`.
 
