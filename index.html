@@ -1,9 +1,9 @@
-    if (hi <= limit || tagV.z > 1 || tagV.x < left || tagV.x > right)<!doctype html>
+<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Salon Papayoo</title>
+<title>Salon Chill</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -81,6 +81,29 @@ kbd{font-family:var(--display);background:var(--cream);color:var(--night);border
 .card.dim{opacity:.45;cursor:default;filter:saturate(.5)}
 .card.recv::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:8px;border-radius:50%;background:var(--coral)}
 .card.papa{box-shadow:0 0 0 3px var(--coral),0 3px 6px rgba(0,0,0,.35)}
+/* the other card games: what you can do on your turn, above your cards */
+#moves{pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:100%}
+#moves .info{flex-basis:100%;text-align:center;font-weight:800;font-size:13px;color:var(--cream);text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#moves .info b{color:var(--marigold)}
+#moves .btn{padding:8px 16px;font-size:15px}
+#moves .btn.fold{background:var(--plum-2);color:var(--cream);box-shadow:0 3px 0 #1a1222}
+#moves .btn.all{background:var(--coral);color:#2a0d06;box-shadow:0 3px 0 #a8432f}
+#moves .step{background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:999px;padding:3px}
+#moves .step output{font-size:17px;min-width:3.4ch}
+#moves .step button{width:30px;height:30px;font-size:18px}
+#scores .pot{display:flex;justify-content:space-between;gap:6px;margin-bottom:6px;font-weight:800}
+#scores .pot b{color:var(--marigold);font-family:var(--display);font-size:16px}
+.srow.out{opacity:.5}
+.games{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 12px}
+.game{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;border:2px solid var(--line);background:var(--night);color:var(--cream);font:inherit;cursor:pointer;text-align:left}
+.game b{font-size:22px;line-height:1;flex:none;width:28px;text-align:center}
+.game span{font-weight:800;font-size:14px;line-height:1.15}
+.game small{display:block;color:var(--muted);font-size:11px;font-weight:700}
+.game[aria-checked="true"]{border-color:var(--payoo);background:var(--plum-2);box-shadow:0 0 0 3px rgba(163,90,216,.3)}
+.game:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+.rules-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:0 22px 10px}
+.rules-tabs button{border:0;border-radius:999px;padding:6px 12px;background:var(--plum-2);color:var(--cream);font-weight:800;font-size:13px;cursor:pointer}
+.rules-tabs button[aria-selected="true"]{background:var(--payoo);color:#fff}
 
 #panel{pointer-events:auto;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 32px));max-height:calc(100% - 140px);overflow:auto;background:var(--plum);border:1px solid var(--line);border-radius:22px;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
 #panel h2{margin:0 0 4px;font-family:var(--display);font-size:26px;font-weight:800;line-height:1.1;text-wrap:balance}
@@ -268,7 +291,10 @@ table.res tr.win td{color:var(--marigold)}
 .chip.toggle[aria-pressed="true"]::before{background:var(--marigold);border-color:var(--marigold)}
 #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(12,6,18,.55) 100%)}
 @media (max-width:560px){
-  #scores{min-width:0;max-width:190px;padding:8px 10px;font-size:12px}
+  #scores{min-width:176px;max-width:200px;padding:8px 10px;font-size:12px}
+  .top-left{min-width:0;flex:1}
+  .shead{font-size:9px;letter-spacing:.02em}
+  #scores h3{font-size:13px}
   #banner{font-size:15px;top:calc(84px + env(safe-area-inset-top,0px))}
   .card{width:50px;height:74px;margin-left:-22px}
   .card .s{font-size:24px}
@@ -301,6 +327,7 @@ table.res tr.win td{color:var(--marigold)}
   <div class="bottom">
     <div id="prompt" hidden></div>
     <button id="passBtn" class="btn" hidden></button>
+    <div id="moves" hidden></div>
     <div id="hand" hidden><div class="inner"></div></div>
   </div>
 </div>
@@ -341,8 +368,8 @@ table.res tr.win td{color:var(--marigold)}
 
 <div id="intro">
   <form class="intro-card" id="introForm">
-    <h1>Salon <span>Papayoo</span></h1>
-    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis. Il faut au moins 3 joueurs ; des robots peuvent compléter la table.</p>
+    <h1>Salon <span>Chill</span></h1>
+    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis : Payoo, Président, Poker ou Texas Hold'em. Des robots peuvent compléter la table.</p>
     <label class="field"><span>Ton pseudo</span><input id="nick" maxlength="14" autocomplete="off" placeholder="Ton pseudo" required></label>
     <div class="field"><span>Ta couleur</span><div class="swatches" id="swatches"></div></div>
     <div class="help" id="help">
@@ -381,10 +408,10 @@ table.res tr.win td{color:var(--marigold)}
       <section class="mode salon" aria-labelledby="hubSalonTitle">
         <div class="mode-top">
           <div class="mode-art" aria-hidden="true">🃏</div>
-          <h2 id="hubSalonTitle"><span class="kind">Jeu de cartes</span>Salon Papayoo</h2>
+          <h2 id="hubSalonTitle"><span class="kind">Jeux de cartes</span>Salon Chill</h2>
         </div>
-        <p>Une partie de Papayoo autour de la table, dans un salon à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
-        <ul class="tags"><li>3 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
+        <p>Payoo, Président, Poker ou Texas Hold'em autour de la table (jetons fictifs), dans un salon à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
+        <ul class="tags"><li>4 jeux</li><li>2 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
         <button class="btn" id="hubSalon" type="button">Créer un salon</button>
       </section>
       <section class="mode fps" aria-labelledby="hubFpsTitle">
@@ -404,7 +431,7 @@ table.res tr.win td{color:var(--marigold)}
         <input id="joinCode" maxlength="300" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7MPQ, F-K7MPQ ou un lien" aria-describedby="joinHelp">
         <button class="btn" type="submit">Rejoindre</button>
       </div>
-      <p class="hub-foot" id="joinHelp">Le code est en haut de l'écran de celui qui t'invite. Avec une lettre devant (F-K7MPQ) : une bataille, la lettre dit la carte. Sans lettre : un salon Papayoo.</p>
+      <p class="hub-foot" id="joinHelp">Le code est en haut de l'écran de celui qui t'invite. Avec une lettre devant (F-K7MPQ) : une bataille, la lettre dit la carte. Sans lettre : un Salon Chill.</p>
     </form>
   </div>
 </div>
@@ -419,16 +446,18 @@ table.res tr.win td{color:var(--marigold)}
 
 <dialog id="rules" aria-labelledby="rulesTitle">
   <div class="rules-head">
-    <h2 id="rulesTitle">Règles du <span>Papayoo</span></h2>
+    <h2 id="rulesTitle">Règles du <span>Payoo</span></h2>
     <button class="rules-close" type="button" aria-label="Fermer les règles">×</button>
   </div>
+  <div class="rules-tabs" role="tablist" aria-label="Jeux"></div>
   <div class="rules-body">
+   <section data-g="payoo">
     <p><b>But du jeu : ramasser le moins de points possible.</b> Le joueur qui a le plus petit total à la fin des manches gagne.</p>
     <h3>Les cartes</h3>
     <ul>
       <li>Quatre couleurs classiques (♠ ♥ ♣ ♦), de 1 à 10. Elles ne valent rien… sauf une.</li>
       <li>Vingt cartes <b>Payoo</b> (✦), de 1 à 20 : chacune vaut sa valeur en points.</li>
-      <li>Le <b>Papayoo</b> est le 7 d'une couleur tirée au dé à chaque manche. Il vaut <b>40 points</b> et porte la pastille « 40 » dans ta main.</li>
+      <li>Le <b>Grand Payoo</b> est le 7 d'une couleur tirée au dé à chaque manche. Il vaut <b>40 points</b> et porte la pastille « 40 » dans ta main.</li>
     </ul>
     <h3>1. Donner des cartes</h3>
     <p>Au début de chaque manche, chacun choisit des cartes à donner au joueur suivant, en même temps. Débarrasse-toi des gros Payoo et des cartes dangereuses ! Les cartes reçues sont marquées d'un point rouge.</p>
@@ -439,16 +468,78 @@ table.res tr.win td{color:var(--marigold)}
     </table>
     <p class="muted">À 7 et 8 joueurs, on retire les 1 des quatre couleurs classiques.</p>
     <h3>2. Le dé</h3>
-    <p>Une fois les cartes données, le dé désigne la couleur du Papayoo pour cette manche : ♠, ♥, ♣ ou ♦.</p>
+    <p>Une fois les cartes données, le dé désigne la couleur du Grand Payoo pour cette manche : ♠, ♥, ♣ ou ♦.</p>
     <h3>3. Les levées</h3>
     <ul>
       <li>Le premier joueur pose la carte de son choix : sa couleur est la couleur demandée.</li>
-      <li>Chacun doit <b>fournir la couleur demandée</b> s'il en a. Sinon, il pose n'importe quelle carte : c'est le moment de se défausser d'un Payoo ou du Papayoo !</li>
+      <li>Chacun doit <b>fournir la couleur demandée</b> s'il en a. Sinon, il pose n'importe quelle carte : c'est le moment de se défausser d'un Payoo ou du Grand Payoo !</li>
       <li>La plus forte carte de la couleur demandée remporte la levée et tous ses points. Son joueur commence la levée suivante.</li>
       <li>Il n'y a pas d'atout : les Payoo ne gagnent que si c'est la couleur demandée.</li>
     </ul>
     <h3>4. Les points</h3>
     <p>Quand toutes les cartes sont jouées, chacun ajoute à son total les points de ses levées (250 points par manche en tout). Après la dernière manche, le plus petit total l'emporte.</p>
+   </section>
+   <section data-g="president" hidden>
+    <p><b>But du jeu : se débarrasser de toutes ses cartes avant les autres.</b> De 3 à 8 joueurs, avec un jeu de 52 cartes distribué en entier.</p>
+    <h3>L'ordre des cartes</h3>
+    <p>Du plus faible au plus fort : 3, 4, 5, 6, 7, 8, 9, 10, Valet, Dame, Roi, As, et le <b>2</b>, la plus forte carte. Les couleurs ne comptent pas.</p>
+    <h3>Les plis</h3>
+    <ul>
+      <li>Celui qui ouvre pose une carte seule, ou une paire, un brelan, un carré (des cartes de même valeur).</li>
+      <li>Chacun à son tour doit poser <b>autant de cartes</b>, d'une valeur <b>plus forte</b>, ou passer. Qui passe ne rejoue plus dans ce pli.</li>
+      <li>Quand tout le monde a passé, le dernier à avoir joué remporte le pli et ouvre le suivant.</li>
+      <li>Un <b>2</b> ferme le pli tout de suite : son joueur rouvre.</li>
+    </ul>
+    <h3>Les rangs</h3>
+    <p>Le premier à n'avoir plus de cartes devient <b>Président</b>, le deuxième <b>Vice-président</b> (à partir de 4 joueurs), l'avant-dernier <b>Vice-trou</b> et le dernier <b>Trou</b>. Les autres sont neutres.</p>
+    <h3>L'échange</h3>
+    <p>À partir de la deuxième manche, le Trou donne ses 2 meilleures cartes au Président, qui lui rend 2 cartes de son choix. Le Vice-trou et le Vice-président échangent de même 1 carte. Le Trou ouvre la manche. Les cartes reçues sont marquées d'un point rouge.</p>
+    <h3>Les points</h3>
+    <p>À chaque manche, le dernier marque 0 point, l'avant-dernier 1, et ainsi de suite jusqu'au Président. Après la dernière manche, le plus gros total l'emporte.</p>
+   </section>
+   <section data-g="poker" hidden>
+    <p><b>Poker fermé à cinq cartes, de 2 à 6 joueurs.</b> Chacun commence avec 1000 jetons <b>fictifs</b> (aucun argent réel). Après le nombre de mains choisi, le plus gros tas l'emporte ; un joueur sans jetons regarde les autres jouer.</p>
+    <h3>Une main</h3>
+    <ul>
+      <li>Chacun met une <b>mise de départ</b> de 10 jetons au pot et reçoit 5 cartes, cachées.</li>
+      <li><b>Premier tour d'enchères</b>, en commençant à gauche du donneur (D).</li>
+      <li><b>L'échange</b> : chacun peut changer jusqu'à 3 cartes, tous en même temps. Tout le monde voit combien tu en as changé.</li>
+      <li><b>Second tour d'enchères</b>, puis l'<b>abattage</b> : on montre ses cartes, la meilleure combinaison remporte le pot.</li>
+    </ul>
+    <h3>Les enchères</h3>
+    <ul>
+      <li><b>Parler</b> : ne rien miser quand personne n'a misé. <b>Suivre</b> : mettre autant que la plus grosse mise.</li>
+      <li><b>Miser / Relancer</b> : mettre plus. Une relance vaut au moins la précédente (20 jetons minimum). Pas de plafond : <b>Tapis</b>, c'est tout miser.</li>
+      <li><b>Se coucher</b> : abandonner la main et ce qu'on a déjà misé. Si tous les autres se couchent, le dernier prend le pot sans montrer ses cartes.</li>
+      <li>Un joueur à tapis ne peut gagner, sur chaque adversaire, que ce qu'il a misé lui-même : le reste fait un pot à part.</li>
+    </ul>
+    <h3>Les combinaisons</h3>
+    <p>De la plus forte à la plus faible :</p>
+    <ul>
+      <li><b>Quinte flush</b> : cinq cartes qui se suivent, de la même couleur.</li>
+      <li><b>Carré</b> : quatre cartes de même valeur.</li>
+      <li><b>Full</b> : un brelan et une paire.</li>
+      <li><b>Couleur</b> : cinq cartes de la même couleur.</li>
+      <li><b>Quinte</b> : cinq cartes qui se suivent (l'As compte en haut ou en bas : A-2-3-4-5).</li>
+      <li><b>Brelan</b> : trois cartes de même valeur.</li>
+      <li><b>Double paire</b>, puis <b>Paire</b>, puis la carte la plus haute.</li>
+    </ul>
+    <p class="muted">À égalité, les cartes les plus hautes départagent ; sinon le pot est partagé.</p>
+   </section>
+   <section data-g="holdem" hidden>
+    <p><b>Texas Hold'em, de 2 à 8 joueurs.</b> Chacun commence avec 1000 jetons <b>fictifs</b> (aucun argent réel). Après le nombre de mains choisi, le plus gros tas l'emporte.</p>
+    <h3>Une main</h3>
+    <ul>
+      <li>Les deux joueurs à gauche du donneur (D) posent les <b>blindes</b> : 10 et 20 jetons. À deux, le donneur pose la petite.</li>
+      <li>Chacun reçoit <b>2 cartes</b> cachées, puis premier tour d'enchères.</li>
+      <li><b>Le flop</b> : 3 cartes au milieu de la table, communes à tous. Tour d'enchères.</li>
+      <li><b>Le tournant</b>, une 4ᵉ carte, puis <b>la rivière</b>, une 5ᵉ, chacune suivie d'un tour d'enchères.</li>
+      <li>À l'abattage, chacun fait la meilleure combinaison de 5 cartes avec ses 2 cartes et les 5 du milieu.</li>
+    </ul>
+    <h3>Les enchères et les combinaisons</h3>
+    <p>Comme au Poker fermé : parler, suivre, miser ou relancer (au moins 20 jetons, sans plafond), tapis ou se coucher. Mêmes combinaisons, de la quinte flush à la carte la plus haute.</p>
+    <p class="muted">Ta meilleure combinaison du moment s'affiche au-dessus de tes cartes.</p>
+   </section>
   </div>
 </dialog>
 
@@ -468,24 +559,25 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-14",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-14",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-14",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-14",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-14",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-14",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-14",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-14",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-14",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-14",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-14",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-14",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-14",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-14",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-14",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-14",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-14",
-  "./js/world.js": "./js/world.js?v=2026-10-29-14"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-15",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-15",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-15",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-15",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-15",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-15",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-15",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-15",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-15",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-15",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-15",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-15",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-15",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-15",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-15",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-15",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-15",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-15",
+  "./js/world.js": "./js/world.js?v=2026-10-29-15"
 } }
 </script>
 <script>
@@ -637,6 +729,7 @@ import { addVoice, dropVoice, updateVoices, levelOf, micLevel, micActive, toggle
 import { Toys } from './js/toys.js';
 import { setWorld, groundAt, ceilingAt, slide, fall, TALL, LOW } from './js/world.js';
 import { key, label, actionFor, mouse, openControls, onChange as onControlsChange } from './js/controls.js';
+import { GAMES, deck52, bestOf, handName, presValue, titleAt } from './js/cards.js';
 const keysReady = initKeys().catch(() => null);
 (() => {
 'use strict';
@@ -651,8 +744,23 @@ const SUIT = {
 const COLORS = ['#f4b63f', '#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5a', '#f08a3c'];
 const BOTN = ['Pip', 'Bobine', 'Grelot', 'Moka', 'Zéphyr', 'Praline', 'Biscotte', 'Tagada'];
 const SEATS = 8, TABLE_R = 1.35, CHAIR_R = 1.95, TOP_Y = 0.83, HALF = 5.6;
-const ACTIVE = { pass: 1, play: 1, roundEnd: 1 };
+const ACTIVE = { pass: 1, play: 1, roundEnd: 1, draw: 1, swap: 1 };
 const su = PY.su, rk = PY.rk;
+// the games at the table: the Payoo (PY) and the others (js/cards.js); `G.game` says which, none for the Payoo
+const GAME = {
+  payoo: { name: 'Payoo', icon: '✦', min: 3, max: 8, blurb: 'Des plis sans points', rounds: 'Manches', roundsSub: 'Le plus petit total gagne' },
+  president: { name: 'Président', icon: '👑', min: 3, max: 8, blurb: 'Vider sa main en premier', rounds: 'Manches', roundsSub: 'Le plus de points gagne' },
+  poker: { name: 'Poker', icon: '🃏', min: 2, max: 6, blurb: 'Fermé, à cinq cartes', rounds: 'Mains', roundsSub: 'Le plus de jetons gagne' },
+  holdem: { name: 'Texas Hold\'em', icon: '🤠', min: 2, max: 8, blurb: 'Deux cartes et cinq au milieu', rounds: 'Mains', roundsSub: 'Le plus de jetons gagne' }
+};
+const gameOf = () => GAMES[G.game] ? G.game : 'payoo';
+const ENG = () => GAMES[G.game] || null; // null: the Payoo, ruled by PY
+const POKER = () => G.game === 'poker' || G.game === 'holdem';
+// rank as printed on a card: V, D, R, A for valet, dame, roi, as (the Payoo's suits stop at 10)
+const rl = c => su(c) !== 'P' && rk(c) >= 11 ? 'VDRA'[rk(c) - 11] : String(rk(c));
+const RNAME = { 11: 'Valet', 12: 'Dame', 13: 'Roi', 14: 'As' };
+const POKER_G = { poker: 1, holdem: 1 }, PCFG_BB = 20;
+const TITLE_ICON = { 'Président': '👑', 'Vice-président': '⭐', 'Vice-trou': '🥄', 'Trou': '🕳️' };
 const ang = i => i * Math.PI * 2 / SEATS;
 const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 const coarse = matchMedia('(pointer: coarse)').matches;
@@ -695,6 +803,7 @@ let G = { phase: 'idle', epoch: '', v: 0 };
 const me = { nick: '', col: COLORS[Math.floor(Math.random() * 8)], x: (Math.random() - 0.5) * 4, z: 3.7 + Math.random() * 1.2, yaw: 0, pitch: -0.08, seat: -1, entered: false, look: null, emote: 0, crouch: 0, jy: 0, jv: 0 };
 const botLook = col => { const l = randomLook(); l.tc = Math.max(0, CLOTH.indexOf(col)); return cleanLook(l); };
 let passPick = new Set(), pending = null, pendingAt = 0, dismissedEnd = '', botsWanted = 0, roundsWanted = 0, roundsTouched = false;
+let gameWanted = GAME[store.get('playroom-cardgame')] ? store.get('playroom-cardgame') : 'payoo', raiseTo = 0, raiseSig = '';
 const absentSince = {};
 let lastBroadcast = 0;
 
@@ -722,6 +831,7 @@ async function publicView(S0) {
     recv: S.recv.map(() => null),
     hpk: myPublicKey(), sec: {}
   });
+  delete v.deck; // the cards still to come (poker)
   if (!recovering) await Promise.all(S.players.map(async (p, i) => {
     if (p.bot || p.k === myKey) return;
     const box = await seal(pkOf(p.k), { h: S.hands[i], p: S.passSel[i], r: S.recv[i] }).catch(() => null);
@@ -758,7 +868,8 @@ const isCard = c => typeof c === 'string' && /^[SHCDP]\d{1,2}$/.test(c);
 function validState(d) {
   if (!d || typeof d !== 'object' || typeof d.epoch !== 'string' || typeof d.v !== 'number' || typeof d.phase !== 'string') return false;
   if (d.phase === 'idle') return true;
-  return Array.isArray(d.players) && d.players.length >= 3 && d.players.length <= 8 && Array.isArray(d.hands) && Array.isArray(d.total)
+  if (d.game != null && !GAMES[d.game]) return false;
+  return Array.isArray(d.players) && d.players.length >= 2 && d.players.length <= 8 && Array.isArray(d.hands) && Array.isArray(d.total)
     && Array.isArray(d.passSel) && Array.isArray(d.recv);
 }
 // put my own cards into a public view: from the sealed box, or kept from the last state
@@ -816,6 +927,7 @@ async function handleAct(a, key) {
   if (recovering) return;
   let ok = false;
   if (a.t === 'quit') { G.phase = 'idle'; ok = true; }
+  else if (ENG()) ok = ENG().act(G, i, a);
   else if (a.t === 'next') ok = PY.next(G);
   else if (a.t === 'pass') ok = PY.setPass(G, i, a.c);
   else if (a.t === 'play') ok = PY.play(G, i, a.c);
@@ -835,16 +947,18 @@ function finishRecovery() {
   if (!recovering) return;
   recovering = null;
   if (G.hands) {
-    const known = new Set([...(G.played || []), ...(G.trick || []).map(t => t[1])]);
+    const E = ENG();
+    const known = new Set(E ? E.known(G) : [...(G.played || []), ...(G.trick || []).map(t => t[1])]);
     G.hands.forEach(h => h.forEach(c => { if (c !== '?') known.add(c); }));
-    const pool = PY.deck(G.players.length).filter(c => !known.has(c));
+    const pool = (E ? deck52() : PY.deck(G.players.length)).filter(c => !known.has(c));
     G.hands.forEach((h, i) => {
       if (!h.includes('?')) return;
-      G.hands[i] = pool.splice(0, h.length).sort(PY.cmp);
-      if (G.passSel[i] && G.passSel[i] === 1) G.passSel[i] = null; // their pass is lost: choose again
+      G.hands[i] = E ? E.sortHand(pool.splice(0, h.length)) : pool.splice(0, h.length).sort(PY.cmp);
       G.recv[i] = null;
     });
-    G.passSel = G.passSel.map(p => (p === 1 ? null : p));
+    // their pass is lost: choose again. A Président's exchange already moved the cards: done; a poker draw waits for everyone: choose again
+    G.passSel = G.passSel.map(p => (p === 1 ? (G.game === 'president' ? [] : null) : p));
+    if (E) G.deck = pool; // poker: the cards nobody holds, still to deal
   }
   commit();
 }
@@ -861,6 +975,17 @@ const awayLong = k => absentSince[k] && Date.now() - absentSince[k] > 15000;
 function autoFor(p) { return p.bot || awayLong(p.k); }
 function hostStep() {
   if (!isHost() || recovering) { clearTimeout(hostTimer); hostTimerKey = ''; return; }
+  const E = ENG();
+  if (E) {
+    const ms = E.timer(G);
+    if (ms) { schedule(G.v + ':tick', ms, () => { if (E.tick(G)) commit(); }); return; }
+    const todo = E.waiting(G).filter(i => autoFor(G.players[i]));
+    if (todo.length) schedule(G.v + ':bot:' + todo.join(','), G.players[todo[0]].bot ? 800 + Math.random() * 700 : 400, () => {
+      for (const i of todo) { const a = E.bot(G, i, !G.players[i].bot); if (a) E.act(G, i, a); }
+      commit();
+    });
+    return;
+  }
   if (G.phase === 'pass') {
     const todo = G.players.map((p, i) => i).filter(i => !G.passSel[i] && autoFor(G.players[i]));
     if (todo.length) schedule(G.v + ':pass:' + todo.join(','), 900, () => {
@@ -1176,7 +1301,7 @@ function drawCard(x, c) {
     return;
   }
   if (SUIT[c]) { x.fillStyle = '#fbf6ea'; x.fill(); x.fillStyle = SUIT[c].col; x.font = '120px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(SUIT[c].sym, 80, 122); x.textBaseline = 'alphabetic'; return; }
-  const s = su(c), r = String(rk(c)), col = SUIT[s].col;
+  const s = su(c), r = rl(c), col = SUIT[s].col;
   x.fillStyle = s === 'P' ? '#f2e6fb' : '#fbf6ea'; x.fill();
   x.lineWidth = 6; x.strokeStyle = '#2a1d2e'; x.stroke();
   x.fillStyle = col; x.textAlign = 'left';
@@ -1265,42 +1390,72 @@ function updateTable(dt) {
   const active = isActive();
   const mi = myIdx();
   const now = performance.now();
+  const showdown = active || G.phase === 'gameEnd';
   for (let s = 0; s < SEATS; s++) handGroups[s].visible = false;
   if (active && G.hands) {
     G.players.forEach((p, i) => {
-      if (i === mi) return;
+      if (i === mi || (G.shown && G.shown[i])) return;
       const g = handGroups[p.seat]; g.visible = true; setHandFan(g, p.seat, G.hands[i].length);
     });
   }
-  // trick
-  const live = new Set();
-  if (active && G.trick) {
+  // cards face up on the table: { c, seat (where it flies from), x, z, y, s (size), win }
+  const items = [];
+  // laid out for the one looking: the board reads left to right from my chair
+  const view = me.seat >= 0 ? ang(me.seat) : 0, tx = Math.cos(view), tz = -Math.sin(view), rx = Math.sin(view), rz = Math.cos(view);
+  if (active && G.trick && !ENG()) {
     G.trick.forEach(([i, c], order) => {
-      live.add(c);
-      const seat = G.players[i].seat;
-      const t = seatXZ(seat, 0.58);
-      let m = trickMeshes.get(c);
-      if (!m) {
-        const g = new THREE.Group();
-        const plane = new THREE.Mesh(cardGeo, noOutline(toon('#ffffff', { map: cardTex(c), side: THREE.DoubleSide, alphaTest: 0.5 })));
-        plane.rotation.x = -Math.PI / 2; plane.castShadow = true; g.add(plane); scene.add(g);
-        const from = seatXZ(seat, 1.5);
-        g.position.set(from.x, TOP_Y + 0.3, from.z);
-        m = { g, plane, dying: 0 }; trickMeshes.set(c, m);
-        flyTo(m, t.x, TOP_Y + 0.01 + order * 0.003, t.z, 420, Math.PI * 2, 0.35);
-      }
-      m.tx = t.x; m.tz = t.z; m.ty = TOP_Y + 0.01 + order * 0.003; m.dying = 0;
-      const win = G.done && G.done.w === i;
-      m.ts = win ? 1.18 : 1;
-      m.plane.material.emissive.set(win ? '#6a4600' : '#000000');
+      const seat = G.players[i].seat, t = seatXZ(seat, 0.58);
+      items.push({ c, seat, x: t.x, z: t.z, y: order * 0.003, s: 1, win: G.done && G.done.w === i });
     });
+  } else if (active && G.game === 'president' && G.trick) {
+    // each play a little fan near the middle, nudged toward who played it, piling up
+    G.trick.forEach(([i, cs], order) => {
+      const seat = G.players[i].seat, a = ang(seat), base = seatXZ(seat, 0.2);
+      const jit = Math.sin(order * 2.3 + cs.length) * 0.05;
+      cs.forEach((c, k) => {
+        const o = (k - (cs.length - 1) / 2) * 0.11 + jit;
+        items.push({ c, seat, x: base.x + Math.cos(a) * o, z: base.z - Math.sin(a) * o, y: order * 0.004 + k * 0.001, s: 0.8, win: G.done && order === G.trick.length - 1, tilt: order === G.trick.length - 1 ? 0.35 : 0 });
+      });
+    });
+  } else if (showdown && POKER() && G.board) {
+    G.board.forEach((c, k) => items.push({ c, seat: -1, x: tx * (k - 2) * 0.27 - rx * 0.08, z: tz * (k - 2) * 0.27 - rz * 0.08, y: 0, s: 0.74, tilt: 0.55 }));
+    if (G.shown) G.shown.forEach((h, i) => {
+      if (!h) return;
+      const seat = G.players[i].seat, a = ang(seat), base = seatXZ(seat, 0.86);
+      const win = G.res && G.res.won[i] > 0;
+      h.forEach((c, k) => {
+        const o = (k - (h.length - 1) / 2) * 0.13;
+        items.push({ c, seat, x: base.x + Math.cos(a) * o, z: base.z - Math.sin(a) * o, y: k * 0.001, s: 0.46, win, tilt: 0.4 });
+      });
+    });
+  }
+  const live = new Set();
+  for (const it of items) {
+    const { c } = it;
+    live.add(c);
+    const ty = TOP_Y + 0.01 + it.y + (it.tilt ? Math.sin(it.tilt) * CARD_H * it.s / 2 : 0); // a leaning card stands on its edge
+    let m = trickMeshes.get(c);
+    if (!m) {
+      const g = new THREE.Group();
+      const plane = new THREE.Mesh(cardGeo, noOutline(toon('#ffffff', { map: cardTex(c), side: THREE.DoubleSide, alphaTest: 0.5 })));
+      plane.rotation.x = -Math.PI / 2; plane.castShadow = true; g.add(plane); scene.add(g);
+      const from = it.seat >= 0 ? seatXZ(it.seat, 1.5) : { x: 0, z: 0 };
+      g.position.set(from.x, TOP_Y + 0.3, from.z);
+      g.scale.setScalar(it.s);
+      m = { g, plane, dying: 0 }; trickMeshes.set(c, m);
+      flyTo(m, it.x, ty, it.z, 420, Math.PI * 2, 0.35);
+    } else if (m.dying) { m.dying = 0; m.fly = null; }
+    m.tx = it.x; m.tz = it.z; m.ty = ty;
+    m.ts = it.s * (it.win ? 1.18 : 1);
+    m.plane.rotation.x = -Math.PI / 2 + (it.tilt || 0); // board and shown hands lean up toward whoever looks
+    m.plane.material.emissive.set(it.win ? '#6a4600' : '#000000');
   }
   for (const [c, m] of trickMeshes) {
     if (!live.has(c) && !m.dying) {
       m.dying = now;
-      const w = G.last && G.last.t.some(t => t[1] === c) && G.players ? G.players[G.last.w] : null;
-      const t = w ? seatXZ(w.seat, 1.35) : { x: m.g.position.x, z: m.g.position.z };
-      m.ts = 0.35;
+      const w = !ENG() && G.last && G.last.t && G.last.t.some(t => t[1] === c) && G.players ? G.players[G.last.w] : null;
+      const t = w ? seatXZ(w.seat, 1.35) : { x: m.g.position.x * 0.3, z: m.g.position.z * 0.3 };
+      m.ts = 0.35 * m.g.scale.x;
       flyTo(m, t.x, TOP_Y + 0.12, t.z, 520, 0, 0.25);
     }
     const k = 1 - Math.exp(-dt * 10);
@@ -1338,6 +1493,42 @@ function updateTable(dt) {
       die.position.y = TOP_Y + 0.07 + Math.sin(now / 600) * 0.015;
     }
   }
+  updateChips(showdown && POKER() && G.total, view);
+}
+// poker chips: each player's pile, what they bet this round in front of them, the pot in the middle
+const chipGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.014, 18);
+const chipMats = ['#ea6a4f', '#4fb3a9', '#f4b63f', '#8f73e3', '#fbf3e4'].map(c => toon(c));
+const chipPiles = [];
+for (let s = 0; s < SEATS; s++) { const stack = new THREE.Group(), bet = new THREE.Group(); scene.add(stack, bet); chipPiles.push({ stack, bet }); }
+const potPile = new THREE.Group(); scene.add(potPile);
+const dealerTex = canvasTex(64, 64, x => { x.fillStyle = '#fbf3e4'; x.beginPath(); x.arc(32, 32, 30, 0, Math.PI * 2); x.fill(); x.fillStyle = '#1c1524'; x.font = '800 40px "Baloo 2", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('D', 32, 35); });
+const dealerBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.018, 24), [toon('#fbf3e4'), toon('#ffffff', { map: dealerTex }), toon('#fbf3e4')]);
+dealerBtn.castShadow = true; dealerBtn.visible = false; scene.add(dealerBtn);
+// n chips in little towers of up to `per`, around (x, z)
+function setPile(g, n, x, z, per) {
+  while (g.children.length > n) g.remove(g.children[g.children.length - 1]);
+  while (g.children.length < n) { const k = g.children.length; const m = new THREE.Mesh(chipGeo, chipMats[(k * 3 + Math.floor(k / per)) % chipMats.length]); m.castShadow = true; g.add(m); }
+  g.position.set(x, TOP_Y + 0.008, z);
+  g.children.forEach((m, k) => {
+    const t = Math.floor(k / per), a = t * 2.4;
+    m.position.set(t ? Math.cos(a) * 0.08 : 0, (k % per) * 0.0145, t ? Math.sin(a) * 0.08 : 0);
+  });
+  g.visible = n > 0;
+}
+const chipCount = (v, unit, max) => v > 0 ? Math.min(max, Math.ceil(v / unit)) : 0;
+function updateChips(on, view) {
+  potPile.visible = dealerBtn.visible = !!on;
+  for (const p of chipPiles) p.stack.visible = p.bet.visible = false;
+  if (!on) return;
+  G.players.forEach((p, i) => {
+    const a = ang(p.seat), c = chipPiles[p.seat], st = seatXZ(p.seat, 1.08), bt = seatXZ(p.seat, 0.72);
+    setPile(c.stack, chipCount(G.total[i], 100, 24), st.x + Math.cos(a) * 0.28, st.z - Math.sin(a) * 0.28, 8);
+    setPile(c.bet, chipCount(G.bet ? G.bet[i] : 0, 40, 12), bt.x - Math.cos(a) * 0.2, bt.z + Math.sin(a) * 0.2, 6);
+  });
+  const inPot = (G.put || []).reduce((s, v, i) => s + v - (G.bet ? G.bet[i] : 0), 0);
+  setPile(potPile, G.phase === 'play' || G.phase === 'draw' ? chipCount(inPot, 40, 32) : 0, Math.sin(view) * -0.3, Math.cos(view) * -0.3, 8);
+  const d = G.players[G.dealer];
+  if (d) { const a = ang(d.seat), q = seatXZ(d.seat, 1.0); dealerBtn.position.set(q.x - Math.cos(a) * 0.3, TOP_Y + 0.01, q.z + Math.sin(a) * 0.3); } else dealerBtn.visible = false;
 }
 
 /* ---------------- input & movement ---------------- */
@@ -1653,18 +1844,111 @@ function nickOf(i) { const p = G.players[i]; return p.k === myKey ? 'toi' : p.ni
 function cardEl(c, extra) {
   const b = el('button', 'card ' + su(c) + (extra || ''));
   b.type = 'button'; b.dataset.c = c;
-  b.append(el('span', 'r', String(rk(c))), el('span', 'm', su(c) === 'P' ? '✦' : SUIT[su(c)].sym), el('span', 's', SUIT[su(c)].sym));
+  b.append(el('span', 'r', rl(c)), el('span', 'm', su(c) === 'P' ? '✦' : SUIT[su(c)].sym), el('span', 's', SUIT[su(c)].sym));
   if (G.payoo && su(c) === G.payoo && rk(c) === 7) { b.classList.add('papa'); b.append(el('span', 'pts', '40')); }
-  b.setAttribute('aria-label', su(c) === 'P' ? `Payoo ${rk(c)}` : `${rk(c)} de ${SUIT[su(c)].name}`);
+  b.setAttribute('aria-label', su(c) === 'P' ? `Payoo ${rk(c)}` : `${RNAME[rk(c)] || rk(c)} de ${SUIT[su(c)].name}`);
   return b;
 }
+// the other games: which of my cards I may pick now, and how many at most
+function pickRule() {
+  const i = myIdx();
+  if (i < 0) return null;
+  if (G.phase === 'draw' && !G.passSel[i] && !G.fold[i]) return { max: 3 };
+  if (G.phase === 'swap' && !G.passSel[i] && G.need[i]) return { max: G.need[i] };
+  if (G.game === 'president' && G.phase === 'play' && G.turn === i && !G.done && !pending) {
+    const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, hand = G.hands[i];
+    const n = top ? top.length : 4;
+    // a card is playable if its rank beats the last play and I hold enough of them
+    return { max: n, same: true, ok: c => (!top || presValue(c) > presValue(top[0])) && hand.filter(x => rk(x) === rk(c)).length >= (top ? n : 1) };
+  }
+  return null;
+}
+function renderMyCards(handEl, inner, i) {
+  const hand = G.hands[i], rule = pickRule(), recv = G.recv && G.recv[i] ? G.recv[i] : [];
+  for (const c of [...passPick]) if (!hand.includes(c)) passPick.delete(c);
+  for (const c of hand) {
+    let cls = '';
+    if (rule) cls += passPick.has(c) ? ' sel ok' : !rule.ok || rule.ok(c) ? ' ok' : ' dim';
+    if (recv.includes(c) && G.phase !== 'swap' && G.phase !== 'draw') cls += ' recv';
+    const b = cardEl(c, cls);
+    b.addEventListener('click', () => onCard(c));
+    inner.append(b);
+  }
+}
+function onPick(c) {
+  const rule = pickRule();
+  if (!rule || (rule.ok && !rule.ok(c) && !passPick.has(c))) return;
+  if (passPick.has(c)) passPick.delete(c);
+  else {
+    if (rule.same && [...passPick].some(x => rk(x) !== rk(c))) passPick.clear(); // Président: one rank at a time
+    if (passPick.size < rule.max) passPick.add(c);
+  }
+  sfx.pop(); renderHand();
+}
+const btn = (text, cls, fn) => { const b = el('button', 'btn' + (cls ? ' ' + cls : ''), text); b.type = 'button'; b.onclick = fn; return b; };
+const chipsTxt = n => n.toLocaleString('fr-FR') + ' jeton' + (n > 1 ? 's' : '');
+// buttons over my cards: give, change, play, pass, bet
+function renderMoves() {
+  const box = $('#moves'); box.textContent = '';
+  const i = myIdx();
+  box.hidden = true;
+  if (!me.entered || i < 0 || !ENG() || !isActive() || (G.hands[i] && G.hands[i].includes('?'))) return;
+  const add = (...n) => { box.append(...n); box.hidden = false; };
+  const info = html => { const p = el('div', 'info'); p.innerHTML = html; add(p); };
+  if (POKER()) {
+    const mine = G.hands[i], cards = mine.concat(G.board || []);
+    if (!G.fold[i] && mine.length && G.phase !== 'roundEnd') info(`Ta main : <b>${handName(bestOf(cards))}</b>`);
+    if (G.phase === 'draw' && !G.passSel[i] && !G.fold[i]) {
+      const n = passPick.size;
+      add(btn(n ? `Changer ${n} carte${n > 1 ? 's' : ''}` : 'Garder mes 5 cartes', '', () => { sendAct({ t: 'pass', c: [...passPick] }); pending = 'x'; pendingAt = Date.now(); renderMoves(); }));
+    } else if (G.phase === 'play' && G.turn === i && !G.done && !pending) {
+      const toCall = G.cur - G.bet[i], max = G.bet[i] + G.total[i], min = Math.min(max, G.cur + G.minR);
+      const sig = G.epoch + ':' + G.round + ':' + G.street + ':' + G.v;
+      if (raiseSig !== sig) { raiseSig = sig; raiseTo = min; }
+      raiseTo = Math.max(min, Math.min(max, raiseTo));
+      const bet = a => { pending = 'x'; pendingAt = Date.now(); sendAct(a); renderMoves(); };
+      add(btn('Se coucher', 'fold', () => bet({ t: 'bet', a: 'fold' })));
+      add(btn(toCall <= 0 ? 'Parler' : toCall >= G.total[i] ? `Suivre (tapis ${G.total[i]})` : `Suivre ${toCall}`, '', () => bet({ t: 'bet', a: 'call' })));
+      if (max > G.cur && toCall < G.total[i]) {
+        const st = el('div', 'step'), step = PCFG_BB;
+        const minus = el('button', '', '−'), out = el('output', null, String(raiseTo)), plus = el('button', '', '+');
+        minus.type = plus.type = 'button'; minus.setAttribute('aria-label', 'Miser moins'); plus.setAttribute('aria-label', 'Miser plus');
+        minus.disabled = raiseTo <= min; plus.disabled = raiseTo >= max;
+        minus.onclick = () => { raiseTo = Math.max(min, raiseTo - step * (raiseTo > 200 ? 5 : 1)); renderMoves(); };
+        plus.onclick = () => { raiseTo = Math.min(max, raiseTo + step * (raiseTo >= 200 ? 5 : 1)); renderMoves(); };
+        st.append(minus, out, plus);
+        add(st, btn(raiseTo >= max ? `Tapis (${max})` : `${G.cur ? 'Relancer à' : 'Miser'} ${raiseTo}`, raiseTo >= max ? 'all' : '', () => bet({ t: 'bet', a: 'raise', n: raiseTo })));
+        if (raiseTo < max) add(btn('Tapis', 'all', () => bet({ t: 'bet', a: 'raise', n: max })));
+      }
+    } else if (G.phase === 'roundEnd') add(btn('Main suivante', '', () => { sendAct({ t: 'next' }); pending = 'x'; pendingAt = Date.now(); renderMoves(); }));
+    return;
+  }
+  // Président
+  if (G.phase === 'swap' && G.need[i] && !G.passSel[i]) {
+    const n = G.need[i], to = G.players[G.giveTo[i]].nick;
+    const b = btn(passPick.size === n ? `Donner ${n > 1 ? 'ces cartes' : 'cette carte'} à ${to}` : `Choisis ${n - passPick.size} carte${n - passPick.size > 1 ? 's' : ''} à donner à ${to}`, '', () => { sendAct({ t: 'pass', c: [...passPick] }); pending = 'x'; pendingAt = Date.now(); renderMoves(); });
+    b.disabled = passPick.size !== n || !!pending;
+    add(b);
+  } else if (G.phase === 'play' && G.turn === i && !G.done && !pending) {
+    const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, sel = [...passPick];
+    const ok = sel.length && GAMES.president.legal(G, G.hands[i], sel);
+    const play = btn(ok ? `Jouer ${sel.length > 1 ? sel.length + ' × ' : 'le '}${presName(sel[0])}` : top ? `Choisis ${top.length > 1 ? top.length + ' cartes' : 'une carte'} plus forte${top.length > 1 ? 's' : ''}` : 'Choisis une ou plusieurs cartes de même valeur', '', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: sel }); passPick.clear(); renderHand(); });
+    play.disabled = !ok;
+    add(play);
+    if (top) add(btn('Passer', 'fold', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: [] }); passPick.clear(); renderHand(); }));
+  }
+}
+function presName(c) { return RNAME[rk(c)] || String(rk(c)); }
 function renderHand() {
   const handEl = $('#hand'), inner = handEl.querySelector('.inner'), passBtn = $('#passBtn');
   const i = myIdx();
-  const show = me.entered && i >= 0 && (G.phase === 'pass' || G.phase === 'play') && !G.hands[i].includes('?'); // '?' = my cards haven't arrived yet
+  const phases = ENG() ? { play: 1, draw: 1, swap: 1, roundEnd: POKER() } : { pass: 1, play: 1 };
+  const show = me.entered && i >= 0 && phases[G.phase] && G.hands[i].length > 0 && !G.hands[i].includes('?'); // '?' = my cards haven't arrived yet
   handEl.hidden = !show; passBtn.hidden = true;
   inner.textContent = '';
+  renderMoves();
   if (!show) return;
+  if (ENG()) { renderMyCards(handEl, inner, i); return; }
   const hand = G.hands[i];
   const passing = G.phase === 'pass' && !G.passSel[i];
   const myTurn = G.phase === 'play' && G.turn === i && !G.done && !pending;
@@ -1689,6 +1973,7 @@ function renderHand() {
 }
 function onCard(c) {
   const i = myIdx(); if (i < 0) return;
+  if (ENG()) { onPick(c); return; }
   if (G.phase === 'pass' && !G.passSel[i]) {
     if (passPick.has(c)) passPick.delete(c);
     else if (passPick.size < G.passN) passPick.add(c);
@@ -1710,7 +1995,10 @@ function renderBanner() {
   const b = $('#banner'); b.classList.remove('mine');
   let txt = '';
   const i = myIdx();
-  if (G.phase === 'pass') {
+  if (ENG() && G.players) {
+    const r = otherBanner(i);
+    txt = r[0]; if (r[1]) b.classList.add('mine');
+  } else if (G.phase === 'pass') {
     const done = G.passSel.filter(Boolean).length, n = G.players.length;
     if (i >= 0 && !G.passSel[i]) txt = `Choisis ${G.passN} cartes à donner à ${G.players[(i + 1) % n].nick}`, b.classList.add('mine');
     else txt = `Échange des cartes… ${done}/${n} prêts`;
@@ -1721,23 +2009,73 @@ function renderBanner() {
   }
   b.hidden = !txt || !me.entered; b.textContent = txt;
 }
+const nameOf = i => G.players[i].k === myKey ? 'Tu' : G.players[i].nick;
+const ACTS = { fold: 'se couche', check: 'parle', call: 'suit', bet: 'mise', raise: 'relance à', allin: 'fait tapis' };
+const ACTS_ME = { fold: 'te couches', check: 'parles', call: 'suis', bet: 'mises', raise: 'relances à', allin: 'fais tapis' };
+// [text, is it about me]
+function otherBanner(i) {
+  const n = G.players.length, who = j => G.players[j].nick;
+  if (POKER()) {
+    if (G.phase === 'roundEnd' || G.phase === 'gameEnd') {
+      if (!G.res) return [''];
+      const ws = G.res.won.map((w, j) => [w, j]).filter(x => x[0] > 0).map(x => x[1]);
+      const how = G.res.fold ? '' : ws.length === 1 && G.res.names[ws[0]] ? ` avec ${G.res.names[ws[0]].toLowerCase()}` : '';
+      return [ws.length === 1 ? `${G.players[ws[0]].k === myKey ? 'Tu remportes' : who(ws[0]) + ' remporte'} ${chipsTxt(G.res.won[ws[0]])}${how}` : `Pot partagé : ${ws.map(j => (G.players[j].k === myKey ? 'toi' : who(j))).join(', ')}`, ws.includes(i)];
+    }
+    if (G.phase === 'draw') {
+      if (i >= 0 && !G.passSel[i] && !G.fold[i]) return ['Choisis jusqu\'à 3 cartes à changer', true];
+      return [`Échange des cartes… ${G.passSel.filter(Boolean).length}/${n} prêts`];
+    }
+    const street = G.game === 'holdem' ? ['Avant le flop', 'Flop', 'Tournant', 'Rivière'][G.street] : ['Premier tour', 'Second tour'][G.street];
+    const last = G.last ? `${nameOf(G.last.i)} ${(G.players[G.last.i].k === myKey ? ACTS_ME : ACTS)[G.last.a]}${G.last.a === 'raise' || G.last.a === 'bet' ? ' ' + G.last.n : ''} · ` : '';
+    if (G.done) return [G.done.fold ? last.replace(/ · $/, '') : street + ' : fin des enchères'];
+    if (G.turn === i) {
+      const toCall = G.cur - G.bet[i];
+      return [last + (toCall > 0 ? `À toi : ${toCall} pour suivre` : 'À toi de parler'), true];
+    }
+    return [last + `${street} · au tour de ${who(G.turn)}`];
+  }
+  // Président
+  if (G.phase === 'swap') {
+    if (i >= 0 && G.need[i] && !G.passSel[i]) return [`Choisis ${G.need[i]} carte${G.need[i] > 1 ? 's' : ''} à donner à ${who(G.giveTo[i])}`, true];
+    return ['Échange de cartes entre le Président et le Trou…'];
+  }
+  if (G.phase !== 'play') return [''];
+  if (G.done) return [G.done.end ? 'Fin de la manche' : G.done.two ? `Un 2 ferme le pli : ${G.players[G.done.w].k === myKey ? 'tu rouvres' : who(G.done.w) + ' rouvre'}` : `${G.players[G.done.w].k === myKey ? 'Tu remportes' : who(G.done.w) + ' remporte'} le pli`];
+  const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null;
+  const topTxt = top ? (top.length > 1 ? `${top.length} × ${presName(top[0])}` : presName(top[0])) : '';
+  if (G.turn === i) return [top ? `À toi : plus fort que ${topTxt}, ou passe` : 'À toi d\'ouvrir le pli', true];
+  return [`Au tour de ${who(G.turn)}` + (top ? ` · à battre : ${topTxt}` : '')];
+}
 function renderScores() {
   const s = $('#scores');
   const show = me.entered && G.players && (isActive() || G.phase === 'gameEnd');
   s.hidden = !show; if (!show) return;
   s.textContent = '';
-  const h = el('h3'); h.append(el('span', null, `Manche ${G.round}/${G.rounds}`), el('span', null, G.phase === 'gameEnd' ? 'Terminé' : ''));
+  const g = gameOf(), poker = POKER();
+  const h = el('h3'); h.append(el('span', null, GAME[g].name), el('span', null, G.phase === 'gameEnd' ? 'Terminé' : `${poker ? 'Main' : 'Manche'} ${G.round}/${G.rounds}`));
   s.append(h);
   if (G.payoo) {
     const p = el('div', 'papa'); const bb = el('b', null, '7' + SUIT[G.payoo].sym); bb.style.color = SUIT[G.payoo].col;
-    p.append(el('span', null, 'Papayoo :'), bb, el('span', null, '= 40 pts')); s.append(p);
+    p.append(el('span', null, 'Grand Payoo :'), bb, el('span', null, '= 40 pts')); s.append(p);
   }
-  const head = el('div', 'shead'); head.append(el('span'), el('span', null, 'Joueur'), el('span', null, 'Manche'), el('span', null, 'Total')); s.append(head);
+  if (poker && G.put) {
+    const p = el('div', 'pot'); p.append(el('span', null, 'Pot'), el('b', null, chipsTxt(G.put.reduce((a, v) => a + v, 0)))); s.append(p);
+  }
+  const cols = poker ? ['Mise', 'Jetons'] : g === 'president' ? ['Rang', 'Points'] : ['Manche', 'Total'];
+  const head = el('div', 'shead'); head.append(el('span'), el('span', null, 'Joueur'), el('span', null, cols[0]), el('span', null, cols[1])); s.append(head);
+  const n = G.players.length;
   G.players.forEach((p, i) => {
-    const r = el('div', 'srow' + (G.phase === 'play' && G.turn === i && !G.done ? ' turn' : '') + (p.k === myKey ? ' me' : ''));
+    const r = el('div', 'srow' + ((G.phase === 'play' || G.phase === 'draw') && G.turn === i && !G.done ? ' turn' : '') + (p.k === myKey ? ' me' : '') + (poker && G.out && G.out[i] ? ' out' : ''));
     const c = el('span', 'c'); c.style.background = p.col;
-    const name = p.nick + (p.bot ? ' 🤖' : '') + (!p.bot && !present(p.k) ? ' (absent)' : '');
-    r.append(c, el('span', 'n', name), el('span', 'rp', G.roundPts[i] ? '+' + G.roundPts[i] : '·'), el('span', 't', String(G.total[i])));
+    const name = p.nick + (p.bot ? ' 🤖' : '') + (!p.bot && !present(p.k) ? ' (absent)' : '') + (poker && G.dealer === i ? ' Ⓓ' : '');
+    let mid;
+    if (poker) mid = G.out[i] ? 'éliminé' : G.fold[i] ? 'couché' : G.total[i] === 0 && G.phase !== 'gameEnd' ? 'tapis' : G.drew && G.drew[i] != null && G.phase === 'play' && G.street === 1 && !G.bet[i] ? `${G.drew[i]} ch.` : G.bet[i] ? String(G.bet[i]) : '·';
+    else if (g === 'president') {
+      const pos = G.fin.indexOf(i), prev = G.order ? G.order.indexOf(i) : -1;
+      mid = pos >= 0 ? titleAt(n, pos) : G.phase === 'play' || G.phase === 'swap' ? `${G.hands[i].length} c.` + (prev >= 0 && TITLE_ICON[titleAt(n, prev)] ? ' ' + TITLE_ICON[titleAt(n, prev)] : '') : '·';
+    } else mid = G.roundPts[i] ? '+' + G.roundPts[i] : '·';
+    r.append(c, el('span', 'n', name), el('span', 'rp', mid), el('span', 't', String(G.total[i])));
     s.append(r);
   });
   if (isActive() && myIdx() >= 0) {
@@ -1766,61 +2104,90 @@ function renderPanel() {
   const panel = $('#panel');
   let mode = '';
   if (me.entered) {
-    if (G.phase === 'roundEnd') mode = 'round';
+    if (G.phase === 'roundEnd') mode = POKER() ? '' : 'round'; // poker: the cards stay in view, the next hand comes by itself
     else if (G.phase === 'gameEnd' && dismissedEnd !== G.epoch) mode = 'end';
     else if (!isActive() && me.seat >= 0) mode = 'start';
   }
   if (!mode) { panel.hidden = true; panelSig = ''; return; }
   const humans = mode === 'start' ? seatedHumans() : [];
+  const GW = GAME[gameWanted];
   if (mode === 'start') {
-    const free0 = SEATS - humans.length;
+    const free0 = Math.min(SEATS, GW.max) - humans.length;
     botsWanted = Math.max(0, Math.min(botsWanted, free0));
-    if (humans.length + botsWanted < 3 && !panel.dataset.touched) botsWanted = Math.min(free0, 3 - humans.length);
-    if (!roundsTouched) roundsWanted = Math.max(3, Math.min(8, humans.length + botsWanted));
+    if (humans.length + botsWanted < GW.min && !panel.dataset.touched) botsWanted = Math.max(0, Math.min(free0, GW.min - humans.length));
+    if (!roundsTouched) roundsWanted = POKER_G[gameWanted] ? 15 : gameWanted === 'president' ? 5 : Math.max(3, Math.min(8, humans.length + botsWanted));
   }
-  const sig = mode + '|' + G.epoch + '|' + G.v + '|' + humans.map(h => h.k + h.seat).join() + '|' + botsWanted + '|' + roundsWanted + '|' + peers.length;
+  const sig = mode + '|' + G.epoch + '|' + G.v + '|' + humans.map(h => h.k + h.seat).join() + '|' + botsWanted + '|' + roundsWanted + '|' + peers.length + '|' + gameWanted;
   if (sig === panelSig && !panel.hidden) return;
   panelSig = sig; panel.hidden = false; panel.textContent = '';
   if (mode === 'start') {
-    const free = SEATS - humans.length;
+    const free = Math.max(0, Math.min(SEATS, GW.max) - humans.length);
     const total = humans.length + botsWanted;
     panel.append(el('h2', null, 'Nouvelle partie'));
     panel.append(el('p', null, humans.length === 1 ? 'Tu es seul à table pour l\'instant. Attends que tes amis s\'assoient, ou complète avec des robots.' : `${humans.length} joueurs assis : ${humans.map(h => h.k === myKey ? 'toi' : h.nick).join(', ')}.`));
-    const stepRow = (label, sub, val, min, max, set) => {
+    // which game: whoever launches decides
+    const games = el('div', 'games'); games.setAttribute('role', 'radiogroup'); games.setAttribute('aria-label', 'Jeu');
+    for (const k of Object.keys(GAME)) {
+      const b = el('button', 'game'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === gameWanted));
+      const t = el('span', null, GAME[k].name); t.append(el('small', null, `${GAME[k].blurb} · ${GAME[k].min} à ${GAME[k].max}`));
+      b.append(el('b', null, GAME[k].icon), t);
+      b.onclick = () => { gameWanted = k; store.set('playroom-cardgame', k); roundsTouched = false; delete panel.dataset.touched; sfx.pop(); panelSig = ''; renderPanel(); };
+      games.append(b);
+    }
+    panel.append(games);
+    const stepRow = (label, sub, val, min, max, set, step = 1) => {
       const r = el('div', 'row'); const l = el('label'); l.append(document.createTextNode(label), el('small', null, sub));
       const st = el('div', 'step');
       const minus = el('button', '', '−'); minus.type = 'button'; minus.setAttribute('aria-label', label + ' moins');
       const out = el('output', null, String(val));
       const plus = el('button', '', '+'); plus.type = 'button'; plus.setAttribute('aria-label', label + ' plus');
       minus.disabled = val <= min; plus.disabled = val >= max;
-      minus.onclick = () => { set(val - 1); panelSig = ''; renderPanel(); };
-      plus.onclick = () => { set(val + 1); panelSig = ''; renderPanel(); };
+      minus.onclick = () => { set(val - step); panelSig = ''; renderPanel(); };
+      plus.onclick = () => { set(val + step); panelSig = ''; renderPanel(); };
       st.append(minus, out, plus); r.append(l, st); return r;
     };
     panel.append(stepRow('Robots', 'Ils prennent les chaises libres', botsWanted, 0, free, v => { botsWanted = v; panel.dataset.touched = '1'; }));
-    panel.append(stepRow('Manches', 'Le plus petit total gagne', roundsWanted, 1, 10, v => { roundsWanted = v; roundsTouched = true; }));
+    if (POKER_G[gameWanted]) panel.append(stepRow(GW.rounds, GW.roundsSub + ' · 1000 jetons fictifs chacun', roundsWanted, 5, 50, v => { roundsWanted = v; roundsTouched = true; }, 5));
+    else panel.append(stepRow(GW.rounds, GW.roundsSub, roundsWanted, 1, 10, v => { roundsWanted = v; roundsTouched = true; }));
     const acts = el('div', 'actions');
-    const go = el('button', 'btn', total < 3 ? `Il faut 3 joueurs (${total}/3)` : `Lancer à ${total}`); go.type = 'button';
-    go.disabled = total < 3 || !myKey;
+    const tooMany = humans.length > GW.max;
+    const go = el('button', 'btn', tooMany ? `${GW.max} joueurs au plus` : total < GW.min ? `Il faut ${GW.min} joueurs (${total}/${GW.min})` : `Lancer ${GW.name === 'Président' ? 'le Président' : GW.name === 'Payoo' ? 'le Payoo' : 'le ' + GW.name} à ${total}`); go.type = 'button';
+    go.disabled = total < GW.min || tooMany || !myKey;
     go.onclick = launch;
     acts.append(go); panel.append(acts);
   } else {
-    const end = mode === 'end';
-    const order = G.players.map((p, i) => i).sort((a, b) => G.total[a] - G.total[b]);
+    const end = mode === 'end', g = gameOf();
+    const low = g === 'payoo'; // the Payoo: the smallest total wins; elsewhere the biggest
+    const order = G.players.map((p, i) => i).sort((a, b) => low ? G.total[a] - G.total[b] : G.total[b] - G.total[a]);
     const best = G.total[order[0]];
+    const unit = POKER() ? 'main' : 'manche';
     if (end) {
       const winners = order.filter(i => G.total[i] === best).map(i => G.players[i].k === myKey ? 'Toi' : G.players[i].nick);
       panel.append(el('h2', null, winners.length > 1 ? `Égalité : ${winners.join(' et ')}` : winners[0] === 'Toi' ? 'Tu gagnes la partie !' : `${winners[0]} gagne la partie !`));
-      panel.append(el('p', null, `${G.rounds} manche${G.rounds > 1 ? 's' : ''} jouée${G.rounds > 1 ? 's' : ''}. Le plus petit total l'emporte.`));
+      const played = G.hist.length;
+      panel.append(el('p', null, `${GAME[g].name} : ${played} ${unit}${played > 1 ? 's' : ''} jouée${played > 1 ? 's' : ''}. ${low ? 'Le plus petit total l\'emporte.' : POKER() ? 'Le plus gros tas de jetons l\'emporte.' : 'Le plus gros total l\'emporte.'}`));
+    } else if (g === 'president') {
+      panel.append(el('h2', null, `Fin de la manche ${G.round}`));
+      const pres = G.fin[0];
+      panel.append(el('p', null, `${G.players[pres].k === myKey ? 'Tu es' : G.players[pres].nick + ' est'} Président. Il reste ${G.rounds - G.round} manche${G.rounds - G.round > 1 ? 's' : ''}. À la prochaine, le Trou donne ses meilleures cartes au Président.`));
     } else {
       panel.append(el('h2', null, `Fin de la manche ${G.round}`));
       panel.append(el('p', null, `Il reste ${G.rounds - G.round} manche${G.rounds - G.round > 1 ? 's' : ''}. Chaque manche distribue 250 points.`));
     }
     const wrap = el('div', 'res-wrap'); const t = el('table', 'res');
-    const hr = el('tr'); hr.append(el('th', null, 'Joueur'), el('th', null, 'Manche'), el('th', null, 'Total')); t.append(hr);
-    for (const i of order) {
+    const hr = el('tr');
+    const last = G.hist[G.hist.length - 1] || [];
+    const rows = g === 'president' && !end ? G.fin : order;
+    if (POKER()) hr.append(el('th', null, 'Joueur'), el('th', null, 'Jetons'));
+    else if (g === 'president') hr.append(el('th', null, 'Joueur'), el('th', null, 'Rang'), el('th', null, 'Manche'), el('th', null, 'Total'));
+    else hr.append(el('th', null, 'Joueur'), el('th', null, 'Manche'), el('th', null, 'Total'));
+    t.append(hr);
+    for (const i of rows) {
       const r = el('tr', G.total[i] === best ? 'win' : '');
-      r.append(el('td', null, (G.players[i].k === myKey ? 'Toi' : G.players[i].nick)), el('td', null, '+' + (G.hist[G.hist.length - 1] || [])[i]), el('td', null, String(G.total[i])));
+      r.append(el('td', null, (G.players[i].k === myKey ? 'Toi' : G.players[i].nick)));
+      if (g === 'president') r.append(el('td', null, G.fin.includes(i) ? titleAt(G.players.length, G.fin.indexOf(i)) : '·'));
+      if (!POKER()) r.append(el('td', null, '+' + (last[i] ?? 0)));
+      r.append(el('td', null, String(G.total[i])));
       t.append(r);
     }
     wrap.append(t); panel.append(wrap);
@@ -1845,8 +2212,9 @@ function launch() {
   const freeCols = COLORS.filter(c => !usedCols.has(c));
   for (let s = 0; s < SEATS && b > 0; s++) if (!taken.has(s)) { list.push({ k: 'bot-' + s, seat: s, nick: BOTN[s], col: freeCols.shift() || COLORS[(s + 3) % 8], bot: true }); list[list.length - 1].l = botLook(list[list.length - 1].col); b--; }
   list.sort((a, b2) => a.seat - b2.seat);
-  if (list.length < 3 || !myKey) return;
-  G = PY.newGame(list, roundsWanted, myKey);
+  const GW = GAME[gameWanted];
+  if (list.length < GW.min || list.length > GW.max || !myKey) return;
+  G = GAMES[gameWanted] ? GAMES[gameWanted].newGame(list, roundsWanted, myKey) : PY.newGame(list, roundsWanted, myKey);
   passPick = new Set(); dismissedEnd = '';
   commit();
 }
@@ -1912,8 +2280,9 @@ function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); render
 let seenRoll = '', seenPhase = '', prevEv = null;
 function stateChanged() {
   const sig = G.epoch + ':' + G.round + ':' + G.phase;
-  if (sig !== seenPhase) { if (G.phase === 'pass') passPick = new Set(); seenPhase = sig; }
-  if (pending && (G.phase !== 'play' || !G.hands[myIdx()] || !G.hands[myIdx()].includes(pending))) pending = null;
+  if (sig !== seenPhase) { if (G.phase === 'pass' || ENG()) passPick = new Set(); seenPhase = sig; }
+  if (ENG()) pending = null; // the other games: any new state answers my last move
+  else if (pending && (G.phase !== 'play' || !G.hands[myIdx()] || !G.hands[myIdx()].includes(pending))) pending = null;
   const rollSig = G.epoch + ':' + G.round + ':' + G.payoo;
   if (G.payoo && rollSig !== seenRoll) {
     seenRoll = rollSig;
@@ -1928,6 +2297,7 @@ function stateChanged() {
 }
 // sounds, faces and confetti for what just happened at the table
 function gameEvents() {
+  if (ENG()) { otherEvents(); return; }
   const ev = {
     key: G.epoch + ':' + G.round, phase: G.phase, trick: G.trick ? G.trick.length : 0,
     done: G.done ? G.done.w + ':' + G.done.p : '', turn: G.turn, pass: G.passSel ? G.passSel.filter(Boolean).length : 0
@@ -1970,6 +2340,57 @@ function gameEvents() {
   }
 }
 
+let prevOther = null;
+function otherEvents() {
+  const ev = {
+    key: G.epoch + ':' + G.round, phase: G.phase, turn: G.turn, v: G.v,
+    trick: G.trick ? G.trick.length : 0, fin: G.fin ? G.fin.length : 0, done: G.done ? JSON.stringify(G.done) : '',
+    board: G.board ? G.board.length : 0, last: G.last ? JSON.stringify(G.last) : '', pass: G.passSel ? G.passSel.filter(Boolean).length : 0
+  };
+  const prev = prevOther; prevOther = ev;
+  if (!prev || !me.entered || !G.players) return;
+  const same = prev.key === ev.key, mi = myIdx(), n = G.players.length;
+  if (!same && (ev.phase === 'play' || ev.phase === 'swap')) sfx.shuffle();
+  if (same && ev.pass > prev.pass && (ev.phase === 'draw' || ev.phase === 'swap' || prev.phase === 'draw' || prev.phase === 'swap')) sfx.swoosh();
+  if (same && ev.board > prev.board) sfx.card();
+  if (same && ev.trick > prev.trick) { sfx.card(); const a = avatarFor(G.trick[G.trick.length - 1][0]); if (a) a.lean = 1; }
+  if (same && ev.last !== prev.last && G.last && POKER()) {
+    const a = avatarFor(G.last.i);
+    if (G.last.a === 'fold') { sfx.swoosh(); react(a, 'sad', 1.6); }
+    else if (G.last.a === 'check') sfx.pop();
+    else { sfx.pop(); setTimeout(() => sfx.pop(), 90); if (a) a.lean = 1; if (G.last.a === 'allin') { react(a, 'shock', 2.2); sfx.whistle(); } }
+  }
+  if (same && ev.fin > prev.fin && G.game === 'president') {
+    const j = G.fin[G.fin.length - 1], t = titleAt(n, G.fin.length - 1);
+    react(avatarFor(j), G.fin.length === 1 ? 'cheer' : 'happy', 3);
+    if (G.fin.length === 1) { sfx.chime(); const s = seatXZ(G.players[j].seat, 0.9); confetti.burst(s.x, TOP_Y + 0.2, s.z, 40, COLORS, 0.6); }
+    if (G.fin.length < n - 1) toast(`${G.players[j].k === myKey ? 'Tu finis' : G.players[j].nick + ' finit'} ${t === 'Neutre' ? `${G.fin.length}ᵉ` : t}`, 2200);
+  }
+  if (ev.done && ev.done !== prev.done && G.done && G.done.two) sfx.whistle();
+  const mine = mi >= 0 && ((ev.phase === 'play' && !ev.done && ev.turn === mi) || (ev.phase === 'draw' && !G.passSel[mi] && !G.fold[mi]) || (ev.phase === 'swap' && G.need[mi] && !G.passSel[mi]));
+  const was = prev.phase === ev.phase && prev.turn === ev.turn && !prev.done === !ev.done && same;
+  if (mine && !was) sfx.ding();
+  if ((ev.phase === 'roundEnd' || ev.phase === 'gameEnd') && prev.phase !== ev.phase && POKER() && G.res) {
+    G.res.won.forEach((w, j) => {
+      const a = avatarFor(j);
+      if (w > 0) { react(a, 'cheer', 3); const s = seatXZ(G.players[j].seat, 0.9); confetti.burst(s.x, TOP_Y + 0.2, s.z, 30, ['#f4b63f', '#ea6a4f', '#fbf3e4'], 0.5); }
+      else if (G.res.names[j]) react(a, 'sad', 2);
+    });
+    sfx.chime();
+    if (mi >= 0 && G.res.won[mi] > 0) shake = 0.25;
+  }
+  if (ev.phase === 'roundEnd' && prev.phase !== 'roundEnd' && G.game === 'president') {
+    sfx.chime();
+    G.fin.forEach((j, pos) => react(avatarFor(j), pos === 0 ? 'cheer' : pos === n - 1 ? 'sad' : 'idle', 3));
+  }
+  if (ev.phase === 'gameEnd' && prev.phase !== 'gameEnd') {
+    const best = Math.max(...G.total);
+    G.players.forEach((_, j) => react(avatarFor(j), G.total[j] === best ? 'cheer' : 'sad', 6));
+    sfx.fanfare(); setTimeout(() => sfx.confetti(), 300);
+    confetti.burst(0, TOP_Y + 0.4, 0, 160, COLORS, 1.1);
+  }
+}
+
 /* ---------------- intro ---------------- */
 const sw = $('#swatches');
 COLORS.forEach(c => {
@@ -2005,9 +2426,23 @@ $('#customize').addEventListener('click', openEditor);
 $('#lookBtn').addEventListener('click', openEditor);
 // the rules, from the intro card or the room
 const rules = $('#rules');
+// one tab per game; it opens on the game at the table, else the one picked for the next game
+const rulesTabs = rules.querySelector('.rules-tabs');
+function showRules(g) {
+  rules.querySelectorAll('.rules-body section').forEach(s => { s.hidden = s.dataset.g !== g; });
+  rulesTabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.g === g)));
+  $('#rulesTitle').innerHTML = `Règles du <span>${GAME[g].name}</span>`;
+  rules.querySelector('.rules-body').scrollTop = 0;
+}
+for (const k of Object.keys(GAME)) {
+  const b = el('button', null, GAME[k].icon + ' ' + GAME[k].name); b.type = 'button'; b.dataset.g = k; b.setAttribute('role', 'tab');
+  b.onclick = () => showRules(k);
+  rulesTabs.append(b);
+}
 function openRules() {
   releaseMouse();
   for (const k in keys) keys[k] = false;
+  showRules(G.players && G.phase !== 'idle' ? gameOf() : gameWanted);
   rules.showModal();
 }
 rules.addEventListener('close', () => { if (me.entered) canvas.focus(); });
@@ -2160,7 +2595,7 @@ function renderAudioBtns() {
   $('#sfxBtn').setAttribute('aria-pressed', String(p.sfx));
   $('#musicBtn').setAttribute('aria-pressed', String(p.music));
   $('#sfxBtn').hidden = $('#musicBtn').hidden = $('#lookBtn').hidden = !me.entered;
-  $('#rulesBtn').hidden = !me.entered || FPS; // the Papayoo rules, only where Papayoo is played
+  $('#rulesBtn').hidden = !me.entered || FPS; // the card games' rules, only in the Salon Chill
   $('#controlsBtn').hidden = !me.entered || coarse; // keyboard and mouse only
   // with a keyboard, the settings are in the Échap menu and the faces on the wheel; a phone keeps its buttons
   $('#emotes').hidden = !me.entered || editor.isOpen() || !coarse;
