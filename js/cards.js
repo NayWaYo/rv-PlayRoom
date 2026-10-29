@@ -304,7 +304,8 @@ function pokerRules(kind) {
 
 /* ---------------- the Président ---------------- */
 // 3 is the lowest card, then 4 … roi, as, and 2 the highest. Play 1 to 4 cards of one rank,
-// higher than the last play with as many cards, or pass until the trick is over.
+// as many as the last play and at least as high, or pass until the trick is over. Nobody may
+// go out on a 2: a player left with nothing but 2s is stuck (`stuck`) and ends last.
 const pv = c => rk(c) === 2 ? 15 : rk(c);
 export const presValue = pv;
 const TITLES = n => ({ 0: 'Président', [n - 1]: 'Trou', ...(n >= 4 ? { 1: 'Vice-président', [n - 2]: 'Vice-trou' } : {}) });
@@ -329,7 +330,7 @@ function presRules() {
     d.forEach((c, k) => S.hands[(S.dealer + 1 + k) % n].push(c));
     S.hands.forEach(sortHand);
     S.passSel = nulls(n); S.recv = nulls(n); S.need = zeros(n); S.giveTo = S.players.map(() => -1);
-    S.trick = []; S.passed = S.players.map(() => false); S.done = null; S.fin = []; S.played = []; S.last = null;
+    S.trick = []; S.passed = S.players.map(() => false); S.done = null; S.fin = []; S.stuck = []; S.played = []; S.last = null;
     const o = S.order;
     if (o) { // last round's Trou gives their best cards to the Président, who gives back the ones they want
       const pairs = [[o[0], o[n - 1], 2]];
@@ -350,12 +351,15 @@ function presRules() {
     if (S.passSel.every(Boolean)) S.phase = 'play';
     return true;
   }
-  const holders = S => S.hands.filter(h => h.length).length;
+  // still in the round: cards left, and not only 2s
+  const inPlay = (S, j) => S.hands[j].length > 0 && !(S.stuck || []).includes(j);
+  const holders = S => S.players.filter((_, j) => inPlay(S, j)).length;
   function legal(S, hand, cs) {
     if (!Array.isArray(cs) || !cs.length || cs.length > 4 || !owns(hand, cs) || !cs.every(c => rk(c) === rk(cs[0]))) return false;
+    if (pv(cs[0]) === 15 && cs.length === hand.length) return false; // no going out on a 2
     if (!S.trick.length) return true;
     const top = S.trick[S.trick.length - 1][1];
-    return cs.length === top.length && pv(cs[0]) > pv(top[0]);
+    return cs.length === top.length && pv(cs[0]) >= pv(top[0]);
   }
   // the next player who may still answer, or the trick goes to the last one who played
   function advance(S, from) {
@@ -363,7 +367,7 @@ function presRules() {
     for (let k = 1; k <= N(S); k++) {
       const j = (from + k) % N(S);
       if (j === owner) { S.done = { w: owner }; S.turn = -1; return; }
-      if (S.hands[j].length && !S.passed[j]) { S.turn = j; return; }
+      if (inPlay(S, j) && !S.passed[j]) { S.turn = j; return; }
     }
     S.done = { w: owner }; S.turn = -1;
   }
@@ -385,6 +389,7 @@ function presRules() {
     S.played.push(...cs);
     S.last = { i, c: cs };
     if (!S.hands[i].length) S.fin.push(i);
+    else if (S.hands[i].every(c => pv(c) === 15)) S.stuck.push(i); // only 2s left: can't go out any more
     if (holders(S) <= 1) { S.done = { w: i, end: true }; S.turn = -1; }
     else if (pv(cs[0]) === 15) { S.done = { w: i, two: true }; S.turn = -1; } // a 2 closes the trick
     else advance(S, i);
@@ -396,6 +401,9 @@ function presRules() {
     const n = N(S), w = S.done.w;
     S.trick = []; S.passed = S.players.map(() => false); S.done = null;
     if (holders(S) <= 1) {
+      // the last one still playing, then those stuck with 2s: the first one stuck ends Trou
+      S.players.forEach((_, j) => { if (inPlay(S, j)) S.fin.push(j); });
+      S.stuck.slice().reverse().forEach(j => { if (!S.fin.includes(j)) S.fin.push(j); });
       S.players.forEach((_, j) => { if (!S.fin.includes(j)) S.fin.push(j); });
       const pts = zeros(n);
       S.fin.forEach((j, pos) => { pts[j] = n - 1 - pos; S.total[j] += n - 1 - pos; });
@@ -406,7 +414,7 @@ function presRules() {
       S.phase = S.round >= S.rounds ? 'gameEnd' : 'roundEnd';
       return true;
     }
-    S.turn = S.hands[w].length ? w : (() => { for (let k = 1; k <= n; k++) { const j = (w + k) % n; if (S.hands[j].length) return j; } return -1; })();
+    S.turn = inPlay(S, w) ? w : (() => { for (let k = 1; k <= n; k++) { const j = (w + k) % n; if (inPlay(S, j)) return j; } return -1; })();
     return true;
   }
   function next(S) {
@@ -427,16 +435,22 @@ function presRules() {
     const groups = {};
     hand.forEach(c => { (groups[pv(c)] = groups[pv(c)] || []).push(c); });
     const keys = Object.keys(groups).map(Number).sort((a, b) => a - b);
-    if (!S.trick.length) { // lead the smallest rank, all of it; keep the 2s for later
-      const k = keys.find(x => x !== 15) ?? keys[0];
-      return { t: 'play', c: groups[k] };
+    const plain = keys.filter(x => x !== 15);
+    // playing these would leave nothing but 2s, and no way out
+    const strands = cs => { const rest = hand.filter(c => !cs.includes(c)); return rest.length > 0 && rest.every(c => pv(c) === 15); };
+    if (!S.trick.length) { // lead the smallest rank, all of it; keep the 2s for later, but play them before the last other rank
+      if (groups[15] && plain.length <= 1) return { t: 'play', c: groups[15] };
+      return { t: 'play', c: groups[plain[0] ?? keys[0]] };
     }
     const top = S.trick[S.trick.length - 1][1], need = top.length;
-    const cands = keys.filter(k => k > pv(top[0]) && groups[k].length >= need);
+    const cands = keys.filter(k => k >= pv(top[0]) && groups[k].length >= need && legal(S, hand, groups[k].slice(0, need)));
     if (!cands.length) return { t: 'play', c: [] };
     const exact = cands.find(k => groups[k].length === need);
-    const pick = exact != null && exact - cands[0] <= 3 ? exact : cands[0];
-    if (pick === 15 && hand.length > 4 && Math.random() < 0.7) return { t: 'play', c: [] };
+    let pick = exact != null && exact - cands[0] <= 3 ? exact : cands[0];
+    if (strands(groups[pick].slice(0, need))) { // a 2 first if possible, or wait
+      if (!cands.includes(15)) return { t: 'play', c: [] };
+      pick = 15;
+    } else if (pick === 15 && hand.length > 4 && Math.random() < 0.7) return { t: 'play', c: [] };
     return { t: 'play', c: groups[pick].slice(0, need) };
   }
   const known = S => [...(S.played || [])];

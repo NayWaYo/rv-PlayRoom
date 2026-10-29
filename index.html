@@ -527,9 +527,10 @@ table.res tr.win td{color:var(--marigold)}
     <h3>Les plis</h3>
     <ul>
       <li>Celui qui ouvre pose une carte seule, ou une paire, un brelan, un carré (des cartes de même valeur).</li>
-      <li>Chacun à son tour doit poser <b>autant de cartes</b>, d'une valeur <b>plus forte</b>, ou passer. Qui passe ne rejoue plus dans ce pli.</li>
+      <li>Chacun à son tour doit poser <b>autant de cartes</b>, d'une valeur <b>égale ou plus forte</b> (sur un 10, un autre 10 ou mieux), ou passer. Qui passe ne rejoue plus dans ce pli.</li>
       <li>Quand tout le monde a passé, le dernier à avoir joué remporte le pli et ouvre le suivant.</li>
       <li>Un <b>2</b> ferme le pli tout de suite : son joueur rouvre.</li>
+      <li><b>Interdit de finir sur un 2</b> : ta toute dernière carte (ou tes dernières) ne peut pas être un 2. Qui n'a plus que des 2 en main ne peut plus jouer et finit dernier (s'ils sont plusieurs, le premier bloqué est le Trou). Pense à poser tes 2 avant tes dernières cartes.</li>
     </ul>
     <h3>Les rangs</h3>
     <p>Le premier à n'avoir plus de cartes devient <b>Président</b>, le deuxième <b>Vice-président</b> (à partir de 4 joueurs), l'avant-dernier <b>Vice-trou</b> et le dernier <b>Trou</b>. Les autres sont neutres.</p>
@@ -635,27 +636,27 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-18",
-  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-18",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-18",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-18",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-18",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-18",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-18",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-18",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-18",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-18",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-18",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-18",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-18",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-18",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-18",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-18",
-  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-18",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-18",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-18",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-18",
-  "./js/world.js": "./js/world.js?v=2026-10-29-18"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-19",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-19",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-19",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-19",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-19",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-19",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-19",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-19",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-19",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-19",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-19",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-19",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-19",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-19",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-19",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-19",
+  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-19",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-19",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-19",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-19",
+  "./js/world.js": "./js/world.js?v=2026-10-29-19"
 } }
 </script>
 <script>
@@ -2147,8 +2148,9 @@ function pickRule() {
   if (G.game === 'president' && G.phase === 'play' && G.turn === i && !G.done && !pending) {
     const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, hand = G.hands[i];
     const n = top ? top.length : 4;
-    // a card is playable if its rank beats the last play and I hold enough of them
-    return { max: n, same: true, ok: c => (!top || presValue(c) > presValue(top[0])) && hand.filter(x => rk(x) === rk(c)).length >= (top ? n : 1) };
+    // a card is playable if its rank is at least the last play's, I hold enough of them, and it isn't my last 2s
+    const no2out = c => presValue(c) !== 15 || hand.some(x => presValue(x) !== 15);
+    return { max: n, same: true, ok: c => (!top || presValue(c) >= presValue(top[0])) && no2out(c) && hand.filter(x => rk(x) === rk(c)).length >= (top ? n : 1) };
   }
   return null;
 }
@@ -2221,7 +2223,7 @@ function renderMoves() {
   } else if (G.phase === 'play' && G.turn === i && !G.done && !pending) {
     const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, sel = [...passPick];
     const ok = sel.length && GAMES.president.legal(G, G.hands[i], sel);
-    const play = btn(ok ? `Jouer ${sel.length > 1 ? sel.length + ' × ' : 'le '}${presName(sel[0])}` : top ? `Choisis ${top.length > 1 ? top.length + ' cartes' : 'une carte'} plus forte${top.length > 1 ? 's' : ''}` : 'Choisis une ou plusieurs cartes de même valeur', '', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: sel }); passPick.clear(); renderHand(); });
+    const play = btn(ok ? `Jouer ${sel.length > 1 ? sel.length + ' × ' : 'le '}${presName(sel[0])}` : top ? `Choisis ${top.length > 1 ? top.length + ' cartes' : 'une carte'} de même valeur ou plus forte${top.length > 1 ? 's' : ''}` : 'Choisis une ou plusieurs cartes de même valeur', '', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: sel }); passPick.clear(); renderHand(); });
     play.disabled = !ok;
     add(play);
     if (top) add(btn('Passer', 'fold', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: [] }); passPick.clear(); renderHand(); }));
@@ -2333,8 +2335,8 @@ function otherBanner(i) {
   if (G.done) return [G.done.end ? 'Fin de la manche' : G.done.two ? `Un 2 ferme le pli : ${G.players[G.done.w].k === myKey ? 'tu rouvres' : who(G.done.w) + ' rouvre'}` : `${G.players[G.done.w].k === myKey ? 'Tu remportes' : who(G.done.w) + ' remporte'} le pli`];
   const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null;
   const topTxt = top ? (top.length > 1 ? `${top.length} × ${presName(top[0])}` : presName(top[0])) : '';
-  if (G.turn === i) return [top ? `À toi : plus fort que ${topTxt}, ou passe` : 'À toi d\'ouvrir le pli', true];
-  return [`Au tour de ${who(G.turn)}` + (top ? ` · à battre : ${topTxt}` : '')];
+  if (G.turn === i) return [top ? `À toi : ${topTxt} ou plus fort, ou passe` : 'À toi d\'ouvrir le pli', true];
+  return [`Au tour de ${who(G.turn)}` + (top ? ` · dernier coup : ${topTxt}` : '')];
 }
 function renderScores() {
   const s = $('#scores');
@@ -2362,7 +2364,7 @@ function renderScores() {
     if (poker) mid = G.out[i] ? 'éliminé' : G.fold[i] ? 'couché' : G.total[i] === 0 && G.phase !== 'gameEnd' ? 'tapis' : G.drew && G.drew[i] != null && G.phase === 'play' && G.street === 1 && !G.bet[i] ? `${G.drew[i]} ch.` : G.bet[i] ? String(G.bet[i]) : '·';
     else if (g === 'president') {
       const pos = G.fin.indexOf(i), prev = G.order ? G.order.indexOf(i) : -1;
-      mid = pos >= 0 ? titleAt(n, pos) : G.phase === 'play' || G.phase === 'swap' ? `${G.hands[i].length} c.` + (prev >= 0 && TITLE_ICON[titleAt(n, prev)] ? ' ' + TITLE_ICON[titleAt(n, prev)] : '') : '·';
+      mid = pos >= 0 ? titleAt(n, pos) : G.stuck && G.stuck.includes(i) ? 'bloqué' : G.phase === 'play' || G.phase === 'swap' ? `${G.hands[i].length} c.` + (prev >= 0 && TITLE_ICON[titleAt(n, prev)] ? ' ' + TITLE_ICON[titleAt(n, prev)] : '') : '·';
     } else mid = G.roundPts[i] ? '+' + G.roundPts[i] : '·';
     r.append(c, el('span', 'n', name), el('span', 'rp', mid), el('span', 't', String(G.total[i])));
     s.append(r);
@@ -2634,7 +2636,7 @@ function otherEvents() {
   const ev = {
     key: G.epoch + ':' + G.round, phase: G.phase, turn: G.turn, v: G.v,
     trick: G.trick ? G.trick.length : 0, fin: G.fin ? G.fin.length : 0, done: G.done ? JSON.stringify(G.done) : '',
-    board: G.board ? G.board.length : 0, last: G.last ? JSON.stringify(G.last) : '', pass: G.passSel ? G.passSel.filter(Boolean).length : 0
+    board: G.board ? G.board.length : 0, last: G.last ? JSON.stringify(G.last) : '', pass: G.passSel ? G.passSel.filter(Boolean).length : 0, stuck: G.stuck ? G.stuck.length : 0
   };
   const prev = prevOther; prevOther = ev;
   if (!prev || !me.entered || !G.players) return;
@@ -2654,6 +2656,11 @@ function otherEvents() {
     react(avatarFor(j), G.fin.length === 1 ? 'cheer' : 'happy', 3);
     if (G.fin.length === 1) { sfx.chime(); const s = seatXZ(G.players[j].seat, 0.9); confetti.burst(s.x, TOP_Y + 0.2, s.z, 40, COLORS, 0.6); }
     if (G.fin.length < n - 1) toast(`${G.players[j].k === myKey ? 'Tu finis' : G.players[j].nick + ' finit'} ${t === 'Neutre' ? `${G.fin.length}ᵉ` : t}`, 2200);
+  }
+  if (same && ev.stuck > prev.stuck && G.game === 'president') { // only 2s left: out of moves, ends last
+    const j = G.stuck[G.stuck.length - 1];
+    react(avatarFor(j), 'sad', 3); sfx.wahwah();
+    toast(G.players[j].k === myKey ? 'Plus que des 2 : on ne finit pas sur un 2, tu finis dernier' : `${G.players[j].nick} n'a plus que des 2 : on ne finit pas sur un 2, dernière place`, 3200);
   }
   if (ev.done && ev.done !== prev.done && G.done && G.done.two) sfx.whistle();
   const mine = mi >= 0 && ((ev.phase === 'play' && !ev.done && ev.turn === mi) || (ev.phase === 'draw' && !G.passSel[mi] && !G.fold[mi]) || (ev.phase === 'swap' && G.need[mi] && !G.passSel[mi]));
