@@ -1,8 +1,9 @@
 // The players' own battle maps, made in the map editor (js/mapeditor.js) and kept as JSON:
 // { v, name, w, d, theme, floor: [c1, c2], walls, wallH, void, items: [...] }.
 // Every solid thing is a box { t, x0, x1, z0, z1, y0, y1, c }: `block`, `wall` (its openings in
-// `holes`, [from, to, 'd' door or 'w' window] along its length from its start) and `stairs`
-// (`dir`: the way they climb, 0 +x, 1 -x, 2 +z, 3 -z). The rest are points { t, x, y, z }:
+// `holes`, [from, to, 'd' door or 'w' window, bottom, top] along its length from its start, the
+// heights from the wall's foot, left out for the usual ones), `stairs` and `ramp` (`dir`: the way
+// they climb, 0 +x, 1 -x, 2 +z, 3 -z). The rest are points { t, x, y, z }:
 // `spawn` (the side of x = 0 says the team), `pickup` (`k`), `pad` (`vx`, `vy`, `vz`) and `flag`
 // (the Rouges' at x < 0). With `void`, there is no floor: you build the ground yourself, and
 // falling off it is out. Whoever creates a room with a map sends it to those who join.
@@ -16,7 +17,9 @@ export const THEMES = { jour: 'Jour', soir: 'Coucher de soleil', nuit: 'Nuit' };
 export const LIMIT = 1500;        // items in a map
 const RISE = 0.24;                // a stair step: under what you climb without jumping
 const LIFT = 20;                  // a map with a void is built this high, its void below
-const DOOR = 2.4, SILL = 1.0, LINTEL = 2.0;
+const SLOPE = 0.08;               // a ramp is thin slices this high: you walk up it smoothly
+export const DOOR = 2.4, SILL = 1.0, LINTEL = 2.0;
+export const isBox = it => it.t === 'block' || it.t === 'wall' || it.t === 'stairs' || it.t === 'ramp';
 
 const num = (v, lo, hi, d = 0) => { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v * 100) / 100)) : d; };
 const col = (c, d) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : d;
@@ -43,17 +46,21 @@ export function cleanMap(m) {
   };
   for (const it of Array.isArray(m.items) ? m.items.slice(0, LIMIT) : []) {
     if (!it || typeof it !== 'object') continue;
-    if (it.t === 'block' || it.t === 'wall' || it.t === 'stairs') {
+    if (isBox(it)) {
       const b = { t: it.t, x0: num(it.x0, -X, X), x1: num(it.x1, -X, X), z0: num(it.z0, -Z, Z), z1: num(it.z1, -Z, Z), y0: num(it.y0, -10, 30), y1: num(it.y1, -10, 40), c: col(it.c, '#b07a45') };
       if (b.x1 < b.x0) [b.x0, b.x1] = [b.x1, b.x0];
       if (b.z1 < b.z0) [b.z0, b.z1] = [b.z1, b.z0];
       if (b.y1 < b.y0) [b.y0, b.y1] = [b.y1, b.y0];
       if (b.x1 - b.x0 < 0.05 || b.z1 - b.z0 < 0.05 || b.y1 - b.y0 < 0.05) continue;
-      if (it.t === 'stairs') b.dir = [0, 1, 2, 3].includes(it.dir) ? it.dir : 0;
+      if (it.t === 'stairs' || it.t === 'ramp') b.dir = [0, 1, 2, 3].includes(it.dir) ? it.dir : 0;
       if (it.t === 'wall') {
         const len = Math.max(b.x1 - b.x0, b.z1 - b.z0);
         b.holes = (Array.isArray(it.holes) ? it.holes.slice(0, 20) : []).filter(Array.isArray)
-          .map(([a, c, k]) => [num(a, 0, len), num(c, 0, len), k === 'w' ? 'w' : 'd']).filter(h => h[1] - h[0] >= 0.3);
+          .map(([a, c, k, lo, hi]) => {
+            const h = [num(a, 0, len), num(c, 0, len), k === 'w' ? 'w' : 'd'];
+            if (lo != null || hi != null) { h[3] = num(lo, 0, 20, h[2] === 'w' ? SILL : 0); h[4] = num(hi, h[3] + 0.3, 30, h[2] === 'w' ? LINTEL : DOOR); }
+            return h;
+          }).filter(h => h[1] - h[0] >= 0.3);
       }
       out.items.push(b);
     } else if (it.t === 'spawn' || it.t === 'pickup' || it.t === 'pad' || it.t === 'flag') {
@@ -69,13 +76,14 @@ export function cleanMap(m) {
   return out;
 }
 
-// the steps of a flight of stairs, as boxes { x0, x1, z0, z1, y0, y1 }
+// the steps of a flight of stairs, as boxes { x0, x1, z0, z1, y0, y1 }; a ramp is the same in
+// thin slices, each as high as the slope halfway along it
 export function steps(s) {
-  const alongX = s.dir < 2, len = alongX ? s.x1 - s.x0 : s.z1 - s.z0, h = s.y1 - s.y0;
-  const n = Math.max(1, Math.ceil(h / RISE)), run = len / n, up = s.dir % 2 === 0;
+  const ramp = s.t === 'ramp', alongX = s.dir < 2, len = alongX ? s.x1 - s.x0 : s.z1 - s.z0, h = s.y1 - s.y0;
+  const n = Math.max(1, Math.ceil(h / (ramp ? SLOPE : RISE))), run = len / n, up = s.dir % 2 === 0;
   const out = [];
   for (let k = 1; k <= n; k++) {
-    const a = up ? (k - 1) * run : len - k * run, b = a + run, top = s.y0 + k * h / n;
+    const a = up ? (k - 1) * run : len - k * run, b = a + run, top = s.y0 + (ramp ? k - 0.5 : k) * h / n;
     out.push(alongX ? { x0: s.x0 + a, x1: s.x0 + b, z0: s.z0, z1: s.z1, y0: s.y0, y1: top } : { x0: s.x0, x1: s.x1, z0: s.z0 + a, z1: s.z0 + b, y0: s.y0, y1: top });
   }
   return out;
@@ -83,7 +91,7 @@ export function steps(s) {
 // a wall's openings, as makeKit wants them: [from, to, bottom, top] along its axis
 export function wallHoles(b) {
   const alongX = b.x1 - b.x0 >= b.z1 - b.z0, s0 = alongX ? b.x0 : b.z0;
-  return (b.holes || []).map(([a, c, k]) => [s0 + a, s0 + c, k === 'w' ? Math.min(b.y1, b.y0 + SILL) : b.y0, Math.min(b.y1, b.y0 + (k === 'w' ? LINTEL : DOOR))])
+  return (b.holes || []).map(([a, c, k, lo, hi]) => [s0 + a, s0 + c, b.y0 + (lo ?? (k === 'w' ? SILL : 0)), Math.min(b.y1, b.y0 + (hi ?? (k === 'w' ? LINTEL : DOOR)))])
     .filter(h => h[3] > h[2]).sort((p, q) => p[0] - q[0]);
 }
 
@@ -93,7 +101,7 @@ export function mapBoxes(m, lift = 0) {
   const add = (x0, x1, z0, z1, y0, y1) => boxes.push({ x0, x1, z0, z1, y0: y0 + lift, y1: y1 + lift });
   for (const it of m.items) {
     if (it.t === 'block') add(it.x0, it.x1, it.z0, it.z1, it.y0, it.y1);
-    else if (it.t === 'stairs') for (const s of steps(it)) add(s.x0, s.x1, s.z0, s.z1, s.y0, s.y1);
+    else if (it.t === 'stairs' || it.t === 'ramp') for (const s of steps(it)) add(s.x0, s.x1, s.z0, s.z1, s.y0, s.y1);
     else if (it.t === 'wall') {
       const alongX = it.x1 - it.x0 >= it.z1 - it.z0;
       const [s0, s1] = alongX ? [it.x0, it.x1] : [it.z0, it.z1];
@@ -114,11 +122,21 @@ export function mapBoxes(m, lift = 0) {
   }
   return boxes;
 }
+// a unit box whose top slopes down to its bottom at the low end (against `dir`)
+const wedges = [];
+function wedge(dir) {
+  if (wedges[dir]) return wedges[dir];
+  const g = new THREE.BoxGeometry(1, 1, 1), p = g.attributes.position;
+  const ax = dir < 2 ? 0 : 2, low = dir % 2 === 0 ? -0.5 : 0.5;
+  for (let i = 0; i < p.count; i++) if (p.getY(i) > 0 && Math.abs(p.getComponent(i, ax) - low) < 1e-6) p.setY(i, -0.5);
+  g.computeVertexNormals();
+  return (wedges[dir] = g);
+}
 const boundsOf = m => ({ x0: -m.w / 2 + 0.4, x1: m.w / 2 - 0.4, z0: -m.d / 2 + 0.4, z1: m.d / 2 - 0.4 });
 const fallOf = m => m.void ? LIFT - 3 : undefined;
 
 export function buildMap(scene, m) {
-  const { boxes, solid, wallX, wallZ, floor } = makeKit(scene);
+  const { boxes, mat, solid, wallX, wallZ, floor } = makeKit(scene);
   const L = m.void ? LIFT : 0, X = m.w / 2, Z = m.d / 2;
   if (!m.void) floor(m.w, m.d, m.floor[0], m.floor[1]);
   else { // the sea far below
@@ -128,6 +146,12 @@ export function buildMap(scene, m) {
   for (const it of m.items) {
     if (it.t === 'block') solid(it.x0, it.x1, it.z0, it.z1, it.y0 + L, it.y1 + L, it.c);
     else if (it.t === 'stairs') for (const s of steps(it)) solid(s.x0, s.x1, s.z0, s.z1, s.y0 + L, s.y1 + L, it.c);
+    else if (it.t === 'ramp') { // drawn as one smooth slope, solid as its slices
+      for (const s of steps(it)) boxes.push({ ...s, y0: s.y0 + L, y1: s.y1 + L });
+      const w = new THREE.Mesh(wedge(it.dir), mat(it.c));
+      w.scale.set(it.x1 - it.x0, it.y1 - it.y0, it.z1 - it.z0); w.position.set((it.x0 + it.x1) / 2, (it.y0 + it.y1) / 2 + L, (it.z0 + it.z1) / 2);
+      w.castShadow = w.receiveShadow = true; scene.add(w);
+    }
     else if (it.t === 'wall') {
       const holes = wallHoles(it).map(([a, b, c, d]) => [a, b, c + L, d + L]);
       if (it.x1 - it.x0 >= it.z1 - it.z0) wallX((it.z0 + it.z1) / 2, it.x0, it.x1, it.y0 + L, it.y1 + L, it.c, holes, it.z1 - it.z0);

@@ -643,29 +643,29 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-21",
-  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-21",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-21",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-21",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-21",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-21",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-21",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-21",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-21",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-21",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-21",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-21",
-  "./js/fpscustom.js": "./js/fpscustom.js?v=2026-10-29-21",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-21",
-  "./js/mapeditor.js": "./js/mapeditor.js?v=2026-10-29-21",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-21",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-21",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-21",
-  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-21",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-21",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-21",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-21",
-  "./js/world.js": "./js/world.js?v=2026-10-29-21"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-22",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-22",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-22",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-22",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-22",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-22",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-22",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-22",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-22",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-22",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-22",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-22",
+  "./js/fpscustom.js": "./js/fpscustom.js?v=2026-10-29-22",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-22",
+  "./js/mapeditor.js": "./js/mapeditor.js?v=2026-10-29-22",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-22",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-22",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-22",
+  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-22",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-22",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-22",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-22",
+  "./js/world.js": "./js/world.js?v=2026-10-29-22"
 } }
 </script>
 <script>
@@ -3725,7 +3725,7 @@ if (HUB) {
 // the map editor: your maps, and a battle on one of them
 if (EDIT) {
   $('#intro').hidden = true; document.title = 'Éditeur de cartes · PlayRoom';
-  import('./js/mapeditor.js').then(m => m.openMapEditor({ toast, sfx, onPlay: playMap, onQuit: () => { location.href = location.pathname + location.search; } }));
+  import('./js/mapeditor.js').then(m => m.openMapEditor({ toast, sfx, keyLabel: label, onPlay: playMap, onQuit: () => { location.href = location.pathname + location.search; } }));
 }
 // a battle on a map from the editor: this tab keeps the map for its room, and sends it to those who join
 function playMap(m) {

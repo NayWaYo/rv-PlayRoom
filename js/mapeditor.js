@@ -4,7 +4,7 @@
 // before playing. Maps are kept in this browser (js/fpscustom.js) and sent to friends by the
 // room they play in. Keyboard and mouse only.
 import * as THREE from 'three';
-import { blankMap, cleanMap, buildMap, checkMap, mapBoxes, steps, wallHoles, savedMaps, storeMaps, keepMap, KINDS, THEMES, LIMIT } from './fpscustom.js';
+import { blankMap, cleanMap, buildMap, checkMap, mapBoxes, steps, savedMaps, storeMaps, keepMap, isBox, KINDS, THEMES, LIMIT, DOOR, SILL, LINTEL } from './fpscustom.js';
 
 const PALETTE = ['#b07a45', '#c98b52', '#e8dcc8', '#c9bfae', '#a39a8a', '#8f8676', '#5b4f45', '#3a3f4b', '#c9483a', '#3d6fd1', '#f4b63f', '#5f9a45', '#8f73e3', '#e07ab8'];
 const TOOLS = [
@@ -12,9 +12,10 @@ const TOOLS = [
   { id: 'block', icon: '🧱', name: 'Bloc', help: 'Fais glisser pour dessiner un bloc (une caisse, un mur épais, une estrade) posé sur l\'étage.' },
   { id: 'slab', icon: '⬛', name: 'Plancher', help: 'Fais glisser pour dessiner un plancher dont le dessus est à la hauteur de l\'étage : une mezzanine, un toit, ou le sol d\'une carte au-dessus du vide.' },
   { id: 'wall', icon: '🧱', name: 'Mur', help: 'Fais glisser pour tracer un mur droit, sur l\'étage.' },
-  { id: 'door', icon: '🚪', name: 'Porte', help: 'Clique sur un mur pour y percer une porte. Clique sur une porte pour la reboucher.' },
-  { id: 'window', icon: '🪟', name: 'Fenêtre', help: 'Clique sur un mur pour y percer une fenêtre. Clique dessus pour la reboucher.' },
+  { id: 'door', icon: '🚪', name: 'Porte', help: 'Clique sur un mur pour y percer une porte de la largeur et de la hauteur choisies. Clique sur une porte pour la reboucher.' },
+  { id: 'window', icon: '🪟', name: 'Fenêtre', help: 'Clique sur un mur pour y percer une fenêtre : largeur, bas et haut se règlent ici, ou après coup en choisissant le mur. Clique dessus pour la reboucher.' },
   { id: 'stairs', icon: '🪜', name: 'Escalier', help: 'Fais glisser dans le sens de la montée : l\'escalier part de l\'étage et monte de la hauteur choisie.' },
+  { id: 'ramp', icon: '📐', name: 'Rampe', help: 'Fais glisser dans le sens de la montée : une pente lisse qui part de l\'étage et monte de la hauteur choisie. Plus elle est longue, plus elle est douce.' },
   { id: 'spawn', icon: '🧍', name: 'Apparition', help: 'Clique pour un point d\'apparition. À gauche (x < 0) les Rouges, à droite les Bleus.' },
   { id: 'pickup', icon: '❤️', name: 'Bonus', help: 'Clique pour poser un bonus : soin, armure, ou une arme lourde.' },
   { id: 'pad', icon: '🟢', name: 'Tremplin', help: 'Clique pour un tremplin qui saute droit en l\'air, ou fais glisser vers où il doit envoyer.' },
@@ -24,7 +25,10 @@ const PICK_ICON = { health: '❤️', armor: '🛡️', rocket: '🚀', railgun:
 const RED = '#e2574a', BLUE = '#4a7fe0';
 const $el = (t, cls, txt) => { const e = document.createElement(t); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const fmt = v => String(Math.round(v * 100) / 100).replace('.', ',');
-const isBox = it => it.t === 'block' || it.t === 'wall' || it.t === 'stairs';
+// the tools' keys (physical codes): the digits, then the two keys after 0
+const KEYS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal'];
+// a ramp's slope, in degrees
+const slope = it => Math.round(Math.atan2(it.y1 - it.y0, it.dir < 2 ? it.x1 - it.x0 : it.z1 - it.z0) * 180 / Math.PI);
 
 let ui = null;
 
@@ -33,7 +37,7 @@ export function openMapEditor(o) {
   ui.list();
 }
 
-function build({ toast, sfx, onPlay, onQuit }) {
+function build({ toast, sfx, onPlay, onQuit, keyLabel = c => c.replace(/^Digit/, '') }) {
   injectStyle();
   const root = $el('div', 'me'); root.id = 'mapEditor';
   document.body.append(root);
@@ -116,7 +120,8 @@ function build({ toast, sfx, onPlay, onQuit }) {
 
   let entry = null, map = null, editing = false, undo = [], redo = [], saveT = 0;
   let tool = 'select', level = 0, sel = -1, issues = null;
-  const set = { block: 1, wall: 3, stairs: 3, color: '#b07a45', kind: 'health', padUp: 9.5, fine: false };
+  const set = { block: 1, wall: 3, stairs: 3, ramp: 2, color: '#b07a45', kind: 'health', padUp: 9.5, fine: false,
+    doorW: 1.6, doorH: DOOR, winW: 1.4, winLo: SILL, winHi: LINTEL };
   const view = { cx: 0, cz: 0, s: 20 };
 
   // the top bar
@@ -132,7 +137,7 @@ function build({ toast, sfx, onPlay, onQuit }) {
   const toolBtns = {};
   TOOLS.forEach((t, i) => {
     const b = $el('button', 'me-tool'); b.type = 'button';
-    b.title = `${t.name} (${(i + 1) % 10 === 0 && i ? '0' : i < 9 ? i + 1 : String.fromCharCode(48 + ((i + 1) % 10))}) : ${t.help}`;
+    b.title = `${t.name} (${keyLabel(KEYS[i])}) : ${t.help}`;
     b.append($el('b', null, t.icon), $el('span', null, t.name));
     b.addEventListener('click', () => pickTool(t.id));
     toolBtns[t.id] = b; tools.append(b);
@@ -158,12 +163,19 @@ function build({ toast, sfx, onPlay, onQuit }) {
     if (tool === 'block') number('Hauteur', set.block, 0.1, 20, 0.1, v => { set.block = v; });
     if (tool === 'wall') number('Hauteur', set.wall, 0.3, 20, 0.1, v => { set.wall = v; });
     if (tool === 'stairs') number('Monte de', set.stairs, 0.5, 15, 0.1, v => { set.stairs = v; });
+    if (tool === 'ramp') number('Monte de', set.ramp, 0.2, 10, 0.1, v => { set.ramp = v; });
+    if (tool === 'door') { number('Largeur', set.doorW, 0.4, 10, 0.1, v => { set.doorW = v; }); number('Hauteur', set.doorH, 0.5, 20, 0.1, v => { set.doorH = v; }); }
+    if (tool === 'window') {
+      number('Largeur', set.winW, 0.3, 10, 0.1, v => { set.winW = v; });
+      number('Bas (du pied du mur)', set.winLo, 0, 19, 0.1, v => { set.winLo = v; if (set.winHi < v + 0.3) set.winHi = v + 0.3; renderOpts(); });
+      number('Haut', set.winHi, 0.3, 20, 0.1, v => { set.winHi = Math.max(v, set.winLo + 0.3); renderOpts(); });
+    }
     if (tool === 'pad') number('Poussée vers le haut', set.padUp, 4, 20, 0.5, v => { set.padUp = v; });
     if (tool === 'pickup') {
       const s = $el('select'); for (const k in KINDS) { const op = $el('option', null, PICK_ICON[k] + ' ' + KINDS[k]); op.value = k; s.append(op); }
       s.value = set.kind; s.addEventListener('change', () => { set.kind = s.value; }); field('Bonus', s);
     }
-    if (['block', 'slab', 'wall', 'stairs'].includes(tool)) opts.append(swatches(set.color, c => { set.color = c; renderOpts(); }));
+    if (['block', 'slab', 'wall', 'stairs', 'ramp'].includes(tool)) opts.append(swatches(set.color, c => { set.color = c; renderOpts(); }));
   }
   function swatches(cur, fn) {
     const box = $el('div', 'me-sw');
@@ -265,18 +277,25 @@ function build({ toast, sfx, onPlay, onQuit }) {
     g.fillStyle = it.c; g.fillRect(x, z, w, d);
     const lift = Math.max(0, Math.min(0.35, it.y1 / 12));
     g.fillStyle = `rgba(255,255,255,${lift})`; g.fillRect(x, z, w, d);
-    if (it.t === 'stairs') {
-      g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1;
-      for (const s of steps(it)) { g.strokeRect(sx(s.x0), sz(s.z0), (s.x1 - s.x0) * view.s, (s.z1 - s.z0) * view.s); }
+    if (it.t === 'stairs' || it.t === 'ramp') {
+      if (it.t === 'stairs') {
+        g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1;
+        for (const s of steps(it)) { g.strokeRect(sx(s.x0), sz(s.z0), (s.x1 - s.x0) * view.s, (s.z1 - s.z0) * view.s); }
+      } else { // a ramp: darker at its foot
+        const [a, b] = [[x, z, x + w, z], [x + w, z, x, z], [x, z, x, z + d], [x, z + d, x, z]][it.dir].reduce((r, v, i) => (r[i >> 1].push(v), r), [[], []]);
+        const grad = g.createLinearGradient(a[0], a[1], b[0], b[1]);
+        grad.addColorStop(0, 'rgba(0,0,0,.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad; g.fillRect(x, z, w, d);
+      }
       const cx = x + w / 2, cz = z + d / 2, [ux, uz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][it.dir], L = Math.min(Math.max(w, d) * 0.35, 40);
       g.strokeStyle = '#fff'; g.lineWidth = 2.5; line(cx - ux * L, cz - uz * L, cx + ux * L, cz + uz * L);
       g.beginPath(); g.moveTo(cx + ux * L, cz + uz * L); g.lineTo(cx + ux * (L - 8) - uz * 6, cz + uz * (L - 8) + ux * 6); g.lineTo(cx + ux * (L - 8) + uz * 6, cz + uz * (L - 8) - ux * 6); g.closePath(); g.fillStyle = '#fff'; g.fill();
     }
     if (it.t === 'wall') {
       const alongX = it.x1 - it.x0 >= it.z1 - it.z0;
-      for (const [a, b, k] of it.holes || []) {
+      for (const [a, b, k, lo] of it.holes || []) {
         const s0 = (alongX ? it.x0 : it.z0) + a, s1 = (alongX ? it.x0 : it.z0) + b;
-        g.fillStyle = k === 'w' ? '#bfe6ff' : '#2a1e33';
+        g.fillStyle = k === 'w' && lo !== 0 ? '#bfe6ff' : '#2a1e33'; // a window down to the floor lets you through
         if (alongX) g.fillRect(sx(s0), z - 1, (s1 - s0) * view.s, d + 2); else g.fillRect(x - 1, sz(s0), w + 2, (s1 - s0) * view.s);
       }
     }
@@ -352,7 +371,7 @@ function build({ toast, sfx, onPlay, onQuit }) {
       if (sel >= 0) { const it = map.items[sel]; drag = { kind: 'move', x0: snap(x), z0: snap(z), orig: JSON.parse(JSON.stringify(it)), before: snapshot() }; }
       draw(); return;
     }
-    if (['block', 'slab', 'wall', 'stairs'].includes(tool)) { drag = { kind: 'draw', x0: inX(snap(x)), z0: inZ(snap(z)) }; drag.ghost = shape(drag, drag.x0, drag.z0); draw(); return; }
+    if (['block', 'slab', 'wall', 'stairs', 'ramp'].includes(tool)) { drag = { kind: 'draw', x0: inX(snap(x)), z0: inZ(snap(z)) }; drag.ghost = shape(drag, drag.x0, drag.z0); draw(); return; }
     if (tool === 'door' || tool === 'window') { cut(x, z, tool === 'door' ? 'd' : 'w'); return; }
     if (tool === 'pad') { drag = { kind: 'pad', x0: inX(snap(x)), z0: inZ(snap(z)), x: inX(snap(x)), z: inZ(snap(z)) }; draw(); return; }
     place(inX(snap(x)), inZ(snap(z)));
@@ -424,12 +443,12 @@ function build({ toast, sfx, onPlay, onQuit }) {
     if (z1 - z0 < 0.1) z1 = z0 + grid() * 2;
     if (tool === 'block') return { t: 'block', x0, x1, z0, z1, y0: level, y1: level + set.block, c };
     if (tool === 'slab') return { t: 'block', x0, x1, z0, z1, y0: level - 0.3, y1: level, c };
-    // stairs climb the way you drag, along the longer side
+    // stairs and ramps climb the way you drag, along the longer side
     const alongX = Math.abs(x - d.x0) >= Math.abs(z - d.z0);
     const dir = alongX ? (x >= d.x0 ? 0 : 1) : (z >= d.z0 ? 2 : 3);
     if (alongX && z1 - z0 < 1.2) { z0 = d.z0 - 0.75; z1 = d.z0 + 0.75; }
     if (!alongX && x1 - x0 < 1.2) { x0 = d.x0 - 0.75; x1 = d.x0 + 0.75; }
-    return { t: 'stairs', x0, x1, z0, z1, y0: level, y1: level + set.stairs, dir, c };
+    return { t: tool, x0, x1, z0, z1, y0: level, y1: level + set[tool], dir, c };
   }
   function add(it) {
     if (map.items.length >= LIMIT) { toast(`La carte est pleine (${LIMIT} éléments).`); return; }
@@ -437,6 +456,7 @@ function build({ toast, sfx, onPlay, onQuit }) {
     commit(() => { map.items.push(it); });
     sel = map.items.length - 1;
     if (it.t === 'stairs' && (Math.max(it.x1 - it.x0, it.z1 - it.z0) / Math.ceil((it.y1 - it.y0) / 0.24)) < 0.25) toast('Escalier très raide : allonge-le, sinon on aura du mal à le monter.', 3500);
+    if (it.t === 'ramp' && slope(it) > 45) toast(`Rampe très raide (${slope(it)}°) : les robots ne la montent pas. Allonge-la pour l'adoucir.`, 3500);
     renderSide(); draw();
   }
   function place(x, z) {
@@ -459,26 +479,27 @@ function build({ toast, sfx, onPlay, onQuit }) {
     commit(() => {
       const old = it.holes.findIndex(([a, b]) => at >= a && at <= b);
       if (old >= 0) { it.holes.splice(old, 1); return; }
-      const half = k === 'd' ? 0.8 : 0.7;
+      const half = (k === 'd' ? set.doorW : set.winW) / 2;
       const a = Math.max(0, Math.min(len - 2 * half, snap(at) - half)), b = Math.min(len, a + 2 * half);
       if (b - a < 0.3) return;
       it.holes = it.holes.filter(([p, q]) => q <= a || p >= b);
-      it.holes.push([Math.round(a * 100) / 100, Math.round(b * 100) / 100, k]);
+      const r = v => Math.round(v * 100) / 100;
+      it.holes.push(k === 'd' ? [r(a), r(b), k, 0, set.doorH] : [r(a), r(b), k, set.winLo, set.winHi]);
       it.holes.sort((p, q) => p[0] - q[0]);
     });
     sel = i; renderSide(); draw();
   }
   function clipHoles(it) {
     const len = Math.max(it.x1 - it.x0, it.z1 - it.z0);
-    it.holes = (it.holes || []).filter(h => h[0] < len - 0.3).map(([a, b, k]) => [a, Math.min(b, len), k]);
+    it.holes = (it.holes || []).filter(h => h[0] < len - 0.3).map(([a, b, ...rest]) => [a, Math.min(b, len), ...rest]);
   }
   // the same thing on the other side of the middle line
   function mirrored(it) {
     const c = JSON.parse(JSON.stringify(it));
     if (isBox(c)) {
       [c.x0, c.x1] = [-it.x1, -it.x0];
-      if (c.t === 'stairs' && c.dir < 2) c.dir = 1 - c.dir;
-      if (c.t === 'wall' && it.x1 - it.x0 >= it.z1 - it.z0) { const len = it.x1 - it.x0; c.holes = it.holes.map(([a, b, k]) => [Math.round((len - b) * 100) / 100, Math.round((len - a) * 100) / 100, k]).reverse(); }
+      if ((c.t === 'stairs' || c.t === 'ramp') && c.dir < 2) c.dir = 1 - c.dir;
+      if (c.t === 'wall' && it.x1 - it.x0 >= it.z1 - it.z0) { const len = it.x1 - it.x0; c.holes = it.holes.map(([a, b, ...rest]) => [Math.round((len - b) * 100) / 100, Math.round((len - a) * 100) / 100, ...rest]).reverse(); }
     } else { c.x = -it.x; if (c.t === 'pad') c.vx = -it.vx; }
     return c;
   }
@@ -521,7 +542,7 @@ function build({ toast, sfx, onPlay, onQuit }) {
     i.addEventListener('change', () => { const n = Number(i.value); if (Number.isFinite(n)) commit(() => fn(Math.max(min, Math.min(max, Math.round(n * 100) / 100)))); else i.value = v; });
     return i;
   }
-  const NAMES = { block: 'Bloc', wall: 'Mur', stairs: 'Escalier', spawn: 'Point d\'apparition', pickup: 'Bonus', pad: 'Tremplin', flag: 'Drapeau' };
+  const NAMES = { block: 'Bloc', wall: 'Mur', stairs: 'Escalier', ramp: 'Rampe', spawn: 'Point d\'apparition', pickup: 'Bonus', pad: 'Tremplin', flag: 'Drapeau' };
   function itemBox(it) {
     const box = $el('section', 'me-panel');
     let title = NAMES[it.t];
@@ -534,19 +555,32 @@ function build({ toast, sfx, onPlay, onQuit }) {
         row('z de', numIn(it.z0, 0.1, v => { it.z0 = Math.min(v, it.z1 - 0.1); }, -Z, Z)), row('à', numIn(it.z1, 0.1, v => { it.z1 = Math.max(v, it.z0 + 0.1); }, -Z, Z)),
         row('Bas', numIn(it.y0, 0.1, v => { it.y0 = Math.min(v, it.y1 - 0.1); }, -10, 30)), row('Haut', numIn(it.y1, 0.1, v => { it.y1 = Math.max(v, it.y0 + 0.1); }, -10, 40)));
       box.append(grid2);
-      if (it.t === 'stairs') {
+      if (it.t === 'stairs' || it.t === 'ramp') {
         const s = $el('select');
         ['vers la droite (+x)', 'vers la gauche (−x)', 'vers le bas (+z)', 'vers le haut (−z)'].forEach((n, i) => { const o = $el('option', null, n); o.value = i; s.append(o); });
         s.value = it.dir; s.addEventListener('change', () => commit(() => { it.dir = Number(s.value); }));
         box.append(row('Monte', s));
+        if (it.t === 'ramp') box.append($el('p', 'me-stats', `Pente : ${slope(it)}°${slope(it) > 45 ? ' : trop raide pour les robots' : slope(it) > 30 ? ', raide' : ', douce'}. Allonge-la ou baisse son haut pour l'adoucir.`));
       }
       if (it.t === 'wall') {
         const hs = $el('div', 'me-holes');
         if (!it.holes.length) hs.append($el('small', null, 'Pas d\'ouverture : outils Porte et Fenêtre.'));
+        const len = Math.max(it.x1 - it.x0, it.z1 - it.z0), H = it.y1 - it.y0;
         it.holes.forEach((h, k) => {
-          const r = $el('div', 'me-hole'); r.append($el('span', null, `${h[2] === 'w' ? '🪟 Fenêtre' : '🚪 Porte'} à ${fmt(h[0])} m`));
+          const win = h[2] === 'w', lo = h[3] ?? (win ? SILL : 0), hi = h[4] ?? (win ? LINTEL : DOOR);
+          const r = $el('div', 'me-hole'); r.append($el('b', null, win ? '🪟 Fenêtre' : '🚪 Porte'));
           const b = $el('button', 'btn ghost', '×'); b.type = 'button'; b.title = 'Reboucher';
           b.addEventListener('click', () => commit(() => { it.holes.splice(k, 1); })); r.append(b); hs.append(r);
+          // the opening: where it starts, how wide, how high (from the wall's foot); other openings stay as they are
+          const put = fn => commit(() => { const o = [...h]; o[3] = lo; o[4] = hi; fn(o); o[0] = Math.max(0, Math.min(o[0], len - 0.3)); o[1] = Math.min(len, Math.max(o[1], o[0] + 0.3)); it.holes[k] = o; it.holes.sort((p, q) => p[0] - q[0]); });
+          const g4 = $el('div', 'me-grid');
+          g4.append(row('Début (m)', numIn(h[0], 0.1, v => put(o => { o[1] += v - o[0]; o[0] = v; }), 0, len)),
+            row('Largeur', numIn(h[1] - h[0], 0.1, v => put(o => { o[1] = o[0] + v; }), 0.3, len)));
+          if (win) g4.append(row('Bas', numIn(lo, 0.1, v => put(o => { o[3] = v; o[4] = Math.max(o[4], v + 0.3); }), 0, 19)),
+            row('Haut', numIn(hi, 0.1, v => put(o => { o[4] = Math.max(v, o[3] + 0.3); }), 0.3, 20)));
+          else g4.append(row('Hauteur', numIn(hi, 0.1, v => put(o => { o[4] = v; }), 0.5, 20)));
+          if (hi > H) g4.append($el('small', 'me-lbl', 'Plus haute que le mur : coupée en haut.'));
+          hs.append(g4);
         });
         box.append(hs);
       }
@@ -596,7 +630,7 @@ function build({ toast, sfx, onPlay, onQuit }) {
     box.append(acts);
     const pts = t => map.items.filter(it => it.t === t).length;
     box.append($el('p', 'me-stats', `${map.items.length} / ${LIMIT} éléments · ${pts('spawn')} apparitions · ${pts('pickup')} bonus · ${pts('pad')} tremplins · ${pts('flag')} / 2 drapeaux`));
-    box.append($el('p', 'me-keys', 'Touches : 1 à 9 et 0, − les outils · Ctrl+Z annuler · Ctrl+Y refaire · Suppr effacer · Ctrl+D dupliquer · Ctrl+M miroir · Page haut / bas changer d\'étage · Échap désélectionner'));
+    box.append($el('p', 'me-keys', 'Touches : 1 à 9, 0 et les deux touches suivantes pour les outils (voir les bulles) · Ctrl+Z annuler · Ctrl+Y refaire · Suppr effacer · Ctrl+D dupliquer · Ctrl+M miroir · Page haut / bas changer d\'étage · Échap désélectionner'));
     return box;
   }
   function runCheck() {
@@ -645,7 +679,8 @@ function build({ toast, sfx, onPlay, onQuit }) {
     if (e.key === 'Shift') { set.fine = true; return; }
     const m = e.code.match(/^(?:Digit|Numpad)(\d)$/);
     if (m) { const i = (Number(m[1]) + 9) % 10; if (TOOLS[i]) pickTool(TOOLS[i].id); return; }
-    if (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === ')') { if (TOOLS[10]) pickTool(TOOLS[10].id); return; }
+    const k = KEYS.indexOf(e.code);
+    if (k >= 10 && TOOLS[k]) { pickTool(TOOLS[k].id); return; }
     const pan = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.code];
     if (pan) { view.cx += pan[0] * 60 / view.s; view.cz += pan[1] * 60 / view.s; draw(); e.preventDefault(); }
   });
