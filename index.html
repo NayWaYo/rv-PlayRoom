@@ -434,22 +434,23 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-8",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-8",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-8",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-8",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-8",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-8",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-8",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-8",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-8",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-8",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-8",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-8",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-8",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-8",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-8",
-  "./js/world.js": "./js/world.js?v=2026-10-29-8"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-9",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-9",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-9",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-9",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-9",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-9",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-9",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-9",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-9",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-9",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-9",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-9",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-9",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-9",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-9",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-9",
+  "./js/world.js": "./js/world.js?v=2026-10-29-9"
 } }
 </script>
 <script>
@@ -631,7 +632,8 @@ const MAPS = {
   chambre: { name: 'la Chambre', icon: '🧸', file: './js/fpschambre.js', prefix: 'fps-chambre-', tag: 'C', blurb: 'Une chambre d\'enfant géante' },
   bureaux: { name: 'les Bureaux', icon: '🏢', file: './js/fpsbureaux.js', prefix: 'fps-bureaux-', tag: 'B', blurb: 'Des bureaux, la nuit' },
   labo: { name: 'le Labo', icon: '🧪', file: './js/fpslabo.js', prefix: 'fps-labo-', tag: 'L', blurb: 'Couloir, conduits, générateurs' },
-  forts: { name: 'les Deux Forts', icon: '🚩', file: './js/fpsforts.js', prefix: 'fps-forts-', tag: 'D', blurb: 'Grande vallée, capture du drapeau' }
+  forts: { name: 'les Deux Forts', icon: '🚩', file: './js/fpsforts.js', prefix: 'fps-forts-', tag: 'D', blurb: 'Grande vallée, capture du drapeau' },
+  skyridge: { name: 'Skyridge', icon: '🌉', file: './js/fpsskyridge.js', prefix: 'fps-skyridge-', tag: 'R', blurb: 'Une île coupée par un ravin' }
 };
 // the bare address (no room in it) opens the home screen, which picks a game and makes a room for it
 const HUB = !location.hash.replace(/^#/, '');
