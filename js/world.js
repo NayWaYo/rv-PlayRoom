@@ -119,9 +119,11 @@ export function nearestSpot(x, y, z) {
   }
   return best;
 }
-export function randomSpot() {
+export function randomSpot() { return spotAt(Math.random()); }
+// a standing spot picked by a number from 0 to 1: the same for everyone (the grid is)
+export function spotAt(u) {
   if (!nav) nav = buildNav();
-  return nav.main[Math.floor(Math.random() * nav.main.length)];
+  return nav.main[Math.min(nav.main.length - 1, Math.floor(u * nav.main.length))];
 }
 // a tiny binary heap of [priority, node]
 function push(h, e) {

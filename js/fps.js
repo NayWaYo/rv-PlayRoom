@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { toon, roundedBox, makeGlow } from './fx.js';
 import { randomLook, seededRand } from './avatar.js';
 import { panned } from './sfx.js';
-import { slide, fall, groundAt, ceilingAt, nearestSpot, randomSpot, findPath, TALL, LOW } from './world.js';
+import { slide, fall, groundAt, ceilingAt, nearestSpot, randomSpot, spotAt, findPath, TALL, LOW } from './world.js';
 
 const MAX_HP = 6, RESPAWN = 3, SHIELD = 1.5, RANGE = 60; // health in half hearts; RANGE: the longest shot of all
 const MAX_ARMOR = 4; // armor soaks up damage before health
@@ -20,9 +20,14 @@ const WEAPONS = {
   smg: { name: 'Mitraillette', cooldown: 0.065, mag: 32, reload: 1.7, spread: 0.05, aimSpread: 0.025, damage: 1, zoom: 1.25, auto: true, muzzle: -0.32, range: 20, kick: 0.45, climb: 0.004 },
   sniper: { name: 'Sniper', cooldown: 1.2, mag: 4, reload: 2.4, spread: 0.09, aimSpread: 0, damage: 4, zoom: 4, auto: false, muzzle: -0.86, range: 60, kick: 1.6, scope: true },
   rocket: { name: 'Lance-roquettes', cooldown: 1.0, mag: 4, heavy: true, spread: 0.01, aimSpread: 0.004, damage: 0, zoom: 1.3, auto: false, muzzle: -0.55, range: 40, kick: 2, splash: 3, splashDmg: 6 },
-  railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 }
+  railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 },
+  // the traitor mode's: a spray of `pellets`, each one a point (two in the head); deadly up close
+  shotgun: { name: 'Fusil à pompe', cooldown: 0.85, mag: 5, reload: 2.2, spread: 0.075, aimSpread: 0.055, damage: 1, zoom: 1.2, auto: false, muzzle: -0.6, range: 16, kick: 2.2, pellets: 7 }
 };
-const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun'];
+const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun', 'shotgun'];
+// the traitor mode: nobody starts armed; these lie on the floor, each taken once (the same spots for
+// everyone, drawn from the round's id)
+const LOOT = ['pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'shotgun', 'shotgun', 'shotgun', 'shotgun', 'shotgun', 'sniper', 'sniper', 'sniper'];
 const BASIC = 4; // the first four are always in your hands; the others only once picked up
 const ROCKET_SPEED = 20;
 const QUICK = [0.4, 0.6]; // the quick-reload zone, as a share of the reload time
@@ -43,10 +48,12 @@ const BOT_COLS = ['#ea6a4f', '#4fb3a9', '#8f73e3', '#5b9bd5', '#e88fb4', '#8fbf5
 const BOT_GUNS = {
   pistol: { burst: 1, gap: 0, pause: 0.9, spread: 0.07, drift: 0.006 },
   rifle: { burst: 4, gap: 0.13, pause: 1.2, spread: 0.09, drift: 0.007 },
-  smg: { burst: 6, gap: 0.08, pause: 1.3, spread: 0.11, drift: 0.009 }
+  smg: { burst: 6, gap: 0.08, pause: 1.3, spread: 0.11, drift: 0.009 },
+  sniper: { burst: 1, gap: 0, pause: 1.8, spread: 0.03, drift: 0.002 },   // the traitor mode's, picked up
+  shotgun: { burst: 1, gap: 0, pause: 1.1, spread: 0.075, drift: 0.003 }
 };
-const BOT_ARMS = Object.keys(BOT_GUNS);
-const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack' };
+const BOT_ARMS = ['pistol', 'rifle', 'smg'];
+const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack', shotgun: 'boom' };
 const PAD_COL = { health: '#ea6a4f', armor: '#5b9bd5', rocket: '#8fbf5a', railgun: '#7fe8ff' };
 // red and blue: a colour for the screen, a shirt (an index in CLOTH) for the avatars
 const TEAMS = [{ name: 'Rouges', one: 'rouge', col: '#e0474c', cloth: 11, dot: '🔴' }, { name: 'Bleus', one: 'bleu', col: '#4f7fe0', cloth: 10, dot: '🔵' }];
@@ -319,6 +326,11 @@ export function startFps(ctx) {
       [0.1, 0.12, 0.46, grey, 0, 0, -0.04], [0.03, 0.035, 0.42, teal, 0, 0.055, -0.42], [0.03, 0.035, 0.42, teal, 0, -0.035, -0.42],
       [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.3], [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.44], [0.12, 0.13, 0.035, cyan, 0, 0.01, -0.58],
       [0.06, 0.15, 0.08, orange, 0, -0.13, 0.08, -0.25], [0.09, 0.11, 0.16, purple, 0, 0, 0.26]
+    ],
+    shotgun: [
+      [0.1, 0.11, 0.34, red, 0, 0, 0], [0.07, 0.07, 0.5, grey, 0, 0.03, -0.38], [0.06, 0.05, 0.46, grey, 0, -0.03, -0.36],
+      [0.09, 0.08, 0.18, yellow, 0, -0.04, -0.3], [0.085, 0.085, 0.03, orange, 0, 0.03, -0.64],
+      [0.06, 0.15, 0.08, grey, 0, -0.12, 0.08, -0.25], [0.08, 0.12, 0.22, red, 0, -0.02, 0.27]
     ]
   };
   function model(kind, parent) {
@@ -329,10 +341,10 @@ export function startFps(ctx) {
   const models = {};
   for (const k of SLOTS) models[k] = model(k, gun);
   // long ones held a little further out than the pistol, so the stock stays out of your face
-  models.rifle.position.z = -0.16; models.sniper.position.z = -0.22; models.railgun.position.z = -0.14;
+  models.rifle.position.z = -0.16; models.sniper.position.z = -0.22; models.railgun.position.z = -0.14; models.shotgun.position.z = -0.14;
   models.rocket.position.set(0.04, 0.03, -0.1); // on the shoulder
   // a blaster in someone else's hands: grip in the right palm, barrel along the forearm
-  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08] };
+  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08], shotgun: [-0.12, 0.08] };
   function holdGun(a, kind) {
     if (a.heldKind === kind) return;
     if (a.held) a.held.parent.remove(a.held);
@@ -435,9 +447,9 @@ export function startFps(ctx) {
     return { h, d, target, head, stuck: !target && !!w };
   }
   const r2 = v => Math.round(v * 100) / 100;
-  function sendDart(o, res, from, w) {
+  function sendDart(o, res, from, w, quiet) { // quiet: a shotgun's other pellets, heard once
     const room = ctx.room();
-    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w, hs: res.head ? 1 : 0 }).catch(() => {});
+    if (room) room.emit('dart', { o: [r2(o.x), r2(o.y), r2(o.z)], h: [r2(res.h.x), r2(res.h.y), r2(res.h.z)], t: res.target, s: from, k: res.stuck ? 1 : 0, w, hs: res.head ? 1 : 0, q: quiet ? 1 : 0 }).catch(() => {});
   }
   // a rocket bursts at p: everyone close enough, and not behind a wall, takes some damage
   // (the shooter works it out when the rocket lands and tells the others on `boom`)
@@ -470,7 +482,9 @@ export function startFps(ctx) {
   const fillAmmo = () => { for (const k of SLOTS) ammo[k] = WEAPONS[k].heavy ? 0 : WEAPONS[k].mag; };
   fillAmmo();
   const W = () => WEAPONS[SLOTS[slot]];
-  const has = i => i < BASIC || SLOTS[i] === heavy;
+  const owned = new Set(); // the traitor mode: what you've picked up this round (nothing at first)
+  const has = i => huntOn() ? owned.has(SLOTS[i]) : i < BASIC || SLOTS[i] === heavy;
+  const armed = () => has(slot);
   function trigger(down) {
     if (watching || ghost()) { if (down) watchIdx++; return; } // a spectator clicks to watch someone else
     if (coarse && down && reloadUntil > now()) { quickReload(); return; } // no R on a phone: the fire button does it
@@ -480,7 +494,7 @@ export function startFps(ctx) {
   }
   let prepTold = 0;
   function shoot(charged) {
-    if (!me.entered || !alive() || watching || match.over || ctx.blocked()) return;
+    if (!me.entered || !alive() || watching || match.over || ctx.blocked() || !armed()) return;
     const t = now(), w = W(), k = SLOTS[slot];
     if (prep()) { if (t > prepTold) { prepTold = t + 2; toast('Préparation : on ne tire pas encore, éparpillez-vous !', 1500); } return; }
     if (t < nextShot || t < reloadUntil || t < switchUntil) return;
@@ -490,11 +504,12 @@ export function startFps(ctx) {
     nextShot = t + w.cooldown; ammo[k]--;
     camera.getWorldPosition(tmpO); camera.getWorldDirection(tmpD);
     const aimed = (zoom - 1) / (w.zoom - 1); // 0 from the hip, 1 fully aimed
-    const res = fire(tmpO, tmpD, ctx.myKey(), w.spread + (w.aimSpread - w.spread) * Math.max(0, Math.min(1, aimed)), w.range);
+    const spread = w.spread + (w.aimSpread - w.spread) * Math.max(0, Math.min(1, aimed));
+    const res = fire(tmpO, tmpD, ctx.myKey(), spread, w.range);
     const muzzle = new THREE.Vector3(0, 0.02, w.muzzle).applyMatrix4(gun.matrixWorld);
     if (w.scope && aimed > 0.8) muzzle.copy(tmpO).addScaledVector(tmpD, 0.3).y -= 0.08; // through the scope: the gun is out of sight
     spawnDart(muzzle, res.h, res.stuck, k);
-    if (k === 'rocket') sfx.whoosh(); else if (k === 'railgun') sfx.zap(); else if (k === 'sniper') sfx.crack(); else sfx.dart(w.auto ? 0.7 : 1);
+    if (k === 'rocket') sfx.whoosh(); else if (k === 'railgun') sfx.zap(); else if (k === 'sniper') sfx.crack(); else if (k === 'shotgun') sfx.boom(0.6); else sfx.dart(w.auto ? 0.7 : 1);
     kick = w.kick;
     if (w.climb) { me.pitch += w.climb; me.yaw += (Math.random() - 0.5) * w.climb; } // a little climb on a long burst
     if (k === 'rocket') {
@@ -503,11 +518,15 @@ export function startFps(ctx) {
       const p = res.h.clone().addScaledVector(res.d, -0.15), from = ctx.myKey();
       setTimeout(() => splash(p, from), muzzle.distanceTo(res.h) / ROCKET_SPEED * 1000);
     } else {
-      sendDart(muzzle, res, ctx.myKey(), k);
-      if (res.target) {
-        hitMarker(res.head);
-        if (res.head) { const a = [...avatars.values()].find(v => v.who === res.target); if (a) ctx.react(a, 'shock', 0.6); }
-        damage(res.target, ctx.myKey(), w.damage * (res.head ? 2 : 1), res.head); // the head counts double
+      for (let p = 0; p < (w.pellets || 1); p++) { // a shotgun fires a spray, each pellet on its own
+        const r = p ? fire(tmpO, tmpD, ctx.myKey(), spread, w.range) : res;
+        if (p) spawnDart(muzzle, r.h, r.stuck, k);
+        sendDart(muzzle, r, ctx.myKey(), k, p > 0);
+        if (r.target) {
+          hitMarker(r.head);
+          if (r.head) { const a = [...avatars.values()].find(v => v.who === r.target); if (a) ctx.react(a, 'shock', 0.6); }
+          damage(r.target, ctx.myKey(), w.damage * (r.head ? 2 : 1), r.head); // the head counts double
+        }
       }
     }
     if (ammo[k] === 0) {
@@ -528,7 +547,7 @@ export function startFps(ctx) {
   function reload() {
     const k = SLOTS[slot], w = W();
     if (reloadUntil > now()) { quickReload(); return; }
-    if (w.heavy || ammo[k] === w.mag || !alive()) return;
+    if (w.heavy || ammo[k] === w.mag || !alive() || !armed()) return;
     reloadLen = w.reload; reloadTry = 0; sfx.reload();
     finishReloadIn(w.reload);
     renderBar();
@@ -587,7 +606,7 @@ export function startFps(ctx) {
     const fm = match.id ? [match.id, match.mode, match.end, match.goal, match.start, match.over ? 1 : 0, match.by, match.det] : null;
     // the bodies found in this round, for whoever arrives: [round, id, role, id, role…]
     const ft = match.mode === 'traitor' && found.size ? [match.id, ...[...found].flat()] : null;
-    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot, team, watching ? 1 : 0], fm, fc: flagsPresence(), ft }).catch(() => {});
+    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, armed() ? slot : -1, team, watching ? 1 : 0], fm, fc: flagsPresence(), ft, fl: lootPresence() }).catch(() => {});
   }
   // a dart landed on `target`, fired by `from` from `o`: only the target's owner applies it
   function damage(target, from, dmg, head, o) {
@@ -689,7 +708,7 @@ export function startFps(ctx) {
     bots.set(id, {
       id, nick: '🤖 ' + BOT_NAMES[n % BOT_NAMES.length], col: BOT_COLS[n % BOT_COLS.length], seed, look: randomLook(seededRand(seed)),
       x, z, y, vy: 0, yaw: 0, crouch: false, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
-      weapon: BOT_ARMS[n % 3], burst: 0, armor: 0, team: tm, role: '', allies: new Set(), enemies: new Set(),
+      weapon: BOT_ARMS[n % 3], arm: BOT_ARMS[n % 3], burst: 0, armor: 0, team: tm, role: '', allies: new Set(), enemies: new Set(),
       path: [], step: 0, repath: 0, think: 0, target: null, lastSeen: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0,
       stuckAt: 0, stuckX: x, stuckZ: z
     });
@@ -715,7 +734,7 @@ export function startFps(ctx) {
   }
   // walk somewhere: a friend's last known spot, or anywhere at all
   function planWalk(b, t) {
-    const goal = ctfOn() && b.team >= 0 ? ctfGoal(b) : null; // capture the flag: where the flags send this bot
+    const goal = huntOn() && !b.weapon ? lootGoal(b) : ctfOn() && b.team >= 0 ? ctfGoal(b) : null; // the nearest weapon on the floor, or where the flags send this bot
     const to = goal ? nearestSpot(goal.x, goal.y, goal.z) : b.lastSeen && t - b.lastSeen.t < 8 ? nearestSpot(b.lastSeen.x, b.lastSeen.y, b.lastSeen.z) : randomSpot();
     b.path = findPath(nearestSpot(b.x, b.y, b.z), to) || []; b.step = 1;
     b.repath = t + (b.path.length ? (goal ? 2.5 : 6 + Math.random() * 4) : 1); // no way there: try elsewhere in a second
@@ -739,6 +758,7 @@ export function startFps(ctx) {
         if (d < bd && canSee(botO, f.x, f.base, f.z, f.height) && (!huntOn() || hostile(b, f))) { bd = d; best = f.id; }
       }
       if (best && huntOn() && b.role === 't') b.enemies.add(best); // a traitor that has started finishes the job
+      if (huntOn() && !b.weapon) best = null; // empty-handed: pick something up first
       if (best !== b.target) b.spotted = t; // a moment to react before the first shot
       if (!best && b.target) b.repath = 0; // lost them: go and look where they were
       b.target = best;
@@ -753,7 +773,7 @@ export function startFps(ctx) {
       face = Math.atan2(-dx, -dz);
       b.pitch = Math.atan2(f.base + f.height * 0.6 - botO.y, d); // arms follow the aim
       if (t > b.strafeUntil) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeUntil = t + 0.8 + Math.random() * 1.4; }
-      const fwd = Math.abs(f.base - b.y) > 1 ? 0 : d > 7 ? 1 : d < 3 ? -1 : 0;
+      const fwd = Math.abs(f.base - b.y) > 1 ? 0 : d > (b.weapon === 'shotgun' ? 4 : 7) ? 1 : d < (b.weapon === 'shotgun' ? 1.5 : 3) ? -1 : 0; // a shotgun closes in
       mx = dx / d * fwd + (-dz / d) * b.strafe * 0.8; mz = dz / d * fwd + (dx / d) * b.strafe * 0.8;
       // shoot when roughly facing them
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
@@ -766,11 +786,14 @@ export function startFps(ctx) {
         const aimY = Math.random() < L.head ? f.head.y : f.base + f.height * 0.6;
         const dir = new THREE.Vector3(f.x - b.x, aimY - botO.y, f.z - b.z).normalize();
         const o = botO.clone().addScaledVector(dir, 0.4);
-        const res = fire(o, dir, b.id, (g.spread + d * g.drift) * L.spread, WEAPONS[b.weapon].range);
-        spawnDart(o, res.h, res.stuck);
-        playNear(o, 'dart');
-        sendDart(o, res, b.id, b.weapon);
-        if (res.target) damage(res.target, b.id, WEAPONS[b.weapon].damage * (res.head ? 2 : 1), res.head, o);
+        const w = WEAPONS[b.weapon];
+        playNear(o, SHOT_SFX[b.weapon] || 'dart');
+        for (let p = 0; p < (w.pellets || 1); p++) {
+          const res = fire(o, dir, b.id, (g.spread + d * g.drift) * L.spread, w.range);
+          spawnDart(o, res.h, res.stuck);
+          sendDart(o, res, b.id, b.weapon, p > 0);
+          if (res.target) damage(res.target, b.id, w.damage * (res.head ? 2 : 1), res.head, o);
+        }
       }
       if (Math.random() < dt * 0.25 && b.vy === 0 && ceilingAt(b.x, b.z, b.y) > b.y + 3) b.vy = 3.6; // the odd hop
     } else {
@@ -896,6 +919,8 @@ export function startFps(ctx) {
   function updatePickups(dt) {
     const t = now();
     for (const p of pickups) {
+      p.g.visible = !(huntOn() && WEAPONS[p.kind]); // the traitor mode: no rocket launcher, no railgun
+      if (!p.g.visible) continue;
       const up = t >= p.back;
       p.item.visible = up; p.glow.material.opacity = up ? 0.55 : 0.12;
       if (!up) continue;
@@ -911,6 +936,71 @@ export function startFps(ctx) {
         if (p.kind === 'armor' && b.armor < MAX_ARMOR) { b.armor = MAX_ARMOR; takePickup(p, t); break; }
       }
     }
+  }
+
+  /* ---------- the traitor mode: weapons on the floor ---------- */
+  // nobody starts armed: pistols, shotguns and snipers lie about the map, at spots drawn from the
+  // round's id (the same for everyone); whoever takes one says so on `loot`, and it's gone for the round
+  let loot = [], lootFor = '';
+  function layLoot() {
+    for (const l of loot) scene.remove(l.g);
+    loot = []; lootFor = match.mode === 'traitor' ? match.id : '';
+    if (!lootFor) return;
+    let seed = 0; for (const c of match.id) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+    const rnd = seededRand(seed);
+    for (const kind of LOOT) {
+      let s = null;
+      for (let k = 0; k < 40 && !s; k++) {
+        const c = spotAt(rnd()), out = rnd() > 0.35; // under a roof (a ceiling over it) more often than outside
+        if (c && !(out && ceilingAt(c.x, c.z, c.y) === Infinity && k < 30) && !loot.some(l => Math.hypot(l.x - c.x, l.z - c.z) < 3)) s = c;
+      }
+      if (!s) continue;
+      const g = new THREE.Group(), item = new THREE.Group();
+      g.position.set(s.x, s.y, s.z);
+      model(kind, item); item.position.y = 0.4; item.rotation.z = 0.25; g.add(item);
+      const glow = makeGlow('#fbf3e4', 1.2, 0.4); glow.position.y = 0.4; g.add(glow);
+      g.visible = false; scene.add(g);
+      loot.push({ i: loot.length, kind, x: s.x, y: s.y, z: s.z, g, item, taken: false });
+    }
+  }
+  function takeLoot(l) {
+    l.taken = true;
+    const room = ctx.room(); if (room) room.emit('loot', { m: match.id, i: l.i }).catch(() => {});
+  }
+  function gotWeapon(kind) {
+    owned.add(kind); ammo[kind] = WEAPONS[kind].mag;
+    const i = SLOTS.indexOf(kind);
+    if (owned.size === 1) slot = i; else select(i); // the first one straight into your hands
+    sfx.pickup();
+    toast(`${WEAPONS[kind].name} ramassé${coarse ? '' : ` (touche ${ctx.keyLabel(kind === 'pistol' ? 'weapon1' : kind === 'shotgun' ? 'weapon2' : 'weapon4')})`}`, 1800);
+    pushMine(); renderBar();
+  }
+  function updateLoot(dt) {
+    if (lootFor !== (match.mode === 'traitor' ? match.id : '')) layLoot();
+    const on = huntOn();
+    for (const l of loot) {
+      l.g.visible = on && !l.taken;
+      if (!l.g.visible) continue;
+      l.item.rotation.y += dt * 1.5;
+      const near = (x, y, z) => Math.hypot(x - l.x, z - l.z) < 0.9 && Math.abs(y - l.y) < 1;
+      // you take one you don't have yet; a bot, one if its hands are empty
+      if (me.entered && alive() && !watching && !owned.has(l.kind) && near(me.x, me.jy, me.z)) { takeLoot(l); gotWeapon(l.kind); continue; }
+      for (const b of bots.values()) if (b.hp > 0 && !b.weapon && near(b.x, b.y, b.z)) { takeLoot(l); b.weapon = l.kind; b.burst = 0; b.repath = 0; break; }
+    }
+  }
+  // where an empty-handed bot heads: the nearest weapon still lying about
+  function lootGoal(b) {
+    let best = null, bd = Infinity;
+    for (const l of loot) { if (l.taken) continue; const d = Math.hypot(l.x - b.x, l.z - b.z) + Math.abs(l.y - b.y) * 3; if (d < bd) { bd = d; best = l; } }
+    return best;
+  }
+  // for presence: [round, the weapons taken…]
+  function lootPresence() { return match.mode === 'traitor' && loot.some(l => l.taken) ? [match.id, ...loot.filter(l => l.taken).map(l => l.i)] : null; }
+  function onLoot(m) {
+    if (m.isMe) return;
+    const d = m.data || {}, l = d.m === match.id && loot[d.i | 0];
+    if (!l || l.taken) return;
+    l.taken = true; playNear(l.g.position, 'pickup', 8);
   }
 
   /* ---------- jump pads ---------- */
@@ -1215,9 +1305,10 @@ export function startFps(ctx) {
   function readFound() {
     if (match.mode !== 'traitor') return;
     for (const p of ctx.peers()) {
-      const f = p.presence && p.presence.ft;
-      if (p.sameTab || !Array.isArray(f) || f[0] !== match.id) continue;
-      for (let i = 1; i + 1 < f.length && i < 81; i += 2) if (typeof f[i] === 'string' && Object.hasOwn(ROLES, f[i + 1])) found.set(f[i], f[i + 1]);
+      if (p.sameTab || !p.presence) continue;
+      const f = p.presence.ft, l = p.presence.fl; // and the weapons already taken
+      if (Array.isArray(f) && f[0] === match.id) for (let i = 1; i + 1 < f.length && i < 81; i += 2) if (typeof f[i] === 'string' && Object.hasOwn(ROLES, f[i + 1])) found.set(f[i], f[i + 1]);
+      if (Array.isArray(l) && l[0] === match.id) for (const i of l.slice(1, 40)) if (loot[i | 0]) loot[i | 0].taken = true;
     }
   }
   // a mark over a head: the investigator's for everyone, the fellow traitors' for a traitor, the
@@ -1258,7 +1349,7 @@ export function startFps(ctx) {
     if (o.distanceTo(h) > RANGE + 1) return;
     if (!Object.hasOwn(WEAPONS, d.w)) d.w = 'pistol';
     spawnDart(o, h, d.k === 1, d.w);
-    playNear(o, SHOT_SFX[d.w] || 'dart', d.w === 'railgun' || d.w === 'sniper' ? 30 : 12);
+    if (d.q !== 1) playNear(o, SHOT_SFX[d.w] || 'dart', d.w === 'railgun' || d.w === 'sniper' || d.w === 'shotgun' ? 30 : 12);
     if (typeof d.t === 'string' && shooter) damage(d.t, shooter, WEAPONS[d.w].damage * (d.hs === 1 ? 2 : 1), d.hs === 1, o);
   }
   function onKo(m) {
@@ -1276,7 +1367,7 @@ export function startFps(ctx) {
     const owner = m.by;
     for (const r of m.data.slice(0, 12)) {
       if (!Array.isArray(r) || typeof r[0] !== 'string' || !r[0].startsWith('bot:' + owner + ':')) continue;
-      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, weapon: BOT_GUNS[SLOTS[r[13]]] ? SLOTS[r[13]] : 'pistol', pitch: Math.max(-1.2, Math.min(1.2, +r[14] || 0)), team: r[15] === 0 || r[15] === 1 ? r[15] : -1, seen: now(), owner });
+      remoteBots.set(r[0], { id: r[0], nick: String(r[1]).slice(0, 20), col: /^#[0-9a-f]{6}$/i.test(r[2]) ? r[2] : '#f4b63f', seed: r[3] | 0, x: +r[4] || 0, z: +r[5] || 0, yaw: +r[6] || 0, y: +r[7] || 0, hp: r[8] | 0, kills: r[9] | 0, deaths: r[10] | 0, shield: r[11] === 1, crouch: r[12] === 1, weapon: r[13] === -1 ? null : BOT_GUNS[SLOTS[r[13]]] ? SLOTS[r[13]] : 'pistol', pitch: Math.max(-1.2, Math.min(1.2, +r[14] || 0)), team: r[15] === 0 || r[15] === 1 ? r[15] : -1, seen: now(), owner });
     }
   }
   function onBoom(m) {
@@ -1342,7 +1433,7 @@ export function startFps(ctx) {
     p.back = now() + PICKUPS[p.kind].every;
   }
   const room0 = ctx.room();
-  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap], ['body', onBody]]) room0.on(topic, fn, () => {});
+  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap], ['body', onBody], ['loot', onLoot]]) room0.on(topic, fn, () => {});
 
   /* ---------- rounds: starting, joining late, ending ---------- */
   let setup = { mode: 'ffa', end: 'score', score: 15, caps: 3, time: 5 }; // what the round window shows
@@ -1433,11 +1524,12 @@ export function startFps(ctx) {
       role = ''; allies = new Set(); result = null; found.clear(); refGone = 0;
       if (!local) roles = null;
       for (const b of bots.values()) { b.role = ''; b.allies = new Set(); b.enemies = new Set(); }
+      owned.clear(); // the traitor mode: empty-handed at first
     }
     if (fresh) {
       kills = deaths = 0;
       const t0 = now();
-      for (const b of bots.values()) { b.kills = b.deaths = 0; respawnBot(b, t0); }
+      for (const b of bots.values()) { b.kills = b.deaths = 0; b.weapon = m.mode === 'traitor' ? null : b.arm; respawnBot(b, t0); }
       if (me.entered) { watching = false; respawnMe(); }
       sfx.whistle();
       const who = by && by !== ctx.myKey() ? nameOf(by) + ' lance' : 'Nouvelle manche :';
@@ -1511,6 +1603,8 @@ export function startFps(ctx) {
     if (match.over) return;
     match.over = Date.now();
     triggerDown = false; aiming = false; chargeAt = 0;
+    for (const b of bots.values()) b.weapon = b.arm; // after the traitor mode, armed again
+    if (!has(slot)) { slot = 0; pushMine(); }      // (a shotgun stays behind)
     if (tell) { const room = ctx.room(); if (room) room.emit('mend', { id: match.id, ...(match.mode === 'traitor' && result ? { w: result.w, r: result.r } : {}) }).catch(() => {}); }
     const rows = standings().filter(r => !r.spec);
     let title, sub, won = false;
@@ -1569,7 +1663,7 @@ export function startFps(ctx) {
       if (setup.mode === 'ctf') body.append(el('p', 'muted', 'Prends le drapeau adverse et ramène-le à ta base pendant que le tien y est. S\'il tombe, touche-le pour le ramener chez toi.'));
       if (setup.mode === 'traitor') {
         body.append(el('p', 'muted', 'Chacun reçoit un rôle secret. Les Traîtres (un sur quatre) se connaissent et doivent éliminer tous les autres. Les Innocents doivent les démasquer, ou tenir jusqu\'à la fin du temps. L\'Enquêteur (à partir de 5 joueurs) est connu de tous.'));
-        body.append(el('p', 'muted', 'On ne réapparaît pas avant la fin. Approche-toi d\'un corps pour savoir qui c\'était. Les morts ne parlent plus aux vivants. Il faut au moins 3 joueurs, robots compris.'));
+        body.append(el('p', 'muted', 'Personne n\'est armé au départ : pistolets, fusils à pompe et snipers sont à ramasser par terre. On ne réapparaît pas avant la fin. Approche-toi d\'un corps pour savoir qui c\'était. Les morts ne parlent plus aux vivants. Il faut au moins 3 joueurs, robots compris.'));
         select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
       } else {
         select('Fin de la manche', setup.end, [['score', 'Score à atteindre'], ['time', 'Chronomètre'], ['free', 'Sans fin']], v => { setup.end = v; });
@@ -1642,7 +1736,7 @@ export function startFps(ctx) {
     for (let i = 0; i < MAX_HP / 2; i++) hearts += hp >= i * 2 + 2 ? '❤️' : hp === i * 2 + 1 ? '💔' : '🤍';
     hpEl.textContent = hearts + '🛡️'.repeat(Math.ceil(armor / 2));
     const reloading = now() < reloadUntil, w = W(), k = SLOTS[slot];
-    ammoEl.textContent = `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : w.heavy ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
+    ammoEl.textContent = !armed() ? 'Mains vides · ramasse une arme' : `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : w.heavy ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
     ammoEl.classList.toggle('heavy', !!w.heavy);
     ammoEl.classList.toggle('low', !reloading && ammo[k] <= w.mag / 4);
     teamEl.hidden = !(teamsOn() && team >= 0) && !(huntOn() && role);
@@ -1854,7 +1948,7 @@ export function startFps(ctx) {
     const fp = Array.isArray(pr.fp) ? pr.fp : null;
     a.fpDown = !!fp && (fp[0] | 0) <= 0;
     a.fpShield = !!fp && fp[3] === 1;
-    a.fpWeapon = fp && SLOTS[fp[4]] ? SLOTS[fp[4]] : 'pistol';
+    a.fpWeapon = fp && fp[4] === -1 ? null : fp && SLOTS[fp[4]] ? SLOTS[fp[4]] : 'pistol'; // -1: empty-handed
     a.fpTeam = teamsOn() && fp && (fp[5] === 0 || fp[5] === 1) ? fp[5] : -1;
     a.fpSpec = !!fp && fp[6] === 1;
     a.aimPitch = a.pitch || 0;
@@ -1885,7 +1979,11 @@ export function startFps(ctx) {
       a.g.rotation.x = a.fpFall * Math.PI / 2;
       if (a.fpShield && !a.fpDown) a.g.visible = a.g.visible && Math.floor(t * 8) % 2 === 0;
       // everyone holds their blaster, aiming where they look
-      if (a.who && a.seat < 0) { holdGun(a, a.fpWeapon || 'pistol'); a.armed = !a.fpDown; }
+      if (a.who && a.seat < 0) {
+        if (a.fpWeapon) holdGun(a, a.fpWeapon);
+        if (a.held) a.held.visible = !!a.fpWeapon;
+        a.armed = !a.fpDown && !!a.fpWeapon;
+      }
       markAvatar(a);
     }
     // aiming: zoom in smoothly, bring the blaster under the crosshair
@@ -1902,7 +2000,7 @@ export function startFps(ctx) {
     const scoped = !!w.scope && aimed > 0.85; // looking through the sniper's scope
     const playing = me.entered && alive() && !watching;
     scopeEl.classList.toggle('on', scoped && playing);
-    gun.visible = playing && !scoped;
+    gun.visible = playing && !scoped && armed();
     // bottom right of the view, whatever the screen shape (a phone held upright is narrow)
     const hh = -gunRest.z * Math.tan(FOV * Math.PI / 360), hw = hh * camera.aspect;
     const s = Math.min(1, camera.aspect * 1.3);
@@ -1918,6 +2016,7 @@ export function startFps(ctx) {
     if (triggerDown && w.auto) shoot();
     updateDarts(dt);
     updatePickups(dt);
+    updateLoot(dt);
     updatePads(dt);
     if ((watching || ghost()) && me.entered) watchCamera(dt);
     updateDirs();
@@ -1929,7 +2028,8 @@ export function startFps(ctx) {
     if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); readFound(); findBodies(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
   }
   return {
-    update, syncAvatars, peerAvatar, dress, trigger, reload, select, aim, scores, join, fillMenu,
+    update, syncAvatars, peerAvatar, dress, trigger, reload, aim, scores, join, fillMenu,
+    select: i => select(huntOn() && i === 1 ? SLOTS.indexOf('shotgun') : i), // the traitor mode: 2 is the shotgun
     cycle, silenced,
     watching: () => watching,
     selectHeavy() { if (heavy) select(SLOTS.indexOf(heavy)); },
