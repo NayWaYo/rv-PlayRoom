@@ -92,6 +92,16 @@ kbd{font-family:var(--display);background:var(--cream);color:var(--night);border
 #moves .step output,#bjBar .step output{font-size:17px;min-width:3.4ch}
 #moves .step button,#bjBar .step button{width:30px;height:30px;font-size:18px}
 #bjBar .bjcards{flex-basis:100%;display:flex;justify-content:center}
+/* blackjack: its own plate, first in the column so it sits above "se lever", with big buttons */
+#bjBar{order:-1;width:min(540px,100%);background:rgba(28,21,36,.9);border:2px solid #2f8a5f;border-radius:20px;padding:10px 16px;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#bjBar .info{font-size:15px}
+#bjBar .btn{padding:12px 26px;font-size:19px;min-width:120px}
+#bjBar .btn.fold{background:#4fb3a9;color:#0f2a27;box-shadow:0 3px 0 #2f7d75}
+#bjBar .step{padding:4px}
+#bjBar .step button{width:40px;height:40px;font-size:22px}
+#bjBar .step output{font-size:21px;min-width:3.6ch}
+/* a phone: "Se lever" is the round button down on the right, so the plate stands clear above it */
+@media (pointer:coarse){ #bjBar{margin-bottom:calc(84px + env(safe-area-inset-bottom,0px));width:calc(100% - 112px);padding:8px 10px} #bjBar .btn{min-width:0;padding:11px 16px;font-size:18px} #bjBar .info{font-size:13px} } /* clear of the buttons down both sides */
 .card.mini{width:42px;height:60px;margin-left:-12px;cursor:default}
 .card.mini:first-child{margin-left:0}
 .card.mini .r{font-size:15px;left:5px;top:4px}.card.mini .m{font-size:12px;top:20px;left:4px}.card.mini .s{font-size:18px;bottom:6px}
