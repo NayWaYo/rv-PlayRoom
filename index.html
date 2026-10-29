@@ -102,6 +102,31 @@ kbd{font-family:var(--display);background:var(--cream);color:var(--night);border
 #bjBar .step output{font-size:21px;min-width:3.6ch}
 /* a phone: "Se lever" is the round button down on the right, so the plate stands clear above it */
 @media (pointer:coarse){ #bjBar{margin-bottom:calc(84px + env(safe-area-inset-bottom,0px));width:calc(100% - 112px);padding:8px 10px} #bjBar .btn{min-width:0;padding:11px 16px;font-size:18px} #bjBar .info{font-size:13px} } /* clear of the buttons down both sides */
+/* roulette: the same plate as the blackjack, its bets as a grid of big buttons */
+#rtBar{order:-1;pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;width:min(540px,100%);background:rgba(28,21,36,.9);border:2px solid #b8323f;border-radius:20px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#rtBar .info{flex-basis:100%;text-align:center;font-weight:800;font-size:14px;color:var(--cream);text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#rtBar .info b{color:var(--marigold)}
+#rtBar .btn{padding:11px 14px;font-size:17px;min-height:46px}
+#rtBar .btn.fold{background:var(--plum-2);color:var(--cream);box-shadow:0 3px 0 #1a1222}
+#rtBar .btn.go{background:var(--ok);color:#10260f;box-shadow:0 3px 0 #4f8f4b}
+#rtBar .rbet{background:var(--plum-2);color:var(--cream);box-shadow:0 3px 0 #1a1222}
+#rtBar .rbet.red{background:#cf343c;color:#fff;box-shadow:0 3px 0 #8a1f26}
+#rtBar .rbet.black{background:#232838;color:#fff;box-shadow:0 3px 0 #0b0d14;border:1px solid var(--line)}
+.rgrid{flex-basis:100%;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.rgrid.three{grid-template-columns:repeat(3,1fr)}
+.rchips,.rnumrow{flex-basis:100%;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.rchips span{font-weight:800;font-size:13px;color:var(--muted)}
+.rchip{width:52px;height:52px;border-radius:50%;border:4px dashed rgba(255,255,255,.7);background:#ea6a4f;color:#fff;font-family:var(--display);font-weight:800;font-size:17px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.4)}
+.rchip:nth-of-type(2){background:#4fb3a9}.rchip:nth-of-type(3){background:#8f73e3}
+.rchip.on{outline:4px solid var(--marigold);outline-offset:2px;transform:scale(1.08)}
+.rchip:disabled{opacity:.4;cursor:not-allowed}
+#rtBar .step{background:rgba(28,21,36,.86);border:1px solid var(--line);border-radius:999px;padding:4px}
+#rtBar .step button{width:42px;height:42px;font-size:22px}
+#rtBar .step output{min-width:3.2ch;text-align:center}
+.rnum{display:inline-block;min-width:1.9em;padding:1px 5px;border-radius:7px;color:#fff;font-family:var(--display);font-weight:800;text-align:center}
+.rnum.red{background:#cf343c}.rnum.black{background:#232838;border:1px solid var(--line)}.rnum.green{background:#1d8650}
+#rtBar .step .rnum{font-size:20px}
+@media (pointer:coarse){ #rtBar{margin-bottom:calc(84px + env(safe-area-inset-bottom,0px));width:calc(100% - 112px);padding:8px} #rtBar .btn{font-size:15px;padding:10px 8px} #rtBar .info{font-size:12px} .rchip{width:46px;height:46px;font-size:15px} }
 .card.mini{width:42px;height:60px;margin-left:-12px;cursor:default}
 .card.mini:first-child{margin-left:0}
 .card.mini .r{font-size:15px;left:5px;top:4px}.card.mini .m{font-size:12px;top:20px;left:4px}.card.mini .s{font-size:18px;bottom:6px}
@@ -342,6 +367,7 @@ table.res tr.win td{color:var(--marigold)}
     <div id="prompt" hidden></div>
     <button id="passBtn" class="btn" hidden></button>
     <div id="bjBar" hidden></div>
+    <div id="rtBar" hidden></div>
     <div id="moves" hidden></div>
     <div id="hand" hidden><div class="inner"></div></div>
   </div>
@@ -384,7 +410,7 @@ table.res tr.win td{color:var(--marigold)}
 <div id="intro">
   <form class="intro-card" id="introForm">
     <h1>Salon <span>Chill</span></h1>
-    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis : Payoo, Président, Poker ou Texas Hold'em. Des robots peuvent compléter la table, et un croupier tient le blackjack dans un coin du salon.</p>
+    <p class="lede">Entre dans le salon, prends une chaise autour de la table et lance une partie avec tes amis : Payoo, Président, Poker ou Texas Hold'em. Des robots peuvent compléter la table, et des croupiers tiennent le blackjack et la roulette dans les coins du salon.</p>
     <label class="field"><span>Ton pseudo</span><input id="nick" maxlength="14" autocomplete="off" placeholder="Ton pseudo" required></label>
     <div class="field"><span>Ta couleur</span><div class="swatches" id="swatches"></div></div>
     <div class="help" id="help">
@@ -425,8 +451,8 @@ table.res tr.win td{color:var(--marigold)}
           <div class="mode-art" aria-hidden="true">🃏</div>
           <h2 id="hubSalonTitle"><span class="kind">Jeux de cartes</span>Salon Chill</h2>
         </div>
-        <p>Payoo, Président, Poker ou Texas Hold'em autour de la table, un blackjack avec son croupier dans le coin (jetons fictifs), et un salon avec cheminée à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
-        <ul class="tags"><li>5 jeux</li><li>2 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
+        <p>Payoo, Président, Poker ou Texas Hold'em autour de la table, un blackjack et une roulette avec leurs croupiers (jetons fictifs), et un salon avec cheminée à explorer : on se parle au micro, on se lance des coussins et des boules de papier.</p>
+        <ul class="tags"><li>6 jeux</li><li>2 à 8 joueurs</li><li>Robots pour compléter</li><li>Tranquille</li></ul>
         <button class="btn" id="hubSalon" type="button">Créer un salon</button>
       </section>
       <section class="mode fps" aria-labelledby="hubFpsTitle">
@@ -574,6 +600,22 @@ table.res tr.win td{color:var(--marigold)}
     </ul>
     <p class="muted">Tu as 30 secondes pour jouer ta main, sinon tu restes.</p>
    </section>
+   <section data-g="roulette" hidden>
+    <p><b>La roulette, dans le coin du salon près de la porte, avec sa croupière.</b> Roulette européenne : 37 cases, de 0 à 36, un seul zéro. Assieds-toi sur un tabouret (jusqu'à 5 joueurs) : chacun reçoit 1000 jetons <b>fictifs</b> (aucun argent réel), à part de ceux du blackjack ; à court de jetons, la croupière t'en prête 1000.</p>
+    <h3>Faites vos jeux</h3>
+    <ul>
+      <li>Choisis un jeton (10, 50 ou 100), puis touche une mise : autant de fois que tu veux, jusqu'à 1000 jetons par tour.</li>
+      <li>La roue part 20 secondes après la première mise, ou dès que tous les joueurs assis ont misé et touché « C'est parti ! ». « Effacer » reprend tes mises tant que la roue n'est pas partie.</li>
+      <li>Puis <b>Rien ne va plus</b> : la bille tourne et s'arrête sur une case, la même pour tout le monde.</li>
+    </ul>
+    <h3>Les mises et ce qu'elles rapportent</h3>
+    <ul>
+      <li><b>Plein</b> (un numéro, de 0 à 36) : 35 fois la mise.</li>
+      <li><b>Douzaine</b> (1-12, 13-24, 25-36) : 2 fois la mise.</li>
+      <li><b>Rouge</b> ou <b>Noir</b>, <b>Pair</b> ou <b>Impair</b>, <b>Manque</b> (1-18) ou <b>Passe</b> (19-36) : 1 fois la mise.</li>
+    </ul>
+    <p class="muted">Quand le 0 sort, seules les mises en plein sur le 0 gagnent.</p>
+   </section>
   </div>
 </dialog>
 
@@ -593,26 +635,27 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-16",
-  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-16",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-16",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-16",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-16",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-16",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-16",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-16",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-16",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-16",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-16",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-16",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-16",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-16",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-16",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-16",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-16",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-16",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-16",
-  "./js/world.js": "./js/world.js?v=2026-10-29-16"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-18",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-18",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-18",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-18",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-18",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-18",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-18",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-18",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-18",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-18",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-18",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-18",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-18",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-18",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-18",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-18",
+  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-18",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-18",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-18",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-18",
+  "./js/world.js": "./js/world.js?v=2026-10-29-18"
 } }
 </script>
 <script>
@@ -766,6 +809,8 @@ import { setWorld, groundAt, ceilingAt, slide, fall, TALL, LOW } from './js/worl
 import { key, label, actionFor, mouse, openControls, onChange as onControlsChange } from './js/controls.js';
 import { GAMES, deck52, bestOf, handName, presValue, titleAt } from './js/cards.js';
 import * as BJ from './js/blackjack.js';
+import * as RT from './js/roulette.js';
+const RT_SEATS = RT.RT_SEATS;
 const BJ_SEATS = BJ.BJ_SEATS;
 const keysReady = initKeys().catch(() => null);
 (() => {
@@ -803,11 +848,17 @@ const seatXZ = (i, R) => ({ x: Math.sin(ang(i)) * R, z: Math.cos(ang(i)) * R });
 // the blackjack table in the front-left corner: a half-moon turned toward the room, the dealer
 // behind its straight edge, five stools on the curve (seats 8 to 12, after the main table's)
 const BJX = -3.5, BJZ = 3.5, BJ_R = 1.0, STOOL_R = 1.42, BJ_FACE = Math.atan2(-BJX, -BJZ);
-const ALL_SEATS = SEATS + BJ_SEATS;
-const isStool = s => s >= SEATS && s < ALL_SEATS;
+// the roulette table in the front-right corner: a round table with the wheel in its middle,
+// the dealer on the corner side, five stools toward the room (seats 13 to 17)
+const RTX = 3.5, RTZ = 3.6, RT_R = 1.0, RT_FACE = Math.atan2(-RTX, -RTZ), RT0 = SEATS + BJ_SEATS;
+const ALL_SEATS = RT0 + RT_SEATS;
+const isStool = s => s >= SEATS && s < RT0; // a blackjack stool
+const isRtSeat = s => s >= RT0 && s < ALL_SEATS;
 const stoolAng = k => BJ_FACE + (k - 2) * 0.48;
+const rtAng = k => RT_FACE + (k - 2) * 0.48;
 // where seat i is (x, z, a bit further out with `extra`) and which way it looks
 function seatSpot(i, extra = 0) {
+  if (isRtSeat(i)) { const b = rtAng(i - RT0), r = STOOL_R + extra; return { x: RTX + Math.sin(b) * r, z: RTZ + Math.cos(b) * r, yaw: b }; }
   if (!isStool(i)) { const p = seatXZ(i, CHAIR_R + extra); return { x: p.x, z: p.z, yaw: ang(i) }; }
   const b = stoolAng(i - SEATS), r = STOOL_R + extra;
   return { x: BJX + Math.sin(b) * r, z: BJZ + Math.cos(b) * r, yaw: b };
@@ -1363,6 +1414,56 @@ const bjLight = new THREE.PointLight(0xffd9a0, 3, 0, 2); bjLight.position.set(BJ
 // the dealer: a fixed look, a bow tie colour, standing behind the table
 const DEALER_LOOK = (() => { const l = randomLook(seededRand(21)); l.tc = CLOTH.indexOf('#2b2036'); l.hat = 0; return cleanLook(l); })();
 const DEALER_POS = (() => { const p = bjDir(BJ_FACE + Math.PI, 0.42); return { x: BJX + p.x, z: BJZ + p.z }; })();
+
+// the roulette table: a round table, the wheel sunk in its middle, a red lamp over it
+const rtT = new THREE.Group(); rtT.position.set(RTX, 0, RTZ); scene.add(rtT);
+mesh(new THREE.CylinderGeometry(RT_R, RT_R * 0.97, 0.09, 48), wood, 0, TOP_Y - 0.045, 0, rtT);
+const rtFeltTex = canvasTex(512, 512, (x, w) => {
+  const c = w / 2;
+  x.fillStyle = '#1f6a7a'; x.fillRect(0, 0, w, w);
+  for (let i = 0; i < 2000; i++) { x.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)'; x.fillRect(Math.random() * w, Math.random() * w, 2, 2); }
+  x.strokeStyle = 'rgba(244,182,63,.7)'; x.lineWidth = 5; x.beginPath(); x.arc(c, c, 230, 0, Math.PI * 2); x.stroke();
+});
+mesh(new THREE.CylinderGeometry(RT_R - 0.08, RT_R - 0.08, 0.012, 48), noOutline(toon('#ffffff', { map: rtFeltTex })), 0, TOP_Y + 0.002, 0, rtT);
+for (const a of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) { const p = bjDir(a, 0.45); mesh(new THREE.CylinderGeometry(0.07, 0.1, TOP_Y - 0.08, 14), woodDark, p.x, (TOP_Y - 0.08) / 2, p.z, rtT); }
+// the wheel: a wooden bowl, the pockets on a disc that turns, a little turret, the ball
+const WHEEL_R = 0.46, POCKET_R = 0.33, RIM_R = 0.42;
+mesh(new THREE.CylinderGeometry(WHEEL_R + 0.05, WHEEL_R + 0.07, 0.08, 48), woodDark, 0, TOP_Y + 0.04, 0, rtT);
+const rimRing = mesh(new THREE.TorusGeometry(WHEEL_R + 0.02, 0.025, 8, 48), toon('#e0c08f'), 0, TOP_Y + 0.085, 0, rtT); rimRing.rotation.x = Math.PI / 2;
+const wheelTex = canvasTex(512, 512, (x, w) => {
+  const c = w / 2, n = RT.WHEEL.length, step = Math.PI * 2 / n;
+  x.fillStyle = '#5e3d29'; x.fillRect(0, 0, w, w);
+  RT.WHEEL.forEach((num, k) => {
+    const a = k * step;
+    x.fillStyle = { green: '#1d8650', red: '#cf343c', black: '#232838' }[RT.colorOf(num)];
+    x.beginPath(); x.moveTo(c, c); x.arc(c, c, 250, a - step / 2, a + step / 2); x.closePath(); x.fill();
+    x.save(); x.translate(c + Math.cos(a) * 218, c + Math.sin(a) * 218); x.rotate(a + Math.PI / 2);
+    x.fillStyle = '#fbf3e4'; x.font = '800 22px "Baloo 2", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(num), 0, 0); x.restore();
+  });
+  x.strokeStyle = '#e0c08f'; x.lineWidth = 3;
+  for (let k = 0; k < n; k++) { const a = k * step + step / 2; x.beginPath(); x.moveTo(c + Math.cos(a) * 120, c + Math.sin(a) * 120); x.lineTo(c + Math.cos(a) * 250, c + Math.sin(a) * 250); x.stroke(); }
+  x.fillStyle = '#7a4a2b'; x.beginPath(); x.arc(c, c, 120, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#e0c08f'; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; x.beginPath(); x.arc(c + Math.cos(a) * 80, c + Math.sin(a) * 80, 10, 0, Math.PI * 2); x.fill(); }
+});
+const rtWheel = new THREE.Group(); rtWheel.position.set(RTX, TOP_Y + 0.082, RTZ); scene.add(rtWheel);
+const wheelDisc = new THREE.Mesh(new THREE.CircleGeometry(WHEEL_R, 64), noOutline(toon('#ffffff', { map: wheelTex })));
+wheelDisc.rotation.x = -Math.PI / 2; wheelDisc.receiveShadow = true; rtWheel.add(wheelDisc);
+const turret = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.12, 16), toon('#f4b63f')); turret.position.y = 0.06; rtWheel.add(turret);
+for (let k = 0; k < 4; k++) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.015, 0.02), toon('#f4b63f')); arm.position.y = 0.03; arm.rotation.y = k * Math.PI / 4; rtWheel.add(arm); }
+const ball = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 10), toon('#fbf6ea')); ball.castShadow = true; scene.add(ball);
+// stools, and a red lamp hanging over the wheel
+for (let k = 0; k < RT_SEATS; k++) {
+  const s = seatSpot(RT0 + k);
+  mesh(new THREE.CylinderGeometry(0.21, 0.19, 0.08, 20), toon('#ea6a4f'), s.x, 0.48, s.z);
+  mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.44, 10), woodDark, s.x, 0.22, s.z);
+  mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.03, 16), woodDark, s.x, 0.015, s.z);
+}
+mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.1, 6), toon('#222'), RTX, 2.65, RTZ).castShadow = false;
+const rtShade = mesh(new THREE.ConeGeometry(0.3, 0.2, 28, 1, true), toon('#b8323f', { side: THREE.DoubleSide, emissive: '#3a0d12' }), RTX, 2.06, RTZ); rtShade.castShadow = false;
+const rtGlow = makeGlow('#ffd9a0', 1.0, 0.5); rtGlow.position.set(RTX, 1.98, RTZ); scene.add(rtGlow);
+const rtLight = new THREE.PointLight(0xffd9a0, 3, 0, 2); rtLight.position.set(RTX, 1.9, RTZ); scene.add(rtLight);
+const RT_DEALER_LOOK = (() => { const l = randomLook(seededRand(77)); l.tc = CLOTH.indexOf('#b8323f'); l.hat = 0; return cleanLook(l); })();
+const RT_DEALER_POS = (() => { const p = bjDir(RT_FACE + Math.PI, RT_R + 0.3); return { x: RTX + p.x, z: RTZ + p.z }; })();
 // where you can stand: boxes (x0..x1, z0..z1) with a top height, shared with the toys
 const PLATFORMS = [
   { x0: 4.85, x1: 5.6, z0: -1.0, z1: 1.0, top: 0.61 },     // sofa seat
@@ -1376,7 +1477,7 @@ const PLATFORMS = [
   { x0: 3.15, x1: 3.95, z0: -4.4, z1: -3.6, top: 0.49 }     // armchair seat
 ];
 // the living room as solid shapes: bounds, the round table, and what you can climb on
-setWorld({ x0: -HALF, x1: HALF, z0: -HALF, z1: HALF, discs: [{ x: 0, z: 0, r: TABLE_R + 0.35 }, { x: BJX, z: BJZ, r: BJ_R + 0.3 }], boxes: PLATFORMS.map(P => ({ x0: P.x0, x1: P.x1, z0: P.z0, z1: P.z1, y0: 0, y1: P.top })) });
+setWorld({ x0: -HALF, x1: HALF, z0: -HALF, z1: HALF, discs: [{ x: 0, z: 0, r: TABLE_R + 0.35 }, { x: BJX, z: BJZ, r: BJ_R + 0.3 }, { x: RTX, z: RTZ, r: RT_R + 0.3 }], boxes: PLATFORMS.map(P => ({ x0: P.x0, x1: P.x1, z0: P.z0, z1: P.z1, y0: 0, y1: P.top })) });
 // side table, candle and mug next to the sofa
 const side = new THREE.Group(); side.position.set(5.2, 0, 1.9); scene.add(side);
 mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 28), wood, 0, 0.6, 0, side);
@@ -1830,7 +1931,7 @@ function nearestFreeSeat() {
   const mi = myIdx();
   if (isActive() && mi >= 0) {
     const s = G.players[mi].seat, p = seatXZ(s, CHAIR_R);
-    if (Math.hypot(BJX - me.x, BJZ - me.z) < 2.4) return nearestStool(); // by the blackjack table: a stool there
+    if (Math.hypot(BJX - me.x, BJZ - me.z) < 2.4 || Math.hypot(RTX - me.x, RTZ - me.z) < 2.4) return nearestStool(); // by the blackjack or roulette table: a stool there
     return (Math.hypot(p.x - me.x, p.z - me.z) < 1.3 && !seatTakenBy(s)) ? s : -1;
   }
   let best = -1, bd = 1.3;
@@ -1840,7 +1941,7 @@ function nearestFreeSeat() {
   }
   return best;
 }
-// while playing at the main table, only a blackjack stool is free to take
+// while playing at the main table, only a stool at the other tables is free to take
 function nearestStool() {
   let best = -1, bd = 1.3;
   for (let i = SEATS; i < ALL_SEATS; i++) {
@@ -1855,7 +1956,7 @@ function toggleSit() {
     me.x = p.x; me.z = p.z; me.seat = -1; me.pitch = -0.08;
   } else {
     const s = nearestFreeSeat(); if (s < 0) return;
-    me.seat = s; me.yaw = seatSpot(s).yaw; me.pitch = isStool(s) ? -0.55 : -0.46;
+    me.seat = s; me.yaw = seatSpot(s).yaw; me.pitch = isStool(s) || isRtSeat(s) ? -0.55 : -0.46;
     me.jy = me.jv = me.crouch = 0; crouchLatch = false;
     releaseMouse();
   }
@@ -1969,6 +2070,7 @@ function updateAvatars(dt, t) {
   });
   if (!FPS) { // the blackjack dealer, always at the table
     syncAvatar('dealer', 'Croupier', '#f4b63f', DEALER_LOOK, DEALER_POS.x, DEALER_POS.z, BJ_FACE + Math.PI, -1).who = 'dealer'; // facing the players
+    syncAvatar('rdealer', 'Croupière', '#ea6a4f', RT_DEALER_LOOK, RT_DEALER_POS.x, RT_DEALER_POS.z, RT_FACE + Math.PI, -1).who = 'rdealer';
   }
   if (fps) fps.syncAvatars(); // battle bots
   for (const [id, a] of avatars) {
@@ -2462,7 +2564,7 @@ function renderStatus() {
   $('#inviteBtn').hidden = !(room && room.code && me.entered);
   $('#introStatus').textContent = !room ? booting ? 'Connexion au salon…' : 'Mode hors ligne : tu pourras jouer contre des robots.' : (n <= 1 ? 'Personne d\'autre dans le salon pour l\'instant.' : `${n - 1} personne${n > 2 ? 's' : ''} déjà dans le salon.`);
 }
-function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderBj(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); renderMoveBtns(); }
+function refreshUI() { renderAudioBtns(); renderSocial(); renderStatus(); renderScores(); renderBanner(); renderHand(); renderBj(); renderRt(); renderPanel(); renderPrompt(); joyEl.hidden = !(coarse && me.entered && me.seat < 0); renderMoveBtns(); }
 
 let seenRoll = '', seenPhase = '', prevEv = null;
 function stateChanged() {
@@ -2615,11 +2717,11 @@ $('#lookBtn').addEventListener('click', openEditor);
 const rules = $('#rules');
 // one tab per game; it opens on the game at the table, else the one picked for the next game
 const rulesTabs = rules.querySelector('.rules-tabs');
-const RULES = { ...GAME, blackjack: { name: 'Blackjack', icon: '🎩' } }; // the main table's games, and the second table
+const RULES = { ...GAME, blackjack: { name: 'Blackjack', icon: '🎩' }, roulette: { name: 'Roulette', icon: '🎡' } }; // the main table's games, and the second table
 function showRules(g) {
   rules.querySelectorAll('.rules-body section').forEach(s => { s.hidden = s.dataset.g !== g; });
   rulesTabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.g === g)));
-  $('#rulesTitle').innerHTML = `Règles du <span>${RULES[g].name}</span>`;
+  $('#rulesTitle').innerHTML = `Règles ${g === 'roulette' ? 'de la' : 'du'} <span>${RULES[g].name}</span>`;
   rules.querySelector('.rules-body').scrollTop = 0;
 }
 for (const k of Object.keys(RULES)) {
@@ -2630,7 +2732,7 @@ for (const k of Object.keys(RULES)) {
 function openRules() {
   releaseMouse();
   for (const k in keys) keys[k] = false;
-  showRules(myStool() >= 0 ? 'blackjack' : G.players && G.phase !== 'idle' ? gameOf() : gameWanted);
+  showRules(myRtSeat() >= 0 ? 'roulette' : myStool() >= 0 ? 'blackjack' : G.players && G.phase !== 'idle' ? gameOf() : gameWanted);
   rules.showModal();
 }
 rules.addEventListener('close', () => { if (me.entered) canvas.focus(); });
@@ -2797,7 +2899,7 @@ $('#musicBtn').addEventListener('click', () => { const v = !getPrefs().music; se
 // Chat lines and throws travel in presence as [counter, ...] so a newcomer
 // doesn't replay them; voice uses the p2p room's audio streams.
 const toys = new Toys(scene, {
-  tableR: TABLE_R, tableY: TOP_Y, blocks: PLATFORMS, tables: [{ x: BJX, z: BJZ, r: BJ_R, y: TOP_Y }],
+  tableR: TABLE_R, tableY: TOP_Y, blocks: PLATFORMS, tables: [{ x: BJX, z: BJZ, r: BJ_R, y: TOP_Y }, { x: RTX, z: RTZ, r: RT_R, y: TOP_Y }],
   onHit: t => {
     sfx.bonk();
     if (t.key === myKey) shake = Math.max(shake, 0.35);
@@ -3164,6 +3266,171 @@ function updateBjTable(dt) {
   }
 }
 
+/* ---------------- roulette ----------------
+   The third table, on the blackjack's model: its own state `R`, its own host, topics `rt`
+   (state) and `rta` (bets), rules in js/roulette.js. The host draws the number when bets
+   close; every browser then plays the same spin, ending on that pocket. */
+let R = null, rtTimer = null, rtTimerKey = '', rtAway = 0, rtLastBroadcast = 0, rtSince = 0, prevRt = null;
+let rtChip = 10, rtNum = 17, rtSpin = null, wheelAng = 0;
+const myRtSeat = () => isRtSeat(me.seat) ? me.seat - RT0 : -1;
+const isRtHost = () => !!R && R.host === myKey;
+function rtSeats() {
+  const out = Array.from({ length: RT_SEATS }, () => null);
+  if (myRtSeat() >= 0 && myKey) out[myRtSeat()] = { k: myKey, nick: me.nick, col: me.col };
+  for (const p of peers) {
+    if (p.sameTab || p.kind !== 'viewer') continue;
+    const a = p.presence && p.presence.a, s = Array.isArray(a) ? a[4] : -1;
+    if (isRtSeat(s) && !out[s - RT0]) out[s - RT0] = { k: peerKey(p), nick: cleanNick(p.presence.n), col: cleanCol(p.presence.c) };
+  }
+  return out;
+}
+function rtBroadcast() { rtLastBroadcast = Date.now(); if (room && R) room.emit('rt', RT.view(R)).catch(() => {}); }
+function rtCommit() { R.v++; rtBroadcast(); rtChanged(); rtStep(); }
+function rtStep() {
+  if (!isRtHost()) { clearTimeout(rtTimer); rtTimerKey = ''; return; }
+  if (RT.sync(R, rtSeats())) { rtCommit(); return; }
+  const ms = RT.timer(R, Date.now());
+  if (!ms) { clearTimeout(rtTimer); rtTimerKey = ''; return; }
+  const key = R.g + ':' + R.v;
+  if (rtTimerKey === key) return;
+  clearTimeout(rtTimer); rtTimerKey = key;
+  rtTimer = setTimeout(() => { rtTimerKey = ''; if (isRtHost() && RT.tick(R)) rtCommit(); }, ms);
+}
+function rtHandle(a, k) {
+  if (!isRtHost() || !a || typeof a !== 'object') return;
+  if (RT.act(R, R.seats.findIndex(s => s && s.k === k), k, a)) rtCommit();
+}
+function rtSend(a) { if (!room) { rtHandle(a, myKey); return; } room.emit('rta', a).catch(() => {}); }
+function onRt(m) {
+  const d = m.data;
+  if (!d || typeof d !== 'object' || typeof d.host !== 'string' || d.host !== peerKey(m) || d.host === myKey) return;
+  if (!Array.isArray(d.seats) || d.seats.length !== RT_SEATS || !Array.isArray(d.bets) || !Array.isArray(d.hist) || !d.bank || typeof d.bank !== 'object') return;
+  if (d.res != null && !(Number.isInteger(d.res) && d.res >= 0 && d.res <= 36)) return;
+  if (!RT.newer(d, R)) return;
+  if (isRtHost()) { clearTimeout(rtTimer); rtTimerKey = ''; } // two tables opened at once: the older one wins
+  d.seats = d.seats.map(s => s && typeof s.k === 'string' ? { k: s.k, nick: cleanNick(s.nick), col: cleanCol(s.col) } : null);
+  R = d; rtChanged();
+}
+setInterval(() => {
+  if (FPS || !myKey) return;
+  const now = Date.now();
+  rtSince = myRtSeat() >= 0 ? rtSince || now : 0;
+  if (!R) { if (rtSince && now - rtSince > 2500) { R = RT.newTable(myKey); rtCommit(); } return; }
+  if (isRtHost()) { rtStep(); if (now - rtLastBroadcast > 3000) rtBroadcast(); return; }
+  rtAway = present(R.host) ? 0 : rtAway || now;
+  if (rtAway && now - rtAway > 5000) { // its host left: the first player seated takes over
+    const heir = rtSeats().find(Boolean);
+    if (heir && heir.k === myKey) { RT.takeOver(R, myKey); rtAway = 0; rtCommit(); toast('Tu fais tourner la roulette : les mises en cours sont rendues.'); }
+  }
+}, 1000);
+const RT_NAME = { red: 'Rouge', black: 'Noir', even: 'Pair', odd: 'Impair', low: 'Manque 1‑18', high: 'Passe 19‑36' }; // non-breaking hyphens: the range never splits
+const rtBetName = b => b.t === 'n' ? `Plein ${b.v}` : b.t === 'doz' ? `${['1ʳᵉ', '2ᵉ', '3ᵉ'][b.v - 1]} douzaine` : RT_NAME[b.t];
+const rtNumHtml = n => `<span class="rnum ${RT.colorOf(n)}">${n}</span>`;
+function rtChanged() {
+  const s = myRtSeat(), mine = R && s >= 0 && R.who[s] === myKey;
+  const ev = R ? { g: R.g, spins: R.spins, phase: R.phase, bets: R.bets.reduce((a, b) => a + b.length, 0) + R.bets.reduce((a, b) => a + b.reduce((x, y) => x + y.n, 0), 0) } : null;
+  const prev = prevRt; prevRt = ev;
+  if (ev && R.phase === 'spin' && (!rtSpin || rtSpin.id !== R.g + ':' + R.spins)) {
+    rtSpin = { id: R.g + ':' + R.spins, t0: performance.now(), phi0: wheelAng, res: R.res, last: -1 }; // this browser plays the spin from now
+  }
+  if (ev && prev && me.entered) {
+    const dealer = avatars.get('rdealer');
+    if (ev.bets > prev.bets && ev.spins === prev.spins) { sfx.pop(); setTimeout(() => sfx.pop(), 90); }
+    if (ev.phase === 'spin' && prev.phase !== 'spin') { if (dealer) dealer.lean = 1; if (s >= 0) toast('Rien ne va plus !', 1800); sfx.swoosh(); }
+    if (ev.phase === 'done' && prev.phase !== 'done' && R.net) {
+      const r = mine && R.net[s];
+      if (mine && r > 0) { sfx.chime(); react(dealer, 'happy', 2); const p = seatSpot(me.seat); confetti.burst(p.x * 0.6 + RTX * 0.4, TOP_Y + 0.3, p.z * 0.6 + RTZ * 0.4, r >= 350 ? 70 : 25, ['#cf343c', '#232838', '#f4b63f', '#fbf3e4'], 0.5); }
+      if (mine) toast(`${R.res} ${{ green: 'zéro', red: 'rouge', black: 'noir' }[RT.colorOf(R.res)]} : ${r > 0 ? 'gagné +' + r : r < 0 ? 'perdu ' + r : 'mises rendues'}`, 2600);
+    }
+    if (R.gift && R.gift.includes(myKey) && prev.phase === 'done' && ev.phase === 'bet') toast('Plus de jetons : la croupière t\'en prête 1000.', 3000);
+  }
+  renderRt();
+}
+// the betting plate: a chip value, the even chances and dozens as big buttons, a straight number
+function renderRt() {
+  const bar = $('#rtBar'); bar.textContent = '';
+  const s = myRtSeat();
+  bar.hidden = !(me.entered && s >= 0);
+  if (bar.hidden) return;
+  const info = html => { const p = el('div', 'info'); p.innerHTML = html; bar.append(p); return p; };
+  if (!R) { info('Roulette : la croupière arrive…'); return; }
+  const bank = R.bank[myKey] ?? RT.START, mine = R.who[s] === myKey ? R.bets[s] : [];
+  info(`Roulette · tes jetons : <b>${bank}</b>` + (R.hist.length ? ` · derniers : ${R.hist.slice(0, 6).map(rtNumHtml).join(' ')}` : ''));
+  if (mine.length) info('Tes mises : ' + mine.map(b => `${rtBetName(b)} <b>${b.n}</b>`).join(' · '));
+  if (R.phase === 'bet') {
+    const room0 = Math.min(bank, RT.MAX_TOTAL - (mine.length ? RT.staked(R, s) : 0));
+    const chips = el('div', 'rchips'); chips.append(el('span', null, 'Jeton'));
+    for (const v of RT.CHIPS) {
+      const b = el('button', 'rchip' + (v === rtChip ? ' on' : ''), String(v)); b.type = 'button'; b.setAttribute('aria-pressed', String(v === rtChip));
+      b.disabled = v > room0; b.onclick = () => { rtChip = v; sfx.pop(); renderRt(); };
+      chips.append(b);
+    }
+    bar.append(chips);
+    const bet = (b, v) => () => { if (rtChip <= room0) rtSend({ t: 'bet', b, v, n: rtChip }); };
+    const grid = el('div', 'rgrid');
+    for (const [b, cls] of [['red', 'red'], ['black', 'black'], ['even', ''], ['odd', ''], ['low', ''], ['high', '']]) { const x = btn(RT_NAME[b], 'rbet ' + cls, bet(b)); x.disabled = rtChip > room0; grid.append(x); }
+    bar.append(grid);
+    const doz = el('div', 'rgrid three');
+    for (let d = 1; d <= 3; d++) { const x = btn(`${d * 12 - 11}‑${d * 12}`, 'rbet', bet('doz', d)); x.disabled = rtChip > room0; x.setAttribute('aria-label', `${['Première', 'Deuxième', 'Troisième'][d - 1]} douzaine`); doz.append(x); }
+    bar.append(doz);
+    // a straight number: pick it with − and +, it pays 35 times the chip
+    const num = el('div', 'rnumrow');
+    const st = el('div', 'step'), minus = el('button', '', '−'), out = el('output'), plus = el('button', '', '+');
+    out.innerHTML = rtNumHtml(rtNum);
+    minus.type = plus.type = 'button'; minus.setAttribute('aria-label', 'Numéro précédent'); plus.setAttribute('aria-label', 'Numéro suivant');
+    minus.onclick = () => { rtNum = (rtNum + 36) % 37; renderRt(); }; plus.onclick = () => { rtNum = (rtNum + 1) % 37; renderRt(); };
+    st.append(minus, out, plus);
+    const plein = btn(`Plein sur le ${rtNum}`, 'rbet', bet('n', rtNum)); plein.disabled = rtChip > room0;
+    num.append(st, plein); bar.append(num);
+    const acts = el('div', 'rnumrow');
+    if (mine.length) {
+      acts.append(btn('Effacer', 'fold', () => rtSend({ t: 'clear' })));
+      if (!R.ready[s]) acts.append(btn('C\'est parti !', 'go', () => rtSend({ t: 'ready' })));
+    }
+    if (acts.children.length) bar.append(acts);
+    info(R.at ? '<span id="rtCount"></span>' : 'Faites vos jeux : la roue tourne 20 s après la première mise');
+    updateRtCount();
+  } else if (R.phase === 'spin') info('<b>Rien ne va plus !</b> La bille tourne…');
+  else if (R.phase === 'done') {
+    const r = R.net && R.net[s];
+    info(`Sorti : ${rtNumHtml(R.res)}` + (R.who[s] === myKey ? ` · ${r > 0 ? '<b>gagné +' + r + '</b>' : r < 0 ? 'perdu ' + r : 'mises rendues'}` : ''));
+  }
+}
+function updateRtCount() {
+  const c = document.getElementById('rtCount');
+  if (c && R && R.phase === 'bet' && R.at) c.textContent = `Rien ne va plus dans ${Math.max(0, Math.ceil((R.at + RT.BET_WAIT - Date.now()) / 1000))} s`;
+}
+// the wheel turns, the ball runs the other way, slows, drops and settles in the drawn pocket
+const rtPiles = Array.from({ length: RT_SEATS }, () => { const g = new THREE.Group(); scene.add(g); return g; });
+const POCKET_A = n => RT.WHEEL.indexOf(n) * Math.PI * 2 / RT.WHEEL.length; // its angle on the disc
+function updateRtTable(dt) {
+  if (FPS) return;
+  const now = performance.now();
+  let beta, r = POCKET_R, y = 0.012;
+  if (rtSpin && R && (R.phase === 'spin' || R.phase === 'done')) {
+    const u = Math.min(1, (now - rtSpin.t0) / (RT.SPIN_MS - 700));
+    const ease = 1 - Math.pow(1 - u, 3);
+    wheelAng = rtSpin.phi0 + 9 * ease + (u >= 1 ? (now - rtSpin.t0 - (RT.SPIN_MS - 700)) / 1000 * 0.4 : 0);
+    const rel = -Math.pow(1 - u, 2) * 34; // the ball, many turns behind, catching the pocket at the end
+    beta = POCKET_A(rtSpin.res) - wheelAng + rel;
+    r = u < 0.7 ? RIM_R : RIM_R + (POCKET_R - RIM_R) * Math.min(1, (u - 0.7) / 0.25);
+    y = u < 0.7 ? 0.03 : 0.012 + Math.abs(Math.sin(u * 60)) * 0.02 * (1 - u) * 3;
+    // a click each time the ball crosses a pocket wall, slower as it slows
+    const pocket = Math.floor((beta + wheelAng) / (Math.PI * 2 / 37));
+    if (pocket !== rtSpin.last && u < 0.97 && u > 0.05) { if (rtSpin.last !== -1 && Math.random() < 0.5 && Math.hypot(camera.position.x - RTX, camera.position.z - RTZ) < 6) sfx.tick(); rtSpin.last = pocket; }
+  } else {
+    wheelAng += dt * 0.4; // idle: the wheel turns slowly, the ball rests in the last number
+    beta = R && R.hist.length ? POCKET_A(R.hist[0]) - wheelAng : -wheelAng;
+  }
+  rtWheel.rotation.y = wheelAng;
+  ball.position.set(RTX + Math.cos(beta) * r, TOP_Y + 0.082 + y, RTZ + Math.sin(beta) * r);
+  ball.visible = !!R;
+  for (let k = 0; k < RT_SEATS; k++) {
+    const a = rtAng(k), p = { x: RTX + Math.sin(a) * 0.74, z: RTZ + Math.cos(a) * 0.74 };
+    setPile(rtPiles[k], R ? chipCount(RT.staked(R, k), 20, 14) : 0, p.x, p.z, 7);
+  }
+}
+
 /* ---------------- boot ---------------- */
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -3180,10 +3447,11 @@ function loop(now) {
     updateAvatars(dt, now / 1000);
     updateTable(dt);
     updateBjTable(dt);
+    updateRtTable(dt);
     if (fps) fps.update(dt);
     updateDecor(dt, now / 1000);
     updateSocial(dt, now);
-    if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); updateBjCount(); }
+    if ((uiTick += dt) > 0.25) { uiTick = 0; renderPrompt(); renderPanel(); updateBjCount(); updateRtCount(); }
   } catch (e) {
     if (loopErrors++ % 300 === 0) console.error(e); // not 60 times a second
     if (loopErrors === 1) toast('Oups, un souci dans le jeu. Si ça coince, recharge la page.', 5000);
@@ -3377,6 +3645,7 @@ if (HUB) {
     if (mine && !myKey) { myKey = peerKey(mine); refreshUI(); }
     if (isHost() && ch.joined.some(p => !p.sameTab)) broadcast();
     if (isBjHost() && ch.joined.some(p => !p.sameTab)) bjBroadcast();
+    if (isRtHost() && ch.joined.some(p => !p.sameTab)) rtBroadcast();
     for (const p of ch.left) if (!p.sameTab) { dropAvatar('p:' + p.peer); dropVoice(p.peer); }
     renderStatus(); renderScores(); renderPanel();
   }, () => {});
@@ -3384,6 +3653,8 @@ if (HUB) {
   room.on('act', m => { if (isHost()) handleAct(m.data, peerKey(m)); }, () => {});
   room.on('bj', onBj, () => {});
   room.on('bja', m => bjHandle(m.data, peerKey(m)), () => {});
+  room.on('rt', onRt, () => {});
+  room.on('rta', m => rtHandle(m.data, peerKey(m)), () => {});
   if (me.entered) { room.presence({ n: me.nick, c: me.col, l: me.look }).catch(() => {}); pushPresence(true); }
   refreshUI();
   startBattle();

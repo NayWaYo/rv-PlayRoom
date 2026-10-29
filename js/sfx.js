@@ -189,6 +189,11 @@ export const sfx = {
     tone(2300, t, 0.22, { type: 'square', gain: 0.06, vibrato: 30, lowpass: 4000 });
     tone(2300, t + 0.3, 0.5, { type: 'square', gain: 0.07, vibrato: 30, lowpass: 4000 });
   },
+  // the roulette ball knocking on a pocket wall
+  tick() {
+    if (!ready()) return; const t = ctx.currentTime;
+    tone(2600 + Math.random() * 600, t, 0.025, { type: 'triangle', gain: 0.05 });
+  },
   // the fire: a pop or two of bright noise, and now and then a soft low hiss under it
   crackle(g = 1) {
     if (!ready()) return; const t = ctx.currentTime;
