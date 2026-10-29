@@ -530,7 +530,7 @@ table.res tr.win td{color:var(--marigold)}
       <li>Chacun à son tour doit poser <b>autant de cartes</b>, d'une valeur <b>égale ou plus forte</b> (sur un 10, un autre 10 ou mieux), ou passer. Qui passe ne rejoue plus dans ce pli.</li>
       <li>Quand tout le monde a passé, le dernier à avoir joué remporte le pli et ouvre le suivant.</li>
       <li>Un <b>2</b> ferme le pli tout de suite : son joueur rouvre.</li>
-      <li><b>Interdit de finir sur un 2</b> : ta toute dernière carte (ou tes dernières) ne peut pas être un 2. Qui n'a plus que des 2 en main ne peut plus jouer et finit dernier (s'ils sont plusieurs, le premier bloqué est le Trou). Pense à poser tes 2 avant tes dernières cartes.</li>
+      <li><b>Les 2 partent avant la fin</b> : on n'a pas le droit de finir sur un 2, ni de garder seulement des 2 en main. Avec un 5 et un 2, tu peux jouer le 2, pas le 5. Pose tes 2 au plus tard en avant-dernier coup ; les coups interdits sont grisés.</li>
     </ul>
     <h3>Les rangs</h3>
     <p>Le premier à n'avoir plus de cartes devient <b>Président</b>, le deuxième <b>Vice-président</b> (à partir de 4 joueurs), l'avant-dernier <b>Vice-trou</b> et le dernier <b>Trou</b>. Les autres sont neutres.</p>
@@ -808,7 +808,7 @@ import { addVoice, dropVoice, updateVoices, levelOf, micLevel, micActive, toggle
 import { Toys } from './js/toys.js';
 import { setWorld, groundAt, ceilingAt, slide, fall, TALL, LOW } from './js/world.js';
 import { key, label, actionFor, mouse, openControls, onChange as onControlsChange } from './js/controls.js';
-import { GAMES, deck52, bestOf, handName, presValue, titleAt } from './js/cards.js';
+import { GAMES, deck52, bestOf, handName, presValue, titleAt, twoTrap } from './js/cards.js';
 import * as BJ from './js/blackjack.js';
 import * as RT from './js/roulette.js';
 const RT_SEATS = RT.RT_SEATS;
@@ -2148,9 +2148,14 @@ function pickRule() {
   if (G.game === 'president' && G.phase === 'play' && G.turn === i && !G.done && !pending) {
     const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, hand = G.hands[i];
     const n = top ? top.length : 4;
-    // a card is playable if its rank is at least the last play's, I hold enough of them, and it isn't my last 2s
-    const no2out = c => presValue(c) !== 15 || hand.some(x => presValue(x) !== 15);
-    return { max: n, same: true, ok: c => (!top || presValue(c) >= presValue(top[0])) && no2out(c) && hand.filter(x => rk(x) === rk(c)).length >= (top ? n : 1) };
+    // a card is playable if some legal play holds it: rank at least the last play's, enough of them,
+    // and the rule of the 2s (they don't end a hand, and never stay alone in it)
+    const ok = c => {
+      const same = hand.filter(x => rk(x) === rk(c));
+      for (let k = top ? n : 1; k <= (top ? n : same.length); k++) if (GAMES.president.legal(G, hand, same.slice(0, k))) return true;
+      return false;
+    };
+    return { max: n, same: true, ok };
   }
   return null;
 }
@@ -2222,8 +2227,11 @@ function renderMoves() {
     add(b);
   } else if (G.phase === 'play' && G.turn === i && !G.done && !pending) {
     const top = G.trick.length ? G.trick[G.trick.length - 1][1] : null, sel = [...passPick];
-    const ok = sel.length && GAMES.president.legal(G, G.hands[i], sel);
-    const play = btn(ok ? `Jouer ${sel.length > 1 ? sel.length + ' × ' : 'le '}${presName(sel[0])}` : top ? `Choisis ${top.length > 1 ? top.length + ' cartes' : 'une carte'} de même valeur ou plus forte${top.length > 1 ? 's' : ''}` : 'Choisis une ou plusieurs cartes de même valeur', '', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: sel }); passPick.clear(); renderHand(); });
+    const hand = G.hands[i], ok = sel.length && GAMES.president.legal(G, hand, sel);
+    const trap = sel.length ? twoTrap(hand, sel) : '';
+    // the rule of the 2s, said before it bites: a 2 in hand and one other rank or none left
+    if (hand.some(c => presValue(c) === 15) && new Set(hand.filter(c => presValue(c) !== 15).map(rk)).size <= 1) info('Règle du 2 : tes 2 doivent partir <b>avant</b> ta dernière carte, jamais en dernier ni seuls en main');
+    const play = btn(ok ? `Jouer ${sel.length > 1 ? sel.length + ' × ' : 'le '}${presName(sel[0])}` : trap === 'end' ? 'Interdit de finir sur un 2' : trap === 'left' ? 'Interdit : il ne te resterait que des 2' : top ? `Choisis ${top.length > 1 ? top.length + ' cartes' : 'une carte'} de même valeur ou plus forte${top.length > 1 ? 's' : ''}` : 'Choisis une ou plusieurs cartes de même valeur', '', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: sel }); passPick.clear(); renderHand(); });
     play.disabled = !ok;
     add(play);
     if (top) add(btn('Passer', 'fold', () => { pending = 'x'; pendingAt = Date.now(); sendAct({ t: 'play', c: [] }); passPick.clear(); renderHand(); }));

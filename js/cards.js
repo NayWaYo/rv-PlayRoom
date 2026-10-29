@@ -304,10 +304,18 @@ function pokerRules(kind) {
 
 /* ---------------- the Président ---------------- */
 // 3 is the lowest card, then 4 … roi, as, and 2 the highest. Play 1 to 4 cards of one rank,
-// as many as the last play and at least as high, or pass until the trick is over. Nobody may
-// go out on a 2: a player left with nothing but 2s is stuck (`stuck`) and ends last.
+// as many as the last play and at least as high, or pass until the trick is over. The 2s go
+// before the last card: no play may finish on a 2 or leave only 2s (`twoTrap`). Should a hand
+// ever hold nothing but 2s all the same, its player is stuck (`stuck`) and ends last.
 const pv = c => rk(c) === 2 ? 15 : rk(c);
 export const presValue = pv;
+// the rule of the 2s: a play may not go out on 2s, nor leave nothing but 2s in the hand
+// ('end': it would finish on a 2, 'left': only 2s would be left, '' when fine)
+export function twoTrap(hand, cs) {
+  const rest = hand.filter(c => !cs.includes(c));
+  if (!rest.length) return cs.some(c => pv(c) === 15) ? 'end' : '';
+  return rest.every(c => pv(c) === 15) ? 'left' : '';
+}
 const TITLES = n => ({ 0: 'Président', [n - 1]: 'Trou', ...(n >= 4 ? { 1: 'Vice-président', [n - 2]: 'Vice-trou' } : {}) });
 export const titleAt = (n, pos) => TITLES(n)[pos] || 'Neutre';
 function presRules() {
@@ -356,7 +364,7 @@ function presRules() {
   const holders = S => S.players.filter((_, j) => inPlay(S, j)).length;
   function legal(S, hand, cs) {
     if (!Array.isArray(cs) || !cs.length || cs.length > 4 || !owns(hand, cs) || !cs.every(c => rk(c) === rk(cs[0]))) return false;
-    if (pv(cs[0]) === 15 && cs.length === hand.length) return false; // no going out on a 2
+    if (twoTrap(hand, cs)) return false;
     if (!S.trick.length) return true;
     const top = S.trick[S.trick.length - 1][1];
     return cs.length === top.length && pv(cs[0]) >= pv(top[0]);
@@ -436,8 +444,6 @@ function presRules() {
     hand.forEach(c => { (groups[pv(c)] = groups[pv(c)] || []).push(c); });
     const keys = Object.keys(groups).map(Number).sort((a, b) => a - b);
     const plain = keys.filter(x => x !== 15);
-    // playing these would leave nothing but 2s, and no way out
-    const strands = cs => { const rest = hand.filter(c => !cs.includes(c)); return rest.length > 0 && rest.every(c => pv(c) === 15); };
     if (!S.trick.length) { // lead the smallest rank, all of it; keep the 2s for later, but play them before the last other rank
       if (groups[15] && plain.length <= 1) return { t: 'play', c: groups[15] };
       return { t: 'play', c: groups[plain[0] ?? keys[0]] };
@@ -446,11 +452,9 @@ function presRules() {
     const cands = keys.filter(k => k >= pv(top[0]) && groups[k].length >= need && legal(S, hand, groups[k].slice(0, need)));
     if (!cands.length) return { t: 'play', c: [] };
     const exact = cands.find(k => groups[k].length === need);
-    let pick = exact != null && exact - cands[0] <= 3 ? exact : cands[0];
-    if (strands(groups[pick].slice(0, need))) { // a 2 first if possible, or wait
-      if (!cands.includes(15)) return { t: 'play', c: [] };
-      pick = 15;
-    } else if (pick === 15 && hand.length > 4 && Math.random() < 0.7) return { t: 'play', c: [] };
+    const pick = exact != null && exact - cands[0] <= 3 ? exact : cands[0];
+    // hold a 2 back while the hand is big, unless the 2s are due soon (two other ranks or fewer left)
+    if (pick === 15 && hand.length > 4 && plain.length > 2 && Math.random() < 0.7) return { t: 'play', c: [] };
     return { t: 'play', c: groups[pick].slice(0, need) };
   }
   const known = S => [...(S.played || [])];
