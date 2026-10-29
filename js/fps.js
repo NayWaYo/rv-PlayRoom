@@ -61,7 +61,16 @@ const SCORE_GOALS = [10, 15, 25], TIME_GOALS = [3, 5, 10]; // eliminations, minu
 const CAP_GOALS = [1, 3, 5];  // captures, in capture the flag
 const FLAG_REACH = 1.4;       // how close you have to be to take, bring back or score a flag
 const FLAG_BACK = 20;         // seconds before a dropped flag goes home by itself
-const FREE = { id: '', mode: 'ffa', end: 'free', goal: 0, start: 0, over: 0 };
+const PREP = 15;              // the traitor mode: seconds at the start when nobody can shoot, to scatter
+const FIND = 1.6;             // how close you stand to a body to find out who it was
+// the traitor mode's roles, by their code
+const ROLES = {
+  i: { name: 'Innocent', dot: '🙂', col: '#5f9a45' },
+  t: { name: 'Traître', dot: '🗡️', col: '#e0474c' },
+  d: { name: 'Enquêteur', dot: '🔎', col: '#4f7fe0' }
+};
+// a round: `by` started it (in the traitor mode, it hands out the roles and says who won), `det` the investigator
+const FREE = { id: '', mode: 'ffa', end: 'free', goal: 0, start: 0, over: 0, by: '', det: '' };
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -144,6 +153,7 @@ const CSS = `
 @media (pointer:coarse){#fpsBar{bottom:calc(150px + env(safe-area-inset-bottom,0px));font-size:16px}}
 #fpsBar{white-space:nowrap}
 @media (max-width:560px){#fpsBar{gap:8px;padding:5px 12px;font-size:15px}#fpsBar .hp{letter-spacing:0}#fpsBar .team{font-size:12px;padding:2px 8px}#fpsBar .clock{display:none}}
+#fpsBoard .srow .rl{font-size:12px;font-weight:800;white-space:nowrap}
 `;
 
 export function startFps(ctx) {
@@ -241,6 +251,14 @@ export function startFps(ctx) {
   }
   /* ---------- rounds and teams ---------- */
   let match = { ...FREE }, team = -1, watching = false, watchIdx = 0, enteredAt = 0;
+  // the traitor mode: everyone gets a secret role from whoever starts the round, sealed for them
+  // (js/secret.js); nobody comes back before the end; standing by a body tells everyone who it was
+  let role = '', allies = new Set(); // mine, and (a traitor's) the other traitors
+  let roles = null;                  // all of them: only in the browser that started the round
+  let result = null;                 // how it ended: { w: 'i' | 't' | '' (called off), r: the roles }
+  const found = new Map();           // bodies found: id -> role
+  const huntOn = () => match.mode === 'traitor' && running();
+  const prep = () => huntOn() && Date.now() < match.start + PREP * 1000;
   const teamsOn = () => match.mode === 'teams' || match.mode === 'ctf';
   const ctfOn = () => match.mode === 'ctf' && flags.length === 2; // capture the flag: teams, and a flag each
   const mates = (a, b) => teamsOn() && a >= 0 && a === b; // no friendly fire
@@ -454,15 +472,17 @@ export function startFps(ctx) {
   const W = () => WEAPONS[SLOTS[slot]];
   const has = i => i < BASIC || SLOTS[i] === heavy;
   function trigger(down) {
-    if (watching) { if (down) watchIdx++; return; } // a spectator clicks to watch someone else
+    if (watching || ghost()) { if (down) watchIdx++; return; } // a spectator clicks to watch someone else
     if (coarse && down && reloadUntil > now()) { quickReload(); return; } // no R on a phone: the fire button does it
     triggerDown = down;
     if (down) shoot();
     else if (chargeAt) { chargeAt = 0; sfx.uncharge(); renderBar(); } // let go too soon: no shot
   }
+  let prepTold = 0;
   function shoot(charged) {
     if (!me.entered || !alive() || watching || match.over || ctx.blocked()) return;
     const t = now(), w = W(), k = SLOTS[slot];
+    if (prep()) { if (t > prepTold) { prepTold = t + 2; toast('Préparation : on ne tire pas encore, éparpillez-vous !', 1500); } return; }
     if (t < nextShot || t < reloadUntil || t < switchUntil) return;
     if (ammo[k] <= 0) { reload(); return; }
     if (w.charge && !charged) { if (!chargeAt) { chargeAt = t; sfx.charge(w.charge); renderBar(); } return; } // fires once charged, in update()
@@ -559,15 +579,19 @@ export function startFps(ctx) {
   /* ---------- health, knock-outs, scores ---------- */
   let hp = MAX_HP, armor = 0, kills = 0, deaths = 0, downUntil = 0, shieldUntil = 0, downBy = '';
   const alive = () => hp > 0;
+  // knocked out in the traitor mode: out till the end, watching the living
+  const ghost = () => huntOn() && me.entered && !alive() && !watching && now() > downUntil;
   // presence: fp = [health, eliminations, defeats, shielded, weapon, team, watching]; fm = the round I'm in
   function pushMine() {
     const room = ctx.room(); if (!room) return;
-    const fm = match.id ? [match.id, match.mode, match.end, match.goal, match.start, match.over ? 1 : 0] : null;
-    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot, team, watching ? 1 : 0], fm, fc: flagsPresence() }).catch(() => {});
+    const fm = match.id ? [match.id, match.mode, match.end, match.goal, match.start, match.over ? 1 : 0, match.by, match.det] : null;
+    // the bodies found in this round, for whoever arrives: [round, id, role, id, role…]
+    const ft = match.mode === 'traitor' && found.size ? [match.id, ...[...found].flat()] : null;
+    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, slot, team, watching ? 1 : 0], fm, fc: flagsPresence(), ft }).catch(() => {});
   }
   // a dart landed on `target`, fired by `from` from `o`: only the target's owner applies it
   function damage(target, from, dmg, head, o) {
-    if (match.over || (from !== target && mates(teamOf(from), teamOf(target)))) return;
+    if (match.over || prep() || (from !== target && mates(teamOf(from), teamOf(target)))) return;
     if (target === ctx.myKey()) hurtMe(from, dmg, head, o);
     else { const b = bots.get(target); if (b) hurtBot(b, from, dmg, head); }
   }
@@ -606,10 +630,13 @@ export function startFps(ctx) {
     }
     const room = ctx.room();
     if (room) room.emit('ko', { v: victim, k: by, h: head === FELL ? FELL : head ? 1 : 0 }).catch(() => {});
+    witness(victim, by);
     announce(victim, by, head);
   }
   function announce(victim, by, head) {
     const me_ = ctx.myKey();
+    // the traitor mode: nobody is told who fell, or by whose hand, unless it's them
+    if (huntOn() && victim !== me_ && by !== me_) { renderBoard(); return; }
     const v = victim === me_ ? 'toi' : nameOf(victim), k = by === me_ ? 'Tu' : nameOf(by);
     const text = head === FELL ? (victim === me_ ? 'Tu es tombé dans le vide 🕳️' : `${nameOf(victim)} est tombé dans le vide 🕳️`)
       : victim === by ? (by === me_ ? 'Tu t\'es éliminé tout seul 🙃' : `${k} s'est éliminé tout seul 🙃`)
@@ -654,6 +681,7 @@ export function startFps(ctx) {
     store.set('playroom-botlevel', botLevel); renderBoard();
   }
   function addBot() {
+    if (huntOn()) { toast('Les robots s\'ajoutent avant de lancer la manche.', 2500); return; }
     const n = botSeq++, id = 'bot:' + ctx.myKey() + ':' + n;
     const seed = (Math.random() * 1e9) | 0;
     const tm = teamsOn() ? smallerTeam() : -1;
@@ -661,7 +689,7 @@ export function startFps(ctx) {
     bots.set(id, {
       id, nick: '🤖 ' + BOT_NAMES[n % BOT_NAMES.length], col: BOT_COLS[n % BOT_COLS.length], seed, look: randomLook(seededRand(seed)),
       x, z, y, vy: 0, yaw: 0, crouch: false, hp: MAX_HP, kills: 0, deaths: 0, downUntil: 0, shieldUntil: now() + SHIELD,
-      weapon: BOT_ARMS[n % 3], burst: 0, armor: 0, team: tm,
+      weapon: BOT_ARMS[n % 3], burst: 0, armor: 0, team: tm, role: '', allies: new Set(), enemies: new Set(),
       path: [], step: 0, repath: 0, think: 0, target: null, lastSeen: null, nextShot: now() + 1.5, strafe: 1, strafeUntil: 0,
       stuckAt: 0, stuckX: x, stuckZ: z
     });
@@ -674,6 +702,7 @@ export function startFps(ctx) {
   function hurtBot(b, from, dmg, head) {
     if (b.hp <= 0 || now() < b.shieldUntil) return;
     b.hp = Math.max(0, b.hp - soak(b, dmg));
+    if (huntOn() && from !== b.id && !b.allies.has(from)) b.enemies.add(from); // whoever shot it is a suspect now
     const a = avatars.get('f:' + b.id); if (a) ctx.react(a, 'shock', 0.8);
     if (b.hp <= 0) { b.deaths++; b.downUntil = now() + RESPAWN; dropFlag(b.id, b.x, b.y, b.z); knockedOut(b.id, from, head); }
     else if (!b.target) b.think = 0; // look around for whoever did that
@@ -696,19 +725,20 @@ export function startFps(ctx) {
   function updateBot(b, dt) {
     const t = now(), L = LEVELS[botLevel];
     if (b.hp <= 0) {
-      if (t > b.downUntil) respawnBot(b, t);
+      if (t > b.downUntil && !huntOn()) respawnBot(b, t); // the traitor mode: out till the end
       return;
     }
     botO.set(b.x, b.y + (b.crouch ? 1.0 : EYE), b.z);
-    // pick a target now and then: the nearest enemy in sight
+    // pick a target now and then: the nearest enemy in sight (in the traitor mode, someone it suspects)
     if (t > b.think) {
       b.think = t + 0.4 + Math.random() * 0.3;
       let best = null, bd = L.sight;
       for (const f of fighters()) {
         if (f.id === b.id || !f.alive || mates(b.team, f.team)) continue;
         const d = Math.hypot(f.x - b.x, f.z - b.z) + Math.abs(f.base - b.y);
-        if (d < bd && canSee(botO, f.x, f.base, f.z, f.height)) { bd = d; best = f.id; }
+        if (d < bd && canSee(botO, f.x, f.base, f.z, f.height) && (!huntOn() || hostile(b, f))) { bd = d; best = f.id; }
       }
+      if (best && huntOn() && b.role === 't') b.enemies.add(best); // a traitor that has started finishes the job
       if (best !== b.target) b.spotted = t; // a moment to react before the first shot
       if (!best && b.target) b.repath = 0; // lost them: go and look where they were
       b.target = best;
@@ -727,7 +757,7 @@ export function startFps(ctx) {
       mx = dx / d * fwd + (-dz / d) * b.strafe * 0.8; mz = dz / d * fwd + (dx / d) * b.strafe * 0.8;
       // shoot when roughly facing them
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      if (Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + L.react) {
+      if (Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + L.react && !prep()) {
         const g = BOT_GUNS[b.weapon];
         // pistol bots take their time; the others fire short bursts, then pause
         if (--b.burst > 0) b.nextShot = t + g.gap;
@@ -775,6 +805,26 @@ export function startFps(ctx) {
     if (t > b.stuckAt) {
       if ((mx || mz) && Math.hypot(b.x - b.stuckX, b.z - b.stuckZ) < 0.15) b.repath = 0;
       b.stuckAt = t + 1; b.stuckX = b.x; b.stuckZ = b.z;
+    }
+  }
+  // the traitor mode: whom a bot will fight. Anyone who shot it or that it saw knock someone out;
+  // and a traitor bot, anyone but its fellow traitors, as long as nobody else can see
+  function hostile(b, f) {
+    if (prep()) return false;
+    if (b.enemies.has(f.id)) return true;
+    if (b.role !== 't' || b.allies.has(f.id)) return false;
+    return !fighters().some(q => q.alive && q.id !== b.id && q.id !== f.id && !b.allies.has(q.id) &&
+      Math.hypot(q.x - b.x, q.z - b.z) < 14 && canSee(botO, q.x, q.base, q.z, q.height));
+  }
+  // someone was knocked out: my bots that saw who did it will remember
+  function witness(victim, killer) {
+    if (!huntOn() || victim === killer) return;
+    const k = fighters().find(f => f.id === killer), L = LEVELS[botLevel], eye = new THREE.Vector3();
+    if (!k) return;
+    for (const b of bots.values()) {
+      if (b.hp <= 0 || b.id === killer || b.allies.has(killer)) continue;
+      eye.set(b.x, b.y + EYE, b.z);
+      if (Math.hypot(k.x - b.x, k.z - b.z) < L.sight && canSee(eye, k.x, k.base, k.z, k.height)) b.enemies.add(killer);
     }
   }
   function respawnBot(b, t) {
@@ -1138,6 +1188,67 @@ export function startFps(ctx) {
     }
   }
 
+  /* ---------- the traitor mode: bodies, marks, who hears whom ---------- */
+  // a body tells who it was when someone alive stands by it: the dead one's own browser (or its
+  // bots' owner's) sees it happen and tells everyone, since it's the only one that knows
+  function findBodies() {
+    if (!huntOn()) return;
+    const living = fighters().filter(f => f.alive);
+    const check = (id, r, x, y, z) => {
+      if (!r || found.has(id)) return;
+      const by = living.find(f => f.id !== id && Math.hypot(f.x - x, f.z - z) < FIND && Math.abs(f.base - y) < 1.5);
+      if (!by) return;
+      found.set(id, r);
+      const room = ctx.room(); if (room) room.emit('body', { m: match.id, v: id, r, by: by.id }).catch(() => {});
+      sayFound(id, r, by.id); pushMine();
+    };
+    if (me.entered && !alive() && !watching) check(ctx.myKey(), role, me.x, me.jy, me.z);
+    for (const b of bots.values()) if (b.hp <= 0) check(b.id, b.role, b.x, b.y, b.z);
+  }
+  function sayFound(id, r, by) {
+    const finder = by === ctx.myKey() ? 'Tu as' : (by ? nameOf(by) : 'Quelqu\'un') + ' a';
+    say(id === ctx.myKey() ? `${finder} trouvé ton corps` : `${finder} trouvé le corps de ${nameOf(id)} : ${r === 'd' ? 'l\'' : 'un '}${ROLES[r].name} ${ROLES[r].dot}`);
+    if (r === 't') sfx.chime(); else sfx.uncharge();
+    renderBoard();
+  }
+  // arriving late: the bodies already found, from the others' presence
+  function readFound() {
+    if (match.mode !== 'traitor') return;
+    for (const p of ctx.peers()) {
+      const f = p.presence && p.presence.ft;
+      if (p.sameTab || !Array.isArray(f) || f[0] !== match.id) continue;
+      for (let i = 1; i + 1 < f.length && i < 81; i += 2) if (typeof f[i] === 'string' && Object.hasOwn(ROLES, f[i + 1])) found.set(f[i], f[i + 1]);
+    }
+  }
+  // a mark over a head: the investigator's for everyone, the fellow traitors' for a traitor, the
+  // role of a body once found, everyone's at the end
+  const marks = {};
+  function markTex(code) {
+    if (marks[code]) return marks[code];
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const c = cv.getContext('2d');
+    c.fillStyle = ROLES[code].col; c.beginPath(); c.arc(32, 32, 28, 0, Math.PI * 2); c.fill();
+    c.lineWidth = 4; c.strokeStyle = '#fbf3e4'; c.stroke();
+    c.font = '30px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ROLES[code].dot, 32, 35);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    return (marks[code] = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  }
+  function markOf(id) {
+    if (match.mode !== 'traitor' || !match.start || !id) return '';
+    if (match.over) return result && result.r && result.r[id] || '';
+    if (!running()) return '';
+    return found.get(id) || (id === match.det ? 'd' : role === 't' && allies.has(id) ? 't' : '');
+  }
+  function markAvatar(a) {
+    const code = markOf(a.who);
+    if (a.fpMark === code) return;
+    if (a.markS) { a.g.remove(a.markS); a.markS = null; }
+    if (code) { a.markS = new THREE.Sprite(markTex(code)); a.markS.scale.set(0.34, 0.34, 1); a.markS.position.y = 2.42; a.markS.renderOrder = 10; a.g.add(a.markS); }
+    a.fpMark = code;
+  }
+  // the dead (and spectators) can't talk to the living, by voice or in writing, until the round is over
+  const silenced = a => huntOn() && me.entered && alive() && !watching && !!a && (!!a.fpDown || !!a.fpSpec);
+
   /* ---------- network ---------- */
   function onDart(m) {
     if (m.isMe) return;
@@ -1157,6 +1268,7 @@ export function startFps(ctx) {
     if (d.v === d.k) { /* knocked themselves out: nobody scores */ }
     else if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
     else { const b = bots.get(d.k); if (b) b.kills++; }
+    witness(d.v, d.k);
     announce(d.v, d.k, d.h === FELL ? FELL : d.h === 1);
   }
   function onBots(m) {
@@ -1177,14 +1289,23 @@ export function startFps(ctx) {
       damage(h[0], d.s, Math.max(1, Math.min(WEAPONS.rocket.splashDmg, h[1] | 0)), false, p);
     }
   }
-  // a round as it travels: { id, mode, end, goal, start, over }, checked
+  // a round as it travels: { id, mode, end, goal, start, over, by, det }, checked
+  // (the traitor mode always plays against the clock)
   function cleanMatch(d) {
     if (!d || typeof d.id !== 'string' || !d.id || d.id.length > 16) return null;
-    const mode = ['teams', 'ctf'].includes(d.mode) ? d.mode : 'ffa', end = ['score', 'time'].includes(d.end) ? d.end : 'free';
+    const mode = ['teams', 'ctf', 'traitor'].includes(d.mode) ? d.mode : 'ffa', end = mode === 'traitor' ? 'time' : ['score', 'time'].includes(d.end) ? d.end : 'free';
     const goals = end === 'score' ? (mode === 'ctf' ? CAP_GOALS : SCORE_GOALS) : end === 'time' ? TIME_GOALS : [0];
     const start = +d.start;
     if (!Number.isFinite(start) || start <= 0) return null;
-    return { id: d.id, mode, end, goal: goals.includes(d.goal) ? d.goal : goals[0], start, over: d.over ? 1 : 0 };
+    const id = v => typeof v === 'string' && v.length < 80 ? v : '';
+    return { id: d.id, mode, end, goal: goals.includes(d.goal) ? d.goal : goals[0], start, over: d.over ? 1 : 0, by: id(d.by), det: id(d.det) };
+  }
+  // the roles as the end of a round reveals them: { id: code }
+  function cleanRoles(r) {
+    if (!r || typeof r !== 'object') return null;
+    const out = {};
+    for (const [id, c] of Object.entries(r).slice(0, 40)) if (Object.hasOwn(ROLES, c)) out[id] = c;
+    return out;
   }
   // the latest round started wins (two people pressing "Revanche" at once end up in the same one)
   const newer = m => m.start > match.start || (m.start === match.start && m.id > match.id);
@@ -1192,14 +1313,26 @@ export function startFps(ctx) {
     if (m.isMe) return;
     const d = m.data || {}, mm = cleanMatch(d);
     if (!mm || !newer(mm)) return;
-    mm.over = 0;
+    mm.over = 0; mm.by = m.by; // the one who sent it is the one who hands out the roles
     const t = d.t && typeof d.t === 'object' ? d.t : null;
-    adopt(mm, t, true, m.by);
+    adopt(mm, t, true, m.by, null, d.r && typeof d.r === 'object' ? d.r : null);
   }
   function onMend(m) {
     if (m.isMe) return;
     const d = m.data || {};
-    if (d.id === match.id && !match.over && match.end !== 'free') finish(false);
+    if (d.id !== match.id || match.over || match.end === 'free') return;
+    if (match.mode === 'traitor') {
+      if (m.by !== match.by) return; // only whoever started it knows who won
+      result = { w: d.w === 'i' || d.w === 't' ? d.w : '', r: cleanRoles(d.r) };
+    }
+    finish(false);
+  }
+  function onBody(m) {
+    if (m.isMe) return;
+    const d = m.data || {};
+    if (d.m !== match.id || typeof d.v !== 'string' || !Object.hasOwn(ROLES, d.r) || found.has(d.v)) return;
+    found.set(d.v, d.r);
+    sayFound(d.v, d.r, typeof d.by === 'string' ? d.by : '');
   }
   function onPick(m) {
     if (m.isMe) return;
@@ -1209,18 +1342,20 @@ export function startFps(ctx) {
     p.back = now() + PICKUPS[p.kind].every;
   }
   const room0 = ctx.room();
-  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap]]) room0.on(topic, fn, () => {});
+  if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap], ['body', onBody]]) room0.on(topic, fn, () => {});
 
   /* ---------- rounds: starting, joining late, ending ---------- */
   let setup = { mode: 'ffa', end: 'score', score: 15, caps: 3, time: 5 }; // what the round window shows
   try { Object.assign(setup, JSON.parse(store.get('playroom-round')) || {}); } catch (e) {}
   if (setup.mode === 'ctf' && flags.length !== 2) setup.mode = 'teams'; // no flags on this map
+  const inTeams = m => m.mode === 'teams' || m.mode === 'ctf';
   function startMatch(s) {
-    const goal = s.end === 'score' ? (s.mode === 'ctf' ? s.caps : s.score) : s.end === 'time' ? s.time : 0;
-    const m = cleanMatch({ id: Math.random().toString(36).slice(2, 10), mode: s.mode, end: s.end, goal, start: Math.max(Date.now(), match.start + 1) });
+    const goal = s.mode === 'traitor' || s.end === 'time' ? s.time : s.end === 'score' ? (s.mode === 'ctf' ? s.caps : s.score) : 0;
+    const m = cleanMatch({ id: Math.random().toString(36).slice(2, 10), mode: s.mode, end: s.end, goal, start: Math.max(Date.now(), match.start + 1), by: ctx.myKey() });
+    if (m.mode === 'traitor') { startHunt(m); return; }
     // the teams: people first, one each side in a random order, then the bots to even things out
     let t = null;
-    if (m.mode !== 'ffa') {
+    if (inTeams(m)) {
       t = {};
       const rows = standings(), people = rows.filter(r => !r.bot).sort(() => Math.random() - 0.5), robots = rows.filter(r => r.bot);
       const n = [0, 0];
@@ -1231,18 +1366,74 @@ export function startFps(ctx) {
     const room = ctx.room();
     if (room) room.emit('match', { ...m, t }).catch(() => {});
   }
+  // the traitor mode: one traitor in four, an investigator from five players up, everyone else
+  // innocent; each role sealed for its player (a bot's for the player whose browser runs it)
+  async function startHunt(m) {
+    const ids = standings().map(r => r.id).sort(() => Math.random() - 0.5); // spectators too: a new round brings everyone in
+    if (ids.length < 3) { toast('Il faut au moins 3 joueurs, robots compris : ajoute des robots.', 3500); return; }
+    const n = Math.max(1, Math.floor(ids.length / 4)), traitors = ids.slice(0, n), table = {};
+    for (const id of ids) table[id] = traitors.includes(id) ? 't' : 'i';
+    if (ids.length >= 5) { m.det = ids[n]; table[m.det] = 'd'; }
+    const boxes = {};
+    for (const id of ids) {
+      const owner = id.startsWith('bot:') ? id.slice(4, id.lastIndexOf(':')) : id;
+      if (owner === ctx.myKey()) continue; // mine: known here already
+      const pk = ctx.pkOf(owner);
+      const box = pk && await ctx.seal(pk, { m: m.id, id, r: table[id], a: table[id] === 't' ? traitors : [] }).catch(() => null);
+      if (box) boxes[id] = box;
+    }
+    roles = table;
+    adopt(m, null, true, ctx.myKey(), { table, traitors });
+    const room = ctx.room();
+    if (room) room.emit('match', { ...m, r: boxes }).catch(() => {});
+  }
+  // my role and my bots': straight from the table if I started the round, or out of the sealed boxes
+  async function takeRoles(m, by, local, boxes) {
+    const mine = {};
+    if (local) for (const id of Object.keys(local.table)) mine[id] = { r: local.table[id], a: local.table[id] === 't' ? local.traitors : [] };
+    else if (boxes) {
+      const pk = ctx.pkOf(by);
+      await Promise.all(Object.keys(boxes).filter(id => id === ctx.myKey() || bots.has(id)).map(async id => {
+        const d = await ctx.open(pk, boxes[id]);
+        if (d && d.m === m.id && d.id === id && Object.hasOwn(ROLES, d.r)) mine[id] = { r: d.r, a: Array.isArray(d.a) ? d.a.filter(x => typeof x === 'string') : [] };
+      }));
+    }
+    if (match.id !== m.id) return; // another round started meanwhile
+    for (const b of bots.values()) {
+      const x = mine[b.id];
+      if (!x) { b.hp = 0; continue; } // no role: sits this round out
+      b.role = x.r; b.allies = new Set(x.a.filter(a => a !== b.id));
+      if (x.r === 'd') b.armor = MAX_ARMOR;
+    }
+    const x = mine[ctx.myKey()];
+    if (!me.entered) return;
+    if (!x) { watch(true); toast('Tu n\'as pas reçu de rôle : tu regardes cette manche.', 4000); return; }
+    role = x.r; allies = new Set(x.a.filter(a => a !== ctx.myKey()));
+    if (role === 'd') armor = MAX_ARMOR;
+    const names = [...allies].map(nameOf).join(', ');
+    toast(role === 't' ? `Tu es Traître 🗡️ ${names ? `avec ${names}. ` : ''}Élimine les autres sans te faire prendre.`
+      : role === 'd' ? 'Tu es l\'Enquêteur 🔎 : tout le monde le sait. Une armure en plus pour mener l\'enquête.'
+        : 'Tu es Innocent 🙂 : trouve les traîtres, ou tiens jusqu\'à la fin.', 6000);
+    pushMine(); renderBoard(); renderBar();
+  }
   // take part in a round: `fresh` when it has just started (scores back to zero, everyone back in)
-  function adopt(m, t, fresh, by) {
+  // (in the traitor mode, `local` holds the roles when this browser started it, `boxes` the sealed ones)
+  function adopt(m, t, fresh, by, local, boxes) {
     const was = match;
     match = m;
-    if (m.mode !== 'ffa') {
+    if (inTeams(m)) {
       const pick = id => t && (t[id] === 0 || t[id] === 1) ? t[id] : null;
       // a team you were given, the one you were already on, or the smaller one
-      team = pick(ctx.myKey()) ?? (was.mode !== 'ffa' && team >= 0 ? team : smallerTeam(ctx.myKey()));
+      team = pick(ctx.myKey()) ?? (inTeams(was) && team >= 0 ? team : smallerTeam(ctx.myKey()));
       for (const b of bots.values()) b.team = -1;
       for (const b of bots.values()) b.team = pick(b.id) ?? smallerTeam(b.id);
     } else { team = -1; for (const b of bots.values()) b.team = -1; }
     if (fresh || was.id !== m.id) resetFlags(); // every round starts with both flags at home
+    if (fresh || was.id !== m.id) { // and with no roles, no bodies
+      role = ''; allies = new Set(); result = null; found.clear(); refGone = 0;
+      if (!local) roles = null;
+      for (const b of bots.values()) { b.role = ''; b.allies = new Set(); b.enemies = new Set(); }
+    }
     if (fresh) {
       kills = deaths = 0;
       const t0 = now();
@@ -1251,6 +1442,7 @@ export function startFps(ctx) {
       sfx.whistle();
       const who = by && by !== ctx.myKey() ? nameOf(by) + ' lance' : 'Nouvelle manche :';
       toast(`${who} ${describe(m)}` + (team >= 0 ? ` · tu es chez les ${TEAMS[team].name} ${TEAMS[team].dot}` : ''), 4000);
+      if (m.mode === 'traitor') takeRoles(m, by, local, boxes);
     } else if (me.entered && running() && !kills && !deaths && now() - enteredAt < 10) {
       watch(true, true); // walked in during someone's round: watch first
     }
@@ -1258,6 +1450,7 @@ export function startFps(ctx) {
     pushMine(); renderBoard(); renderBar();
   }
   function describe(m) {
+    if (m.mode === 'traitor') return `le Traître, ${m.goal} minutes`;
     const mode = m.mode === 'ctf' ? 'capture du drapeau' : m.mode === 'teams' ? 'Rouges contre Bleus' : 'chacun pour soi';
     const goal = m.mode === 'ctf' ? `${m.goal} capture${m.goal > 1 ? 's' : ''}` : m.goal;
     return m.end === 'score' ? `${mode}, premier à ${goal}` : m.end === 'time' ? `${mode}, ${m.goal} minutes` : `${mode}, sans fin`;
@@ -1266,9 +1459,10 @@ export function startFps(ctx) {
   function readMatch() {
     for (const p of ctx.peers()) {
       if (p.sameTab || !p.presence || !Array.isArray(p.presence.fm)) continue;
-      const f = p.presence.fm, m = cleanMatch({ id: f[0], mode: f[1], end: f[2], goal: f[3], start: f[4], over: f[5] });
+      const f = p.presence.fm, m = cleanMatch({ id: f[0], mode: f[1], end: f[2], goal: f[3], start: f[4], over: f[5], by: f[6], det: f[7] });
       if (!m) continue;
-      if (newer(m)) { const over = m.over; m.over = 0; adopt(m, null, false); if (over) finish(false); }
+      // a round that's already over doesn't make a newcomer a spectator
+      if (newer(m)) { const over = m.over; adopt(m, null, false); if (over) { match.over = 0; finish(false); } }
       else if (m.id === match.id && m.over && !match.over) finish(false);
     }
   }
@@ -1284,6 +1478,7 @@ export function startFps(ctx) {
   const teamScores = rows => ctfOn() ? caps.slice() : totals(rows);
   function checkEnd() {
     if (!running()) return;
+    if (match.mode === 'traitor') { checkHunt(); return; }
     if (match.end === 'time' && timeLeft() <= 0) { finish(true); return; }
     if (match.end === 'score') {
       const rows = standings();
@@ -1291,15 +1486,41 @@ export function startFps(ctx) {
       if (best >= match.goal) finish(true);
     }
   }
+  // the traitor mode's end: whoever started the round knows every role, so it judges. The others
+  // only step in when it's gone (the round is called off) or quiet after the clock (innocents win)
+  let refGone = 0;
+  function checkHunt() {
+    const t = Date.now();
+    if (match.by === ctx.myKey()) {
+      if (!roles) return;
+      const up = new Set(standings().filter(r => !r.down && !r.spec).map(r => r.id));
+      let tl = 0, il = 0;
+      for (const [id, r] of Object.entries(roles)) if (up.has(id)) { if (r === 't') tl++; else il++; }
+      const w = !tl ? 'i' : !il ? 't' : timeLeft() <= 0 ? 'i' : '';
+      if (w) { result = { w, r: roles }; finish(true); }
+      return;
+    }
+    if (!ctx.peers().some(p => !p.sameTab && ctx.peerKey(p) === match.by)) {
+      if (!refGone) refGone = t;
+      else if (t - refGone > 4000) { result = { w: '', r: null, gone: true }; finish(false); }
+    } else refGone = 0;
+    if (t > match.start + match.goal * 60000 + 4000) { result = { w: 'i', r: null }; finish(false); }
+  }
   // the round is over: everyone stops, the winners are shown, anyone can ask for a rematch
   function finish(tell) {
     if (match.over) return;
     match.over = Date.now();
     triggerDown = false; aiming = false; chargeAt = 0;
-    if (tell) { const room = ctx.room(); if (room) room.emit('mend', { id: match.id }).catch(() => {}); }
+    if (tell) { const room = ctx.room(); if (room) room.emit('mend', { id: match.id, ...(match.mode === 'traitor' && result ? { w: result.w, r: result.r } : {}) }).catch(() => {}); }
     const rows = standings().filter(r => !r.spec);
     let title, sub, won = false;
-    if (teamsOn()) {
+    if (match.mode === 'traitor') {
+      const w = result ? result.w : '';
+      title = w === 'i' ? 'Les Innocents gagnent ! 🙂' : w === 't' ? 'Les Traîtres gagnent ! 🗡️' : result && result.gone ? 'Manche annulée' : 'Fin de la manche';
+      sub = result && result.gone ? 'Celui qui l\'a lancée est parti' : w === 't' ? 'Plus aucun innocent debout'
+        : w === 'i' ? (timeLeft() <= 0 ? 'Les innocents ont tenu jusqu\'au bout' : 'Plus aucun traître debout') : '';
+      won = !!w && !!role && (w === 't') === (role === 't');
+    } else if (teamsOn()) {
       const t = teamScores(rows);
       if (t[0] === t[1]) title = 'Égalité !';
       else { const w = t[0] > t[1] ? 0 : 1; title = `Victoire des ${TEAMS[w].name} ${TEAMS[w].dot}`; won = w === team; }
@@ -1315,7 +1536,7 @@ export function startFps(ctx) {
     setTimeout(() => (won ? sfx.fanfare() : sfx.wahwah()), 700);
     if (won) setTimeout(() => sfx.confetti(), 1000);
     endEl.textContent = '';
-    endEl.append(el('h2', null, title), el('p', 'muted', sub + ' · ' + describe(match)), table(rows, 8));
+    endEl.append(el('h2', null, title), el('p', 'muted', (sub ? sub + ' · ' : '') + describe(match)), match.mode === 'traitor' ? roleTable(rows) : table(rows, 8));
     const btns = el('div', 'btns');
     const again = el('button', 'btn', 'Revanche'); again.type = 'button';
     again.addEventListener('click', () => startMatch({ mode: match.mode, end: match.end, score: match.goal, caps: match.goal, time: match.goal }));
@@ -1344,12 +1565,18 @@ export function startFps(ctx) {
       body.textContent = '';
       body.append(el('p', 'muted', 'Tout le monde repart de zéro. En équipes, les tirs passent à travers les coéquipiers.'));
       // capture the flag only on a map with flags
-      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']].concat(flags.length === 2 ? [['ctf', 'Capture du drapeau']] : []), v => { setup.mode = v; });
+      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']].concat(flags.length === 2 ? [['ctf', 'Capture du drapeau']] : [], [['traitor', 'Le Traître (rôles secrets)']]), v => { setup.mode = v; });
       if (setup.mode === 'ctf') body.append(el('p', 'muted', 'Prends le drapeau adverse et ramène-le à ta base pendant que le tien y est. S\'il tombe, touche-le pour le ramener chez toi.'));
-      select('Fin de la manche', setup.end, [['score', 'Score à atteindre'], ['time', 'Chronomètre'], ['free', 'Sans fin']], v => { setup.end = v; });
-      if (setup.end === 'score' && setup.mode === 'ctf') select('Captures', setup.caps, CAP_GOALS.map(n => [n, String(n)]), v => { setup.caps = +v; });
-      else if (setup.end === 'score') select(setup.mode === 'teams' ? 'Éliminations (par équipe)' : 'Éliminations', setup.score, SCORE_GOALS.map(n => [n, String(n)]), v => { setup.score = +v; });
-      if (setup.end === 'time') select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
+      if (setup.mode === 'traitor') {
+        body.append(el('p', 'muted', 'Chacun reçoit un rôle secret. Les Traîtres (un sur quatre) se connaissent et doivent éliminer tous les autres. Les Innocents doivent les démasquer, ou tenir jusqu\'à la fin du temps. L\'Enquêteur (à partir de 5 joueurs) est connu de tous.'));
+        body.append(el('p', 'muted', 'On ne réapparaît pas avant la fin. Approche-toi d\'un corps pour savoir qui c\'était. Les morts ne parlent plus aux vivants. Il faut au moins 3 joueurs, robots compris.'));
+        select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
+      } else {
+        select('Fin de la manche', setup.end, [['score', 'Score à atteindre'], ['time', 'Chronomètre'], ['free', 'Sans fin']], v => { setup.end = v; });
+        if (setup.end === 'score' && setup.mode === 'ctf') select('Captures', setup.caps, CAP_GOALS.map(n => [n, String(n)]), v => { setup.caps = +v; });
+        else if (setup.end === 'score') select(setup.mode === 'teams' ? 'Éliminations (par équipe)' : 'Éliminations', setup.score, SCORE_GOALS.map(n => [n, String(n)]), v => { setup.score = +v; });
+        if (setup.end === 'time') select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
+      }
       const go = el('button', 'btn', 'Lancer la manche'); go.type = 'button';
       go.addEventListener('click', () => { store.set('playroom-round', JSON.stringify(setup)); matchDlg.close(); startMatch(setup); });
       body.append(go);
@@ -1371,6 +1598,7 @@ export function startFps(ctx) {
   /* ---------- watching instead of playing ---------- */
   function watch(on, late) {
     if (on === watching || !me.entered) return;
+    if (!on && huntOn()) { toast('Les rôles sont distribués : tu rejoindras à la prochaine manche.', 2500); return; }
     watching = on; camSet = false;
     triggerDown = false; aiming = false; chargeAt = 0;
     if (on) dropFlag(ctx.myKey(), me.x, me.jy, me.z);
@@ -1383,7 +1611,7 @@ export function startFps(ctx) {
   let camSet = false;
   // behind whoever you watch, pulled in so walls don't get in the way; over the map if nobody's there
   function watchCamera(dt) {
-    const list = fighters().filter(f => !f.self);
+    const list = fighters().filter(f => !f.self && (!huntOn() || f.alive)); // the dead watch the living
     const f = list.length ? list[((watchIdx % list.length) + list.length) % list.length] : null;
     if (f) {
       const yaw = f.av ? f.av.yaw : 0;
@@ -1392,7 +1620,7 @@ export function startFps(ctx) {
       const len = camBack.length(); camBack.normalize();
       const w = worldHit(camLook, camBack, len);
       camGoal.copy(camLook).addScaledVector(camBack, w ? Math.max(0.3, w.dist - 0.25) : len);
-      specName.textContent = `👁️ Tu regardes ${f.av ? f.av.nick : nameOf(f.id)}`;
+      specName.textContent = `${ghost() ? '👻 Éliminé · tu regardes' : '👁️ Tu regardes'} ${f.av ? f.av.nick : nameOf(f.id)}`;
     } else {
       camLook.set(0, 0, 0); camGoal.set(0, 12, 14);
       specName.textContent = '👁️ Personne à regarder pour l\'instant';
@@ -1406,8 +1634,9 @@ export function startFps(ctx) {
 
   /* ---------- HUD ---------- */
   function renderBar() {
-    bar.hidden = !me.entered || watching;
-    specEl.hidden = !me.entered || !watching;
+    bar.hidden = !me.entered || watching || ghost();
+    specEl.hidden = !me.entered || !(watching || ghost());
+    joinBtn.hidden = huntOn(); // the roles are handed out: wait for the next round
     // three hearts, each one two hits of the rifle or one of the pistol
     let hearts = '';
     for (let i = 0; i < MAX_HP / 2; i++) hearts += hp >= i * 2 + 2 ? '❤️' : hp === i * 2 + 1 ? '💔' : '🤍';
@@ -1416,8 +1645,9 @@ export function startFps(ctx) {
     ammoEl.textContent = `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : w.heavy ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
     ammoEl.classList.toggle('heavy', !!w.heavy);
     ammoEl.classList.toggle('low', !reloading && ammo[k] <= w.mag / 4);
-    teamEl.hidden = !(teamsOn() && team >= 0);
-    if (!teamEl.hidden) { teamEl.textContent = TEAMS[team].name; teamEl.style.background = TEAMS[team].col; }
+    teamEl.hidden = !(teamsOn() && team >= 0) && !(huntOn() && role);
+    if (huntOn() && role) { teamEl.textContent = `${ROLES[role].dot} ${ROLES[role].name}`; teamEl.style.background = ROLES[role].col; }
+    else if (!teamEl.hidden) { teamEl.textContent = TEAMS[team].name; teamEl.style.background = TEAMS[team].col; }
     const c = clockText();
     clockEl.hidden = !c; clockEl.textContent = c;
     if (boardClock) boardClock.textContent = c;
@@ -1427,6 +1657,7 @@ export function startFps(ctx) {
     const capsTxt = ctfOn() ? `🚩 ${caps[0]} – ${caps[1]}` : ''; // the captures, Rouges first
     if (!match.start || match.end === 'free') return capsTxt;
     if (match.over) return 'Manche finie';
+    if (prep()) return `Préparation ${Math.ceil((match.start + PREP * 1000 - Date.now()) / 1000)} s`;
     if (match.end === 'time') return '⏱ ' + mmss(timeLeft()) + (capsTxt ? ' · ' + capsTxt : '');
     if (capsTxt) return `${capsTxt} (sur ${match.goal})`;
     const rows = standings(), best = teamsOn() ? Math.max(...teamScores(rows)) : Math.max(0, ...rows.map(r => r.k));
@@ -1470,6 +1701,33 @@ export function startFps(ctx) {
     rows.filter(r => r.spec).forEach(line);
     return tb;
   }
+  // the traitor mode: what I may know of someone's role (theirs once the round is over)
+  function roleOf(id) {
+    if (match.over && result && result.r && result.r[id]) return result.r[id];
+    if (found.has(id)) return found.get(id);
+    if (id === match.det) return 'd';
+    if (id === ctx.myKey()) return role;
+    if (role === 't' && allies.has(id)) return 't';
+    return '';
+  }
+  // is that one down, as far as I'm allowed to know? (a body nobody has found yet looks like anyone)
+  const seenDown = r => r.down && (r.me || match.over || found.has(r.id));
+  // the traitor mode's table: roles instead of scores (eliminations once it's over)
+  function roleTable(rows) {
+    const tb = el('table'), hd = el('tr');
+    for (const t of ['Joueur', 'Rôle'].concat(match.over ? ['Élim.'] : [])) hd.append(el('th', null, t));
+    tb.append(hd);
+    for (const r of match.over ? rows : rows.slice().sort((a, b) => a.nick.localeCompare(b.nick))) { // by score would give it away
+      const code = roleOf(r.id), tr = el('tr', r.me ? 'me' : null), n = el('td'), c = el('span', 'c');
+      c.style.background = r.col;
+      n.append(c, document.createTextNode(r.nick + (r.spec ? ' 👁️' : seenDown(r) ? ' ✝' : '')));
+      const rt = el('td', null, code ? `${ROLES[code].dot} ${ROLES[code].name}` : '?');
+      if (code) rt.style.color = ROLES[code].col;
+      tr.append(n, rt); if (match.over) tr.append(el('td', null, String(r.k)));
+      tb.append(tr);
+    }
+    return tb;
+  }
   let tabOpen = false;
   function scores(on) { tabOpen = !!on; renderTab(); }
   function renderTab() {
@@ -1477,29 +1735,36 @@ export function startFps(ctx) {
     if (tabEl.hidden) return;
     tabEl.textContent = '';
     const c = clockText();
-    tabEl.append(el('h2', null, 'Scores'), el('p', 'muted', (match.start ? describe(match) : 'Partie libre, sans fin') + (c ? ' · ' + c : '')), table(standings()));
+    tabEl.append(el('h2', null, 'Scores'), el('p', 'muted', (match.start ? describe(match) : 'Partie libre, sans fin') + (c ? ' · ' + c : '')), match.mode === 'traitor' && match.start ? roleTable(standings()) : table(standings()));
   }
   let boardSig = '', boardClock = null;
   function renderBoard() {
     board.hidden = !me.entered;
     if (!me.entered) return;
     const rows = standings();
-    const sig = JSON.stringify(rows) + bots.size + botLevel + match.id + match.over + match.mode;
+    const traitor = match.mode === 'traitor' && !!match.start;
+    const sig = JSON.stringify(rows) + bots.size + botLevel + match.id + match.over + match.mode + role + [...allies] + [...found].flat() + (result ? result.w : '');
     if (sig === boardSig) return; boardSig = sig;
     board.textContent = '';
-    const h = el('h3'); h.append(el('span', null, 'Fléchettes'), el('span', null, '🎯 💥'));
+    const h = el('h3'); h.append(el('span', null, traitor ? 'Le Traître' : 'Fléchettes'), el('span', null, traitor ? '🗡️ 🔎' : '🎯 💥'));
     h.title = 'Tableau des scores'; h.addEventListener('click', () => scores(!tabOpen)); // on a phone: no Tab key
     board.append(h);
     const sub = el('div', 'sub'); boardClock = el('span', 'clock', clockText());
     sub.append(el('span', null, match.start ? describe(match) : 'Partie libre'), boardClock); board.append(sub);
     const line = r => {
-      const row = el('div', 'srow' + (r.me ? ' me' : '') + (r.down || r.spec ? ' down' : ''));
+      const row = el('div', 'srow' + (r.me ? ' me' : '') + ((traitor ? seenDown(r) : r.down) || r.spec ? ' down' : ''));
       const c = el('span', 'c'); c.style.background = r.team >= 0 ? TEAMS[r.team].col : r.col;
-      row.append(c, el('span', 'n', r.nick + (r.spec ? ' 👁️' : '')), el('span', 'rp', String(r.k)), el('span', 't', String(r.d)));
+      row.append(c, el('span', 'n', r.nick + (r.spec ? ' 👁️' : traitor && seenDown(r) ? ' ✝' : '')));
+      if (traitor) { // no scores: they'd give the game away; a role where it's known
+        const code = roleOf(r.id), rl = el('span', 'rl', code ? ROLES[code].dot : '');
+        if (code) { rl.title = ROLES[code].name; rl.style.color = ROLES[code].col; }
+        row.append(rl, el('span'));
+      } else row.append(el('span', 'rp', String(r.k)), el('span', 't', String(r.d)));
       board.append(row);
     };
     const play = rows.filter(r => !r.spec);
-    if (teamsOn()) {
+    if (traitor) play.sort((a, b) => a.nick.localeCompare(b.nick)).forEach(line); // in an order that tells nothing
+    else if (teamsOn()) {
       const t = teamScores(play);
       for (const k of [0, 1]) {
         const th = el('div', 'team'); th.style.color = TEAMS[k].col;
@@ -1598,13 +1863,16 @@ export function startFps(ctx) {
   function update(dt) {
     const t = now();
     if (me.entered && !alive() && !watching) {
-      const left = Math.ceil(downUntil - t);
-      downEl.hidden = false; downEl.textContent = `${downBy ? `Touché par ${downBy}` : 'Tombé dans le vide'} ! Retour dans ${Math.max(1, left)}…`;
-      if (t > downUntil) { downEl.hidden = true; respawnMe(); }
+      const left = Math.ceil(downUntil - t), how = downBy ? `Touché par ${downBy}` : 'Tombé dans le vide';
+      if (huntOn()) { downEl.hidden = t > downUntil; downEl.textContent = `${how} ! Tu es éliminé jusqu'à la fin de la manche.`; } // then you watch the living
+      else {
+        downEl.hidden = false; downEl.textContent = `${how} ! Retour dans ${Math.max(1, left)}…`;
+        if (t > downUntil) { downEl.hidden = true; respawnMe(); }
+      }
     } else downEl.hidden = true;
     me.frozen = me.entered && (!alive() || watching);
     // lying on the floor while knocked out
-    if (me.frozen && !watching) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
+    if (me.frozen && !watching && !ghost()) { camera.position.y = 0.35; camera.rotation.z = 0.5; }
     if (VOID !== null && me.entered && alive() && !watching && me.jy < VOID) fellMe();
     updateMovers(); updateDoors(dt); updateFlags(dt);
     for (const b of bots.values()) updateBot(b, dt);
@@ -1618,6 +1886,7 @@ export function startFps(ctx) {
       if (a.fpShield && !a.fpDown) a.g.visible = a.g.visible && Math.floor(t * 8) % 2 === 0;
       // everyone holds their blaster, aiming where they look
       if (a.who && a.seat < 0) { holdGun(a, a.fpWeapon || 'pistol'); a.armed = !a.fpDown; }
+      markAvatar(a);
     }
     // aiming: zoom in smoothly, bring the blaster under the crosshair
     const w = W();
@@ -1650,18 +1919,18 @@ export function startFps(ctx) {
     updateDarts(dt);
     updatePickups(dt);
     updatePads(dt);
-    if (watching && me.entered) watchCamera(dt);
+    if ((watching || ghost()) && me.entered) watchCamera(dt);
     updateDirs();
     reloadEl.hidden = !(playing && t < reloadUntil);
     if (!reloadEl.hidden) { reloadFill.style.width = Math.min(100, reloadDone() * 100).toFixed(1) + '%'; reloadEl.classList.toggle('miss', reloadTry < 0); }
     $('#cross').hidden = !playing || match.over || ctx.blocked();
     fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && playing);
     aimBtn.setAttribute('aria-pressed', String(aiming));
-    if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
+    if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); readFound(); findBodies(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
   }
   return {
     update, syncAvatars, peerAvatar, dress, trigger, reload, select, aim, scores, join, fillMenu,
-    cycle,
+    cycle, silenced,
     watching: () => watching,
     selectHeavy() { if (heavy) select(SLOTS.indexOf(heavy)); },
     lookScale: () => 1 / zoom, // slower mouse while zoomed in

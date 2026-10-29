@@ -13,15 +13,16 @@ export function addVoice(peer, stream) {
 }
 export function dropVoice(peer) {
   const v = voices.get(peer); if (!v) return;
-  try { v.src && v.src.disconnect(); v.panner && v.panner.disconnect(); } catch (e) {}
+  try { v.src && v.src.disconnect(); v.panner && v.panner.disconnect(); v.gain && v.gain.disconnect(); } catch (e) {}
   v.el.srcObject = null;
   voices.delete(peer);
 }
 function wire(ctx, v) {
   v.src = ctx.createMediaStreamSource(v.stream);
   v.panner = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 1.2, rolloffFactor: 1.3, maxDistance: 12 });
+  v.gain = ctx.createGain(); // silences a voice the game says you mustn't hear
   v.analyser = ctx.createAnalyser(); v.analyser.fftSize = 512; v.data = new Uint8Array(v.analyser.fftSize);
-  v.src.connect(v.analyser); v.src.connect(v.panner); v.panner.connect(ctx.destination);
+  v.src.connect(v.analyser); v.src.connect(v.panner); v.panner.connect(v.gain); v.gain.connect(ctx.destination);
 }
 function rms(an, data) {
   an.getByteTimeDomainData(data);
@@ -43,6 +44,7 @@ export function updateVoices(camera, posOf) {
     if (!v.panner) wire(ctx, v);
     const p = posOf(peer);
     if (p) setP(v.panner, p.x, p.y, p.z); else setP(v.panner, c.x, c.y + 50, c.z); // nobody to hear yet: far away
+    v.gain.gain.value = p && p.mute ? 0 : 1;
     const lv = rms(v.analyser, v.data);
     v.level = Math.max(lv, v.level * 0.85);
   }
