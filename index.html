@@ -56,6 +56,10 @@ button{font:inherit;color:inherit}
 #quit{margin-top:8px;width:100%;background:none;border:1px solid var(--line);border-radius:999px;padding:4px;font-size:12px;color:var(--muted);cursor:pointer}
 #quit.arm{border-color:var(--coral);color:var(--coral)}
 
+#charge{position:fixed;left:50%;top:60%;width:180px;height:14px;margin-left:-90px;border-radius:999px;background:rgba(28,21,36,.8);border:2px solid var(--cream);overflow:hidden;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+#charge>div{height:100%;width:0;background:linear-gradient(90deg,var(--marigold),var(--coral));border-radius:999px}
+#charge.full{animation:chargeFull .5s ease-in-out infinite alternate}
+@keyframes chargeFull{to{box-shadow:0 0 0 4px rgba(234,106,79,.55),0 3px 10px rgba(0,0,0,.4)}}
 #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(251,243,228,.85);box-shadow:0 0 0 2px rgba(0,0,0,.35)}
 #toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);background:var(--plum);border:2px solid var(--marigold);border-radius:18px;padding:14px 22px;font-family:var(--display);font-weight:800;font-size:20px;text-align:center;max-width:min(440px,calc(100% - 32px));box-shadow:0 10px 30px rgba(0,0,0,.45);text-wrap:balance;animation:pop .25s ease-out}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.85);opacity:0}}
@@ -373,6 +377,7 @@ table.res tr.win td{color:var(--marigold)}
   </div>
 </div>
 <div id="cross" hidden></div>
+<div id="charge" hidden aria-hidden="true"><div></div></div>
 <div id="toast" hidden></div>
 <div id="panel" hidden></div>
 <div id="joy" hidden><div id="knob"></div></div>
@@ -636,27 +641,27 @@ table.res tr.win td{color:var(--marigold)}
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-19",
-  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-19",
-  "./js/cards.js": "./js/cards.js?v=2026-10-29-19",
-  "./js/controls.js": "./js/controls.js?v=2026-10-29-19",
-  "./js/editor.js": "./js/editor.js?v=2026-10-29-19",
-  "./js/fps.js": "./js/fps.js?v=2026-10-29-19",
-  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-19",
-  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-19",
-  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-19",
-  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-19",
-  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-19",
-  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-19",
-  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-19",
-  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-19",
-  "./js/fx.js": "./js/fx.js?v=2026-10-29-19",
-  "./js/secret.js": "./js/secret.js?v=2026-10-29-19",
-  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-19",
-  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-19",
-  "./js/toys.js": "./js/toys.js?v=2026-10-29-19",
-  "./js/voice.js": "./js/voice.js?v=2026-10-29-19",
-  "./js/world.js": "./js/world.js?v=2026-10-29-19"
+  "./js/avatar.js": "./js/avatar.js?v=2026-10-29-20",
+  "./js/blackjack.js": "./js/blackjack.js?v=2026-10-29-20",
+  "./js/cards.js": "./js/cards.js?v=2026-10-29-20",
+  "./js/controls.js": "./js/controls.js?v=2026-10-29-20",
+  "./js/editor.js": "./js/editor.js?v=2026-10-29-20",
+  "./js/fps.js": "./js/fps.js?v=2026-10-29-20",
+  "./js/fpsbureaux.js": "./js/fpsbureaux.js?v=2026-10-29-20",
+  "./js/fpsforts.js": "./js/fpsforts.js?v=2026-10-29-20",
+  "./js/fpslabo.js": "./js/fpslabo.js?v=2026-10-29-20",
+  "./js/fpsskyridge.js": "./js/fpsskyridge.js?v=2026-10-29-20",
+  "./js/fpsmanoir.js": "./js/fpsmanoir.js?v=2026-10-29-20",
+  "./js/fpschambre.js": "./js/fpschambre.js?v=2026-10-29-20",
+  "./js/fpsmap.js": "./js/fpsmap.js?v=2026-10-29-20",
+  "./js/fpsstation.js": "./js/fpsstation.js?v=2026-10-29-20",
+  "./js/fx.js": "./js/fx.js?v=2026-10-29-20",
+  "./js/secret.js": "./js/secret.js?v=2026-10-29-20",
+  "./js/roulette.js": "./js/roulette.js?v=2026-10-29-20",
+  "./js/sfx.js": "./js/sfx.js?v=2026-10-29-20",
+  "./js/toys.js": "./js/toys.js?v=2026-10-29-20",
+  "./js/voice.js": "./js/voice.js?v=2026-10-29-20",
+  "./js/world.js": "./js/world.js?v=2026-10-29-20"
 } }
 </script>
 <script>
@@ -852,13 +857,18 @@ const BJX = -3.5, BJZ = 3.5, BJ_R = 1.0, STOOL_R = 1.42, BJ_FACE = Math.atan2(-B
 // the roulette table in the front-right corner: a round table with the wheel in its middle,
 // the dealer on the corner side, five stools toward the room (seats 13 to 17)
 const RTX = 3.5, RTZ = 3.6, RT_R = 1.0, RT_FACE = Math.atan2(-RTX, -RTZ), RT0 = SEATS + BJ_SEATS;
-const ALL_SEATS = RT0 + RT_SEATS;
+// the sofa against the right wall: two places (seats 18 and 19), looking toward the table
+const SOFA0 = RT0 + RT_SEATS, SOFA_X = 5.2, SOFA_Z = [0.5, -0.5];
+const ALL_SEATS = SOFA0 + SOFA_Z.length;
 const isStool = s => s >= SEATS && s < RT0; // a blackjack stool
-const isRtSeat = s => s >= RT0 && s < ALL_SEATS;
+const isRtSeat = s => s >= RT0 && s < SOFA0;
+const isSofa = s => s >= SOFA0 && s < ALL_SEATS;
 const stoolAng = k => BJ_FACE + (k - 2) * 0.48;
 const rtAng = k => RT_FACE + (k - 2) * 0.48;
 // where seat i is (x, z, a bit further out with `extra`) and which way it looks
 function seatSpot(i, extra = 0) {
+  // the sofa: you stand up forward, off it (a big `extra`), and sit a little back into it
+  if (isSofa(i)) return { x: SOFA_X + (extra > 0.3 ? -extra : extra * 0.5), z: SOFA_Z[i - SOFA0], yaw: Math.PI / 2 };
   if (isRtSeat(i)) { const b = rtAng(i - RT0), r = STOOL_R + extra; return { x: RTX + Math.sin(b) * r, z: RTZ + Math.cos(b) * r, yaw: b }; }
   if (!isStool(i)) { const p = seatXZ(i, CHAIR_R + extra); return { x: p.x, z: p.z, yaw: ang(i) }; }
   const b = stoolAng(i - SEATS), r = STOOL_R + extra;
@@ -1191,8 +1201,11 @@ const wallMat = noOutline(toon('#ffffff', { map: wallTex })), wainMat = toon('#5
 for (let k = 0; k < 4; k++) {
   const g = new THREE.Group(); g.rotation.y = k * Math.PI / 2; scene.add(g);
   const w = new THREE.Mesh(new THREE.PlaneGeometry(12, 3.2), wallMat); w.position.set(0, 1.6, -6); w.receiveShadow = true; g.add(w);
-  box(12, 0.9, 0.06, wainMat, 0, 0.45, -5.97, g);
-  box(12, 0.06, 0.12, trimMat, 0, 0.93, -5.94, g);
+  // the wainscot and its rail stop at the door frame (the front wall, k = 2, has the door at x = 0)
+  for (const [x0, x1] of k === 2 ? [[-6, -0.63], [0.63, 6]] : [[-6, 6]]) {
+    box(x1 - x0, 0.9, 0.06, wainMat, (x0 + x1) / 2, 0.45, -5.97, g);
+    box(x1 - x0, 0.06, 0.12, trimMat, (x0 + x1) / 2, 0.93, -5.94, g);
+  }
   box(12, 0.08, 0.1, trimMat, 0, 3.12, -5.95, g);
 }
 // rug
@@ -1289,10 +1302,26 @@ box(2.2, 0.42, 0.9, sofaDark, 0, 0.25, 0, sofa);
 box(1.0, 0.16, 0.72, sofaMat, -0.52, 0.53, -0.06, sofa); box(1.0, 0.16, 0.72, sofaMat, 0.52, 0.53, -0.06, sofa);
 box(2.2, 0.62, 0.25, sofaMat, 0, 0.78, 0.33, sofa);
 box(0.22, 0.68, 0.9, sofaDark, -1.1, 0.42, 0, sofa); box(0.22, 0.68, 0.9, sofaDark, 1.1, 0.42, 0, sofa);
-const pillow = box(0.4, 0.34, 0.14, toon('#f0b84f'), 0.75, 0.75, 0.15, sofa); pillow.rotation.set(-0.3, 0.2, 0.15);
-// a cat asleep on the sofa
+const pillow = box(0.4, 0.34, 0.14, toon('#f0b84f'), 0.9, 0.75, 0.15, sofa); pillow.rotation.set(-0.3, 0.2, 0.15); // in the corner, clear of the two seats
+// the cat's tree beside the sofa: posts wrapped in rope, a low bed, a high bed with the cat asleep in it
+const catTree = new THREE.Group(); catTree.position.set(5.15, 0, -1.95); scene.add(catTree);
+const ropeTex = canvasTex(64, 64, (x, w, h) => {
+  x.fillStyle = '#d9b77e'; x.fillRect(0, 0, w, h);
+  x.strokeStyle = 'rgba(120,80,40,.5)'; x.lineWidth = 3;
+  for (let y = -8; y < h + 8; y += 8) { x.beginPath(); x.moveTo(0, y); x.lineTo(w, y + 5); x.stroke(); }
+}, [1, 5]);
+const rope = toon('#ffffff', { map: ropeTex }), plush = toon('#4fb3a9'), plushDark = toon('#3c9189');
+box(0.6, 0.06, 0.6, plushDark, 0, 0.03, 0, catTree);
+mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 12), rope, -0.12, 0.62, -0.1, catTree);
+mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.58, 12), rope, 0.16, 0.32, 0.14, catTree);
+mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.06, 24), plush, 0.06, 0.62, 0.06, catTree);
+mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.06, 24), plush, -0.12, 1.22, -0.1, catTree);
+const bed = mesh(new THREE.TorusGeometry(0.2, 0.05, 8, 24), plushDark, -0.12, 1.27, -0.1, catTree); bed.rotation.x = Math.PI / 2;
+mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.3, 4), toon('#2a1d22'), 0.1, 1.04, 0.05, catTree).castShadow = false; // a toy on a string
+mesh(new THREE.SphereGeometry(0.04, 10, 8), toon('#ea6a4f'), 0.1, 0.88, 0.05, catTree);
+// a cat asleep up in its tree
 const catMat = toon('#f08a3c'), catDark = toon('#c96a26');
-const cat = new THREE.Group(); cat.position.set(-0.45, 0.62, -0.05); cat.rotation.y = 0.4; sofa.add(cat);
+const cat = new THREE.Group(); cat.position.set(-0.12, 1.29, -0.1); cat.rotation.y = 2.2; cat.scale.setScalar(0.9); catTree.add(cat);
 const catBody = mesh(new THREE.SphereGeometry(0.2, 18, 14), catMat, 0, 0.08, 0, cat); catBody.scale.set(1.35, 0.7, 1);
 const catHead = mesh(new THREE.SphereGeometry(0.11, 16, 12), catMat, 0.25, 0.07, 0.04, cat);
 for (const s of [-1, 1]) { const e = mesh(new THREE.ConeGeometry(0.04, 0.08, 8), catDark, 0.27, 0.17, 0.04 + s * 0.06, cat); e.rotation.x = s * 0.3; }
@@ -1302,7 +1331,7 @@ for (const s of [-1, 1]) {
   eye.rotation.set(0, Math.PI / 2, Math.PI);
 }
 // things to climb on: a pouf by the sofa and two crates in the back corner
-const pouf = mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.4, 28), toon('#4fb3a9'), 4.25, 0.21, -0.5);
+const pouf = mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.4, 28), toon('#4fb3a9'), 4.0, 0.21, -1.55); // off to the side: the sofa's places stay free
 mesh(new THREE.TorusGeometry(0.3, 0.04, 8, 28), toon('#3c9189'), 0, 0.2, 0, pouf).rotation.x = Math.PI / 2;
 const crateMat = toon('#b07a45'), crateDark = toon('#8a5a2f');
 function crate(s, h, x, z) {
@@ -1471,11 +1500,12 @@ const PLATFORMS = [
   { x0: 4.85, x1: 5.75, z0: 0.99, z1: 1.21, top: 0.76 },   // armrests
   { x0: 4.85, x1: 5.75, z0: -1.21, z1: -0.99, top: 0.76 },
   { x0: 5.5, x1: 5.75, z0: -1.21, z1: 1.21, top: 1.09 },   // sofa back
-  { x0: 3.95, x1: 4.55, z0: -0.8, z1: -0.2, top: 0.41 },   // pouf
+  { x0: 3.7, x1: 4.3, z0: -1.85, z1: -1.25, top: 0.41 },   // pouf
   { x0: -4.6, x1: -3.8, z0: -5.3, z1: -4.5, top: 0.5 },    // low crate
   { x0: -5.5, x1: -4.7, z0: -5.3, z1: -4.5, top: 1.0 },    // tall crate
   { x0: FX - 1.1, x1: FX + 1.1, z0: -6, z1: -5.38, top: 1.2 }, // fireplace, up to the mantel
-  { x0: 3.15, x1: 3.95, z0: -4.4, z1: -3.6, top: 0.49 }     // armchair seat
+  { x0: 3.15, x1: 3.95, z0: -4.4, z1: -3.6, top: 0.49 },    // armchair seat
+  { x0: 4.88, x1: 5.42, z0: -2.22, z1: -1.68, top: 0.65 }   // the cat tree's low bed
 ];
 // the living room as solid shapes: bounds, the round table, and what you can climb on
 setWorld({ x0: -HALF, x1: HALF, z0: -HALF, z1: HALF, discs: [{ x: 0, z: 0, r: TABLE_R + 0.35 }, { x: BJX, z: BJZ, r: BJ_R + 0.3 }, { x: RTX, z: RTZ, r: RT_R + 0.3 }], boxes: PLATFORMS.map(P => ({ x0: P.x0, x1: P.x1, z0: P.z0, z1: P.z1, y0: 0, y1: P.top })) });
@@ -1819,11 +1849,11 @@ addEventListener('keydown', e => {
   if (me.entered && !e.repeat) {
     if (act === 'chat' || e.code === 'Enter') { e.preventDefault(); openChat(); return; }
     if (act === 'emotes') openWheel();
-    if (act === 'paper') throwPaper();
+    if (act === 'paper') chargeStart('paper'); // thrown when the key comes back up
     if (act === 'mic') micToggle();
     if (act === 'jump') { if (fps && fps.watching()) fps.join(); else jump(); } // a spectator jumps into the game
     if (fps && act === 'scores') fps.scores(true);
-    if (act === 'use') useKey();
+    if (act === 'use') { if (useTarget() === 'throw') chargeStart('cushion'); else useKey(); }
     if (fps && act === 'reload') fps.reload();
     if (fps && act === 'weapon1') fps.select(0);
     if (fps && act === 'weapon2') fps.select(1);
@@ -1840,8 +1870,10 @@ addEventListener('keyup', e => {
   const act = actionFor(e.code, FPS);
   if (fps && act === 'scores') fps.scores(false);
   if (act === 'emotes') closeWheel(true);
+  if (act === 'paper') chargeRelease('paper');
+  if (act === 'use') chargeRelease('cushion');
 });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; closeWheel(false); if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); } });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; closeWheel(false); chargeRelease(); if (fps) { fps.trigger(false); fps.aim(false); fps.scores(false); } });
 // letting go of the mouse ourselves (a window opens) is quiet; the player's Échap opens the menu: the
 // browser frees the mouse on Échap without passing the key on, so it's seen here
 let quietUnlock = false;
@@ -1870,7 +1902,7 @@ canvas.addEventListener('pointerdown', e => {
   if (!me.entered) return;
   canvas.focus();
   if (wheel) return;
-  if (e.button === 2) { throwPaper(); return; } // right click: paper ball
+  if (e.button === 2) { chargeStart('paper'); return; } // right button: paper ball, thrown on release
   if (fps && e.button === 0 && locked) return; // firing is handled on mousedown below
   if (!coarse && me.seat < 0 && e.pointerType === 'mouse' && !locked) {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {}
@@ -1895,7 +1927,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 0 && locked) fps.trigger(true);
   if (e.button === 2) fps.aim(true);
 });
-addEventListener('mouseup', e => { if (fps && e.button === 0) fps.trigger(false); if (fps && e.button === 2) fps.aim(false); });
+addEventListener('mouseup', e => { if (e.button === 2) chargeRelease('paper'); if (fps && e.button === 0) fps.trigger(false); if (fps && e.button === 2) fps.aim(false); });
 canvas.addEventListener('wheel', e => { if (fps && me.entered) { e.preventDefault(); fps.cycle(e.deltaY > 0 ? 1 : -1); } }, { passive: false });
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 const joyEl = $('#joy'), knob = $('#knob');
@@ -1917,7 +1949,10 @@ function moveJoy(e) {
   const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
   joy = { x, y }; knob.style.transform = `translate(${x * 34}px,${y * 34}px)`;
 }
-$('#actBtn').addEventListener('click', useKey);
+// the action button: holding it charges a cushion throw; anything else (sit, grab) happens at once
+$('#actBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (useTarget() === 'throw') chargeStart('cushion'); else useKey(); });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('#actBtn').addEventListener(ev, () => chargeRelease('cushion'));
+$('#actBtn').addEventListener('click', e => { if (e.detail === 0) useKey(); }); // a keyboard press on the button
 
 function seatTakenBy(i) {
   for (const p of peers) {
@@ -1957,7 +1992,7 @@ function toggleSit() {
     me.x = p.x; me.z = p.z; me.seat = -1; me.pitch = -0.08;
   } else {
     const s = nearestFreeSeat(); if (s < 0) return;
-    me.seat = s; me.yaw = seatSpot(s).yaw; me.pitch = isStool(s) || isRtSeat(s) ? -0.55 : -0.46;
+    me.seat = s; me.yaw = seatSpot(s).yaw; me.pitch = isStool(s) || isRtSeat(s) ? -0.55 : isSofa(s) ? -0.2 : -0.46;
     me.jy = me.jv = me.crouch = 0; crouchLatch = false;
     releaseMouse();
   }
@@ -1988,7 +2023,7 @@ function updateMe(dt) {
   if (me.seat >= 0) {
     const p = seatSpot(me.seat, 0.12);
     me.x = p.x; me.z = p.z;
-    camera.position.set(p.x, 1.7, p.z);
+    camera.position.set(p.x, isSofa(me.seat) ? 1.62 : 1.7, p.z); // sunk into the sofa a little lower
   } else if (me.entered) {
     const ox = me.x, oz = me.z;
     let f = 0, r = 0;
@@ -2053,7 +2088,7 @@ function updateAvatars(dt, t) {
     const av = syncAvatar('p:' + p.peer, cleanNick(pr.n), col, look, x, z, yaw, seat);
     av.who = peerKey(p); av.talk = levelOf(p.peer);
     av.crouchT = a[5] === 1 ? 1 : 0; av.pitch = Math.max(-1.25, Math.min(1.1, +a[3] || 0));
-    av.ty = seat < 0 ? Math.max(0, Math.min(8, +a[6] || 0)) : 0; // feet height: mid-jump, or up on the furniture
+    av.ty = seat < 0 ? Math.max(0, Math.min(8, +a[6] || 0)) : isSofa(seat) ? 0.06 : 0; // feet height: mid-jump, or up on the furniture
     if (fps) fps.peerAvatar(av, pr);
     readSocial(p, av, av.who, cleanNick(pr.n), cleanCol(pr.c));
     // an expression the player pulled on purpose: [index, counter]
@@ -2873,8 +2908,8 @@ function renderHelp() {
       + row(`${k('weapon1')} ${k('weapon2')} ${k('weapon3')} ${k('weapon4')}`, 'pistolet, fusil, mitraillette, sniper (ou molette)')
       + row(k('weapon5'), 'arme lourde ramassée au sol') + row(k('reload'), 'recharger, et encore une fois dans la zone jaune de la jauge pour un rechargement express') +row(k('scores'), 'tableau des scores (maintenir)')
       + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row('Échap', 'menu : réglages, robots, manche, équipe') + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row(k('emotes'), 'roue des expressions (maintenir)')
-    : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir, attraper ou lancer un coussin') + row('Échap', 'menu : réglages')
-      + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')})`)
+    : move + row('Souris', 'regarder autour (clique dans la pièce)') + row(k('use'), 's\'asseoir (chaises, tabourets, canapé), attraper ou lancer un coussin (maintenir : plus fort)') + row('Échap', 'menu : réglages')
+      + row(k('chat'), `écrire un message (${k('mic')} : micro)`) + row('Clic droit', `lancer une boule de papier (ou ${k('paper')}) : maintenir pour lancer plus fort`)
       + row(k('jump'), 'sauter') + row(k('crouch'), 's\'accroupir (maintenir)') + row(`1 à 6, ${k('emotes')}`, 'faire une tête, roue des expressions (maintenir)');
 }
 renderHelp();
@@ -2933,17 +2968,18 @@ function aim(speed, lift) {
   const p = camera.position.clone().addScaledVector(d, 0.45); p.y -= 0.15;
   return { p: [r2(p.x), r2(p.y), r2(p.z)], v: [r2(d.x * speed), r2(d.y * speed + lift), r2(d.z * speed)] };
 }
-function throwPaper() {
+// a charged throw: `u` from 0 (a quick tap, the usual throw) to 1 (held to the full), up to almost twice as fast
+function throwPaper(u = 0) {
   if (!me.entered || editor.isOpen() || FPS) return; // no paper or cushions in the fort
-  const { p, v } = aim(7.5, 1.2);
+  const { p, v } = aim(7.5 * (1 + 0.85 * u), 1.2 * (1 + 0.3 * u));
   toys.throwBall(p, v, myKey); sfx.toss();
   if (room) room.presence({ pb: [++socialSeq, ...p, ...v] }).catch(() => {});
 }
-function cushionAction() {
+function cushionAction(u = 0) {
   if (!me.entered || editor.isOpen() || FPS) return;
   const held = toys.cushions.find(c => c.held === myKey);
   if (held) {
-    const { p, v } = aim(6, 1.6);
+    const { p, v } = aim(6 * (1 + 0.9 * u), 1.6 * (1 + 0.3 * u));
     toys.throwCushion(held.id, p, v, myKey); sfx.toss();
     if (room) room.presence({ cu: [++socialSeq, held.id, 1, ...p, ...v] }).catch(() => {});
     return;
@@ -2952,6 +2988,27 @@ function cushionAction() {
   if (!c) { toast('Approche-toi d\'un coussin pour l\'attraper', 1800); return; }
   toys.hold(c.id, myKey); sfx.pop();
   if (room) room.presence({ cu: [++socialSeq, c.id, 0, 0, 0, 0, 0, 0, 0] }).catch(() => {});
+}
+// charging a throw: hold the throw key or button, a gauge fills, let go to throw. A quick tap
+// (under CHARGE_TAP) throws as before; the gauge is full after CHARGE_MS more
+const CHARGE_TAP = 150, CHARGE_MS = 1100;
+let charge = null; // { kind: 'paper' or 'cushion', t0 }
+function chargeStart(kind) {
+  if (!me.entered || editor.isOpen() || FPS || charge) return;
+  if (kind === 'cushion' && !toys.cushions.some(c => c.held === myKey)) { cushionAction(); renderSocial(); return; } // nothing held yet: grab one
+  charge = { kind, t0: performance.now() };
+}
+const chargePower = () => charge ? Math.max(0, Math.min(1, (performance.now() - charge.t0 - CHARGE_TAP) / CHARGE_MS)) : 0;
+function chargeRelease(kind) {
+  if (!charge || (kind && charge.kind !== kind)) return;
+  const u = chargePower(), k = charge.kind;
+  charge = null; updateCharge();
+  if (k === 'paper') throwPaper(u); else { cushionAction(u); renderSocial(); }
+}
+function updateCharge() {
+  const g = $('#charge'), u = chargePower();
+  g.hidden = !charge || performance.now() - charge.t0 < CHARGE_TAP;
+  if (!g.hidden) { g.firstElementChild.style.width = (u * 100).toFixed(0) + '%'; g.classList.toggle('full', u >= 1); }
 }
 // where a held cushion sits: in front of your camera, or in someone's arms
 function holdPos(key) {
@@ -3067,12 +3124,17 @@ async function micToggle() {
 const socialBtns = [
   { id: 'micBtn', icon: '🎤', label: 'Micro', key: () => label('mic'), act: micToggle },
   { id: 'chatBtn', icon: '💬', label: 'Écrire un message', key: () => label('chat'), act: openChat },
-  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier', key: () => 'clic droit ou ' + label('paper'), act: throwPaper },
-  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin', key: () => label('use'), act: cushionAction }
+  { id: 'paperBtn', icon: '🧻', label: 'Lancer une boule de papier (maintenir pour lancer plus fort)', key: () => 'clic droit ou ' + label('paper'), act: () => throwPaper(), charge: 'paper' },
+  { id: 'cushionBtn', icon: '🛋️', label: 'Attraper ou lancer un coussin (maintenir pour lancer plus fort)', key: () => label('use'), act: () => cushionAction(), charge: 'cushion' }
 ];
 socialBtns.forEach(b => {
   const x = el('button', 'emote', b.icon); x.type = 'button'; x.id = b.id;
-  x.onclick = () => { b.act(); canvas.focus(); };
+  // the throws charge while the button is held; a keyboard press on the button (no pointer) throws at once
+  x.onclick = e => { if (b.charge && e.detail !== 0) return; b.act(); canvas.focus(); };
+  if (b.charge) {
+    x.addEventListener('pointerdown', e => { e.preventDefault(); chargeStart(b.charge); });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) x.addEventListener(ev, () => { chargeRelease(b.charge); canvas.focus(); });
+  }
   $('#social').append(x);
 });
 // their tooltips name the keys as the player set them up
@@ -3462,6 +3524,7 @@ function loop(now) {
     updateAvatars(dt, now / 1000);
     updateTable(dt);
     updateBjTable(dt);
+    updateCharge();
     updateRtTable(dt);
     if (fps) fps.update(dt);
     updateDecor(dt, now / 1000);

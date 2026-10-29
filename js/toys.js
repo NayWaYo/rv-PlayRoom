@@ -8,10 +8,10 @@ const G = 9.8, HALF = 5.85, CEIL = 3.15;
 const paperGeo = new THREE.IcosahedronGeometry(0.07, 0);
 const paperMat = toon('#fbf6ea');
 const CUSHIONS = [
-  { id: 0, col: '#f0b84f', pos: [5.0, 0.72, -0.2] },
+  { id: 0, col: '#f0b84f', pos: [4.0, 0.47, -1.55] }, // on the pouf: the sofa's places stay free to sit in
   { id: 1, col: '#ea6a4f', pos: [4.2, 0.07, 1.5] },
-  { id: 2, col: '#4fb3a9', pos: [-4.6, 0.07, 3.8] },
-  { id: 3, col: '#e88fb4', pos: [3.2, 0.07, 4.6] }
+  { id: 2, col: '#4fb3a9', pos: [-5.0, 0.07, 1.4] },  // under the window, clear of the blackjack table
+  { id: 3, col: '#e88fb4', pos: [1.5, 0.07, 5.2] }    // by the door, clear of the roulette table
 ];
 
 export class Toys {
