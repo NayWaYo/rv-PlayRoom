@@ -94,8 +94,10 @@ Validé en vrai entre amis : vocal et interactions sur téléphone, mains caché
 
 1. À valider en vrai entre amis : équipes, manches, revanche et spectateur à plusieurs (testés à deux onglets seulement), capture du drapeau sur chaque carte, bruits spatialisés au casque, le Traître à plusieurs (voix des morts coupée, rôles reçus par chacun, fin quand le meneur part).
 2. À valider en vrai entre amis : une carte perso reçue par plusieurs joueurs (testée à deux onglets), et l'éditeur entre les mains de chacun (ce qui manque, ce qui gêne).
+3. Mode course à l'armement (prochaine session) : on commence avec une arme basique, quelques éliminations donnent une arme améliorée, ainsi de suite, et la dernière élimination se fait au couteau.
+4. Coup de couteau sur l'une des touches (prochaine session), avec l'esthétique d'un couteau en plastique ou en mousse. À faire avant la course à l'armement, qui en a besoin.
 
-Décidé : pas de mode « poser la bombe », trop lent pour une bataille où l'on réapparaît vite. Trois modes : le match à mort (chacun pour soi ou en équipes), la capture du drapeau et le Traître. Toute nouvelle carte doit prévoir la capture du drapeau, donc donner ses `flags`.
+Décidé : pas de mode « poser la bombe », trop lent pour une bataille où l'on réapparaît vite. Trois modes aujourd'hui, avant la course à l'armement : le match à mort (chacun pour soi ou en équipes), la capture du drapeau et le Traître. Toute nouvelle carte doit prévoir la capture du drapeau, donc donner ses `flags`.
 
 ### Autres pistes
 - À valider en vrai entre amis : Président, Poker et Texas Hold'em à plusieurs (testés à deux onglets avec des robots, reprise après le départ de l'hôte comprise), et le blackjack à plusieurs (testé à deux onglets, pendant une partie à la grande table, reprise de la table comprise), et la roulette à plusieurs (testée à deux onglets, reprise comprise).
