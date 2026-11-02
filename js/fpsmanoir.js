@@ -447,8 +447,9 @@ export function buildMap(scene) {
   for (const s of [-1, 1]) for (const [x, y, z] of [[19.5, 0, 6.5], [19.5, 0, -6.5], [14, 0, 11.5], [14, 0, -11.5], [5.5, 0, 5.8], [4.6, 0, -3.9], [6, F1, 4.5], [4.8, F1, -4.6], [3, ATT, 1.5]]) spawns.push([s * x, y, z]);
   // health in the lounge, the kitchen and upstairs; armor on the gallery and in the gazebo; the
   // rocket launcher in the attic, the railgun on the balcony over the front door
+  // the gatling in the attic too, at the other end
   const pickups = [['health', -5.2, 0, 1.0], ['health', 5.0, 0, -1.0], ['health', -4.4, F1, 1.2], ['health', 4.4, F1, -2.6],
-    ['armor', 0, F1, -5.8], ['armor', 0, 0.24, -13], ['rocket', 8, ATT, 0], ['railgun', 0, F1, 8.6]];
+    ['armor', 0, F1, -5.8], ['armor', 0, 0.24, -13], ['rocket', 8, ATT, 0], ['railgun', 0, F1, 8.6], ['gatling', -8, ATT, 0]];
   // capture the flag: in the shed and in the greenhouse
   const flags = [[-19.5, 0, 0], [19.5, 0, 0]];
   return { bounds: BOUNDS, boxes, spawns, pickups, flags };

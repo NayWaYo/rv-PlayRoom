@@ -111,7 +111,8 @@ export function buildMap(scene) {
   for (const s of [-1, 1]) for (const [x, y, z] of [[12.4, G, -10.6], [10.6, G, -12.4], [14.2, G, -8.6], [10, G, -9.4], [9.4, G, 3.8], [9.4, G, -4], [6.5, T, 9.8]]) spawns.push([X(s, x), y, z]);
   // health by each spawn and each base, armor on the towers, the rocket launcher on the bridge's
   // platform, the railgun in the middle of the high footbridge
-  const pickups = [['rocket', 0, G, 0], ['railgun', 0, T, 9.25]];
+  // the gatling on the bridge too, next to the rocket launcher
+  const pickups = [['rocket', 0, G, 0], ['railgun', 0, T, 9.25], ['gatling', 0, G, 2.5]];
   for (const s of [-1, 1]) pickups.push(['health', X(s, 9), G, -12.2], ['health', X(s, 12), G, 5], ['armor', X(s, 6.5), T, 8.4]);
   // capture the flag: inside each base
   const flags = [[X(-1, 13.2), G, 0], [X(1, 13.2), G, 0]];

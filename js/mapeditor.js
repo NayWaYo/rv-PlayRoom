@@ -21,7 +21,7 @@ const TOOLS = [
   { id: 'pad', icon: '🟢', name: 'Tremplin', help: 'Clique pour un tremplin qui saute droit en l\'air, ou fais glisser vers où il doit envoyer.' },
   { id: 'flag', icon: '🚩', name: 'Drapeau', help: 'Clique pour placer le drapeau du camp : à gauche celui des Rouges, à droite celui des Bleus. Un seul par camp.' }
 ];
-const PICK_ICON = { health: '❤️', armor: '🛡️', rocket: '🚀', railgun: '⚡' };
+const PICK_ICON = { health: '❤️', armor: '🛡️', rocket: '🚀', railgun: '⚡', gatling: '🌀' };
 const RED = '#e2574a', BLUE = '#4a7fe0';
 const $el = (t, cls, txt) => { const e = document.createElement(t); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const fmt = v => String(Math.round(v * 100) / 100).replace('.', ',');
@@ -723,7 +723,7 @@ function build({ toast, sfx, onPlay, onQuit, keyLabel = c => c.replace(/^Digit/,
     const pole = new THREE.CylinderGeometry(0.25, 0.25, 1.8, 16), ball = new THREE.SphereGeometry(0.3, 16, 12), disc = new THREE.CylinderGeometry(0.6, 0.6, 0.1, 20), stick = new THREE.CylinderGeometry(0.04, 0.04, 2, 8), cloth = new THREE.BoxGeometry(0.7, 0.45, 0.04);
     for (const it of m.items) {
       if (it.t === 'spawn') mk(pole, it.x < 0 ? RED : BLUE, it.x, it.y + L + 0.9, it.z).material.transparent = true;
-      if (it.t === 'pickup') mk(ball, { health: '#ff5d73', armor: '#59a7ff', rocket: '#ff9a3c', railgun: '#b07cff' }[it.k], it.x, it.y + L + 0.6, it.z);
+      if (it.t === 'pickup') mk(ball, { health: '#ff5d73', armor: '#59a7ff', rocket: '#ff9a3c', railgun: '#b07cff', gatling: '#f4b63f' }[it.k], it.x, it.y + L + 0.6, it.z);
       if (it.t === 'pad') mk(disc, '#3fbf6a', it.x, it.y + L + 0.05, it.z);
       if (it.t === 'flag') { mk(stick, '#eee', it.x, it.y + L + 1, it.z); mk(cloth, it.x < 0 ? RED : BLUE, it.x + 0.35, it.y + L + 1.7, it.z); }
     }

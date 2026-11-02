@@ -139,8 +139,9 @@ export function buildMap(scene) {
     [9, LAB, -3], [2, LAB, -8.5], [5, LAB, -7.8], [13, LAB, -10.8], [11.5, LAB, -7], [14.8, 0, 2.8], [13.3, 0, 10.8]];
   // health in the courtyard, on the dock, among the generators; armor in the vents and up on each side;
   // the rocket launcher among the generators, the railgun in the middle of the corridor
+  // the gatling down in the courtyard, on the Rouges' side
   const pickups = [['health', 0, 0, 4.5], ['health', -14.6, DOCK, 7.2], ['health', 9.8, 0, 4.4], ['armor', 0, H, -0.6], ['armor', -12.4, H, -8.3],
-    ['armor', 14, H, 0], ['rocket', 13.3, 0, 7.4], ['railgun', 0, 0, 0]];
+    ['armor', 14, H, 0], ['rocket', 13.3, 0, 7.4], ['railgun', 0, 0, 0], ['gatling', -6, 0, 9]];
   // capture the flag: in the middle of each spawn, the Rouges' in the offices, the Bleus' in the labs
   const flags = [[-3, 0, -7.5], [3, LAB, -7.5]];
   return { bounds: BOUNDS, boxes, spawns, pickups, doors, flags };

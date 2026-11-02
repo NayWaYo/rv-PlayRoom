@@ -135,8 +135,9 @@ export function buildMap(scene) {
     [10, DESK, -5], [14.5, DESK, -7.5], [12.5, 0, 10.5], [12, 0, 1], [5, 0, -10]];
   // health under the bed, under the desk and in the toy box; armor on the pillow and by the
   // bookshelf; the rocket launcher in the castle, the railgun on the desk
+  // the gatling on the bed, across the room from the railgun
   const pickups = [['health', -11, 0, 6], ['health', 9.5, 0, -6], ['health', 0, 0, -10], ['armor', -14, BED + 0.6, 5], ['armor', 12.5, 0, 7.5],
-    ['rocket', 0, 0, 0], ['railgun', 14, DESK, -5.5]];
+    ['rocket', 0, 0, 0], ['railgun', 14, DESK, -5.5], ['gatling', -12, BED, 0]];
   // trampolines: one onto the bed, one up to the high shelf
   const pads = [[-5.5, 0, 1, -3.1, 9.5, 0], [9.5, 0, 7.5, 0, 12.5, 1.9]];
   // capture the flag: the Rouges' on the bed, by the pillow, the Bleus' on the desk

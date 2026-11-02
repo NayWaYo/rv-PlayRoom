@@ -22,17 +22,20 @@ const WEAPONS = {
   // (their reload only serves in the arms race, where they're a step of the ladder like any other)
   rocket: { name: 'Lance-roquettes', cooldown: 1.0, mag: 4, reload: 2.6, heavy: true, spread: 0.01, aimSpread: 0.004, damage: 0, zoom: 1.3, auto: false, muzzle: -0.55, range: 40, kick: 2, splash: 3, splashDmg: 6 },
   railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, reload: 2.4, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 },
+  // the barrels have to `spin` up (seconds, trigger held) before the first dart, then it pours them out
+  gatling: { name: 'Gatling', cooldown: 0.045, mag: 90, reload: 3.0, heavy: true, spread: 0.065, aimSpread: 0.04, damage: 1, zoom: 1.15, auto: true, muzzle: -0.62, range: 25, kick: 0.3, climb: 0.0025, spin: 0.6 },
   // the traitor mode's: a spray of `pellets`, each one a point (two in the head); deadly up close
   shotgun: { name: 'Fusil à pompe', cooldown: 0.85, mag: 5, reload: 2.2, spread: 0.075, aimSpread: 0.055, damage: 1, zoom: 1.2, auto: false, muzzle: -0.6, range: 16, kick: 2.2, pellets: 7 },
   // a foam knife: a quick stab on its own key whatever is in your hands, the only weapon at the end of the arms race
-  knife: { name: 'Couteau', cooldown: 0.55, mag: 1, melee: true, spread: 0, aimSpread: 0, damage: 3, zoom: 1.1, auto: false, muzzle: -0.3, range: 1.9, kick: 0 }
+  // (three hearts: one stab knocks out, unless armor takes part of it)
+  knife: { name: 'Couteau', cooldown: 0.55, mag: 1, melee: true, spread: 0, aimSpread: 0, damage: 6, zoom: 1.1, auto: false, muzzle: -0.3, range: 1.9, kick: 0 }
 };
-const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun', 'shotgun', 'knife'];
+const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun', 'shotgun', 'knife', 'gatling']; // new ones go at the end: presence sends the index
 const KNIFE = SLOTS.indexOf('knife');
 const STAB = 0.4;     // how long a stab lasts (the knife in your hands, no shooting)
 const STAB_CONE = 0.5; // a stab finds someone this far (radians) off the crosshair: it's close, the aim is loose
 // the arms race: a few eliminations with each, from the basic pistol up, and the last one with the knife
-const LADDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'rocket', 'railgun', 'knife'];
+const LADDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'gatling', 'rocket', 'railgun', 'knife'];
 const STEP_GOALS = [1, 2, 3]; // eliminations per weapon
 // the traitor mode: nobody starts armed; these lie on the floor, each taken once (the same spots for
 // everyone, drawn from the round's id)
@@ -46,7 +49,8 @@ const PICKUPS = {
   health: { name: 'Soin', every: 15 },
   armor: { name: 'Armure', every: 20 },
   rocket: { name: 'Lance-roquettes', every: 30 },
-  railgun: { name: 'Railgun', every: 35 }
+  railgun: { name: 'Railgun', every: 35 },
+  gatling: { name: 'Gatling', every: 30 }
 };
 const FOV = 70;
 const BODY_R = 0.32, EYE = 1.5;
@@ -63,11 +67,12 @@ const BOT_GUNS = {
   // the arms race's
   rocket: { burst: 1, gap: 0, pause: 1.6, spread: 0.04, drift: 0.003 },
   railgun: { burst: 1, gap: 0, pause: 2, spread: 0.035, drift: 0.002 },
+  gatling: { burst: 16, gap: 0.05, pause: 1.5, spread: 0.11, drift: 0.008 },
   knife: { burst: 1, gap: 0, pause: 0.5, spread: 0.02, drift: 0 }
 };
 const BOT_ARMS = ['pistol', 'rifle', 'smg'];
 const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack', shotgun: 'boom', knife: 'stab' };
-const PAD_COL = { health: '#ea6a4f', armor: '#5b9bd5', rocket: '#8fbf5a', railgun: '#7fe8ff' };
+const PAD_COL = { health: '#ea6a4f', armor: '#5b9bd5', rocket: '#8fbf5a', railgun: '#7fe8ff', gatling: '#f08a3c' };
 // red and blue: a colour for the screen, a shirt (an index in CLOTH) for the avatars
 const TEAMS = [{ name: 'Rouges', one: 'rouge', col: '#e0474c', cloth: 11, dot: '🔴' }, { name: 'Bleus', one: 'bleu', col: '#4f7fe0', cloth: 10, dot: '🔵' }];
 // how good the bots you add are: aim, reaction time, pauses between bursts, how far they see, how fast they turn
@@ -357,8 +362,16 @@ export function startFps(ctx) {
     knife: [
       [0.06, 0.07, 0.17, purple, 0, 0, 0.06], [0.07, 0.08, 0.03, yellow, 0, 0, 0.16], [0.14, 0.05, 0.045, yellow, 0, 0, -0.04],
       [0.035, 0.085, 0.24, orange, 0, 0.005, -0.18], [0.035, 0.055, 0.07, orange, 0, -0.008, -0.32], [0.038, 0.02, 0.2, cream, 0, 0.04, -0.17]
+    ],
+    // six barrels round the middle first (they spin in your hands: GATLING_BARRELS), then a fat body,
+    // the rings that hold the barrels, two handles and a drum of darts on the side
+    gatling: [
+      ...[0, 1, 2, 3, 4, 5].map(k => [0.034, 0.034, 0.5, k % 2 ? blue : grey, Math.cos(k * Math.PI / 3) * 0.065, Math.sin(k * Math.PI / 3) * 0.065, -0.34]),
+      [0.12, 0.12, 0.3, orange, 0, 0, 0.06], [0.19, 0.19, 0.035, yellow, 0, 0, -0.16], [0.19, 0.19, 0.035, yellow, 0, 0, -0.52],
+      [0.06, 0.16, 0.08, grey, 0, -0.14, 0.12, -0.25], [0.035, 0.07, 0.16, teal, 0, 0.1, 0.02], [0.08, 0.14, 0.15, green, 0.1, -0.04, 0.08]
     ]
   };
+  const GATLING_BARRELS = 6;
   function model(kind, parent) {
     const g = new THREE.Group();
     for (const [w, h, d, mat, x, y, z, rx] of PARTS[kind]) { const m = new THREE.Mesh(roundedBox(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; g.add(m); }
@@ -370,8 +383,14 @@ export function startFps(ctx) {
   models.rifle.position.z = -0.16; models.sniper.position.z = -0.22; models.railgun.position.z = -0.14; models.shotgun.position.z = -0.14;
   models.rocket.position.set(0.04, 0.03, -0.1); // on the shoulder
   models.knife.position.set(-0.02, -0.04, -0.2); models.knife.rotation.set(0.75, 0.3, -0.25); // the blade up and in, seen from the side
+  models.gatling.position.set(0.02, -0.01, -0.28); models.gatling.scale.setScalar(0.75); models.gatling.rotation.y = 0.18; // big: smaller, further out, turned to show the barrels
+  // your gatling's barrels turn together, round the middle
+  const barrels = new THREE.Group();
+  for (const m of models.gatling.children.slice(0, GATLING_BARRELS)) barrels.add(m);
+  models.gatling.add(barrels);
+  let spinAt = 0, spinV = 0; // since when the trigger has been held on the gatling; how fast its barrels turn
   // a blaster in someone else's hands: grip in the right palm, barrel along the forearm
-  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08], shotgun: [-0.12, 0.08], knife: [0, 0.06] };
+  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08], shotgun: [-0.12, 0.08], knife: [0, 0.06], gatling: [-0.15, 0.1] };
   function holdGun(a, kind) {
     if (a.heldKind === kind) return;
     if (a.held) a.held.parent.remove(a.held);
@@ -540,6 +559,10 @@ export function startFps(ctx) {
     if (w.melee) { stab(); return; }
     if (t < nextShot || t < reloadUntil || t < switchUntil || stabbing()) return;
     if (ammo[k] <= 0) { reload(); return; }
+    if (w.spin) { // the gatling's barrels get going first (let go and they stop: update())
+      if (!spinAt) { spinAt = t; sfx.charge(w.spin); }
+      if (t - spinAt < w.spin) return;
+    }
     if (w.charge && !charged) { if (!chargeAt) { chargeAt = t; sfx.charge(w.charge); renderBar(); } return; } // fires once charged, in update()
     chargeAt = 0;
     nextShot = t + w.cooldown; ammo[k]--;
@@ -550,7 +573,7 @@ export function startFps(ctx) {
     const muzzle = new THREE.Vector3(0, 0.02, w.muzzle).applyMatrix4(gun.matrixWorld);
     if (w.scope && aimed > 0.8) muzzle.copy(tmpO).addScaledVector(tmpD, 0.3).y -= 0.08; // through the scope: the gun is out of sight
     spawnDart(muzzle, res.h, res.stuck, k);
-    if (k === 'rocket') sfx.whoosh(); else if (k === 'railgun') sfx.zap(); else if (k === 'sniper') sfx.crack(); else if (k === 'shotgun') sfx.boom(0.6); else sfx.dart(w.auto ? 0.7 : 1);
+    if (k === 'rocket') sfx.whoosh(); else if (k === 'railgun') sfx.zap(); else if (k === 'sniper') sfx.crack(); else if (k === 'shotgun') sfx.boom(0.6); else sfx.dart(w.spin ? 0.5 : w.auto ? 0.7 : 1);
     kick = w.kick;
     if (w.climb) { me.pitch += w.climb; me.yaw += (Math.random() - 0.5) * w.climb; } // a little climb on a long burst
     if (k === 'rocket') {
@@ -577,8 +600,8 @@ export function startFps(ctx) {
     renderBar();
   }
   // a stab with the foam knife, whatever is in your hands (on its own key): whoever is right in
-  // front of you, or close to the crosshair if the dart-like ray misses; two stabs knock out
-  // (no bonus for the head: up close, the crosshair is always on it)
+  // front of you, or close to the crosshair if the dart-like ray misses; one stab knocks out unless
+  // armor soaks part of it (no bonus for the head: up close, the crosshair is always on it)
   function stab() {
     if (!me.entered || !alive() || watching || match.over || ctx.blocked() || huntOn()) return;
     const t = now(), w = WEAPONS.knife;
@@ -2128,6 +2151,10 @@ export function startFps(ctx) {
       if (c >= 1) shoot(true);
     }
     if (triggerDown && w.auto) shoot();
+    // the gatling: its barrels spin while the trigger is held, and run down once it's let go
+    if (spinAt && (!triggerDown || !w.spin || !playing)) { if (t - spinAt < (w.spin || 0)) sfx.uncharge(); spinAt = 0; }
+    spinV += ((spinAt ? 1 : 0) - spinV) * Math.min(1, dt * (spinAt ? 4 : 1.5));
+    barrels.rotation.z += spinV * dt * 28;
     updateDarts(dt);
     updatePickups(dt);
     updateLoot(dt);

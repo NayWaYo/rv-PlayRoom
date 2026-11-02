@@ -149,8 +149,9 @@ export function buildMap(scene) {
     [14.8, 0, -11], [7, 0, -6], [12, 0, 3.5], [8.5, 0, 10.8], [7, H, -8], [14.5, H, 8.8], [2, 0, 10.5], [3.4, H, 8.5]];
   // health in the lobby, the cafeteria and an office; armor upstairs and on the terrace;
   // the rocket launcher on the stage, the railgun at the top of the lift
+  // the gatling in the middle of the corridor
   const pickups = [['health', -10, 0, -5], ['health', 9.5, 0, 6.5], ['health', -2.5, 0, -9.8], ['armor', 0.5, H, 10.3], ['armor', 11, H, 6.8],
-    ['rocket', 14.8, 0.5, -2.5], ['railgun', -14.5, H, 0]];
+    ['rocket', 14.8, 0.5, -2.5], ['railgun', -14.5, H, 0], ['gatling', 0, 0, 0]];
   // jump pads: in the lobby up to the north mezzanine, in the conference room's aisle up to the booth
   const pads = [[-7.5, 0, 4.5, 0, 10.5, 3], [11.5, 0, -5.45, -3.2, 10.5, 0]];
   const movers = [{ box: liftBox, objs: [cabin, ...panes, lamp], at: liftAt, stops: [LIFT.low, H] }];

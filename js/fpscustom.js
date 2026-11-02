@@ -12,7 +12,7 @@ import { toon, noOutline } from './fx.js';
 import { makeKit } from './fpsmap.js';
 import { setWorld, nearestSpot, spotAt, blocked, groundAt, TALL } from './world.js';
 
-export const KINDS = { health: 'Soin', armor: 'Armure', rocket: 'Lance-roquettes', railgun: 'Railgun' };
+export const KINDS = { health: 'Soin', armor: 'Armure', rocket: 'Lance-roquettes', railgun: 'Railgun', gatling: 'Gatling' };
 export const THEMES = { jour: 'Jour', soir: 'Coucher de soleil', nuit: 'Nuit' };
 export const LIMIT = 1500;        // items in a map
 const RISE = 0.24;                // a stair step: under what you climb without jumping

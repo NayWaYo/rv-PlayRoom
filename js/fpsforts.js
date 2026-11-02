@@ -109,8 +109,9 @@ export function buildMap(scene) {
   const spawns = [];
   for (const s of [-1, 1]) for (const [x, y, z] of [[50, 0, -6], [50, 0, 6], [55.5, 0, -11], [55.5, 0, 11], [48, 0, -16], [48, 0, 16], [45.4, RAMP, -5], [45.4, RAMP, 5]]) spawns.push([s * x, y, z]);
   // health in each lane, armor on each rampart, the rocket launcher on the ruins' platform, the railgun on the footbridge
+  // the gatling in the middle of the south lane
   const pickups = [['health', -30, 0, 0], ['health', 30, 0, 0], ['health', -38, 0, 24], ['health', 38, 0, 24], ['health', -38, 0, -18], ['health', 38, 0, -18],
-    ['armor', -45.4, RAMP, 12], ['armor', 45.4, RAMP, 12], ['rocket', 0, 2.2, 0], ['railgun', 0, 3, 22]];
+    ['armor', -45.4, RAMP, 12], ['armor', 45.4, RAMP, 12], ['rocket', 0, 2.2, 0], ['railgun', 0, 3, 22], ['gatling', 0, 0, -22]];
   // the flags: the Rouges' first, then the Bleus'
   const flags = [[-FLAG_X, 0, 0], [FLAG_X, 0, 0]];
   // far: how far the camera sees on a map this size (the fog hides where it stops)

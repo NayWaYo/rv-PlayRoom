@@ -124,8 +124,9 @@ export function buildMap(scene) {
     [-2, H, 9.5], [2, H, -9.5], [14.5, 0, -9], [13.4, 0, 9], [14.5, H, 1]];
   // health under the shuttle, in the labs and under a balcony; armor upstairs at both ends;
   // the rocket launcher on the shuttle's roof, the railgun in the middle of a bridge
+  // the gatling upstairs over the labs
   const pickups = [['health', -9.5, 0, 0], ['health', 13, 0, -8.6], ['health', -3, 0, 9], ['armor', 8, H, 8], ['armor', -14.3, H, -7],
-    ['rocket', -9.5, 3.0, 0], ['railgun', 2.8, H, 0]];
+    ['rocket', -9.5, 3.0, 0], ['railgun', 2.8, H, 0], ['gatling', 8, H, -8]];
   // jump pads: one in the hangar onto the shuttle's roof, two by the core up to the balconies
   const pads = [[-9.5, 0, 5, 0, 9, -3.2], [0, 0, -3, 0, 10, -3.1], [0, 0, 3, 0, 10, 3.1]];
   // capture the flag: the Rouges' at the back of the hangar behind the shuttle, the Bleus' at the end of the labs' corridor

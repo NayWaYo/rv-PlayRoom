@@ -156,8 +156,9 @@ export function buildMap(scene) {
     [-5, H, -10], [5, H, 10], [-8, 0, 3], [9.9, 0, -1]];
   // health in each wing and the hall, armor upstairs, the heavy weapons where everyone fights for them:
   // the rocket launcher on top of the stage, the railgun in the hut upstairs
+  // the gatling upstairs in the other wing, across from the railgun
   const pickups = [['health', -10, 0, -5], ['health', 12.9, 0, 0], ['health', 1.6, 0, 5.6], ['armor', -9, H, 2], ['armor', 9.6, H, -4],
-    ['rocket', 0, 1.6, 0], ['railgun', -12.2, H, -8]];
+    ['rocket', 0, 1.6, 0], ['railgun', -12.2, H, -8], ['gatling', 12.2, H, 8]];
   // jump pads in the hall, throwing you up onto each wing's upper floor: [x, y, z, push x, push up, push z]
   const pads = [[-1.5, 0, 4.5, -3, 10.5, 0], [1.5, 0, -4.5, 3, 10.5, 0]];
   // capture the flag: at the back of each wing's upper floor, the Rouges' behind the low wall, the Bleus' behind the chimney
