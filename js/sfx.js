@@ -231,6 +231,12 @@ export const sfx = {
     tone(520, t, 0.18, { type: 'triangle', gain: 0.22, slideTo: 180 });
     noise(t, 0.08, { filter: 'lowpass', freq: 1400, gain: 0.25 });
   },
+  stab(g = 1) {
+    // the foam knife cutting the air: a short swish and a soft thud
+    if (!ready()) return; const t = ctx.currentTime;
+    noise(t, 0.13, { freq: 1200, slideTo: 3400, q: 1.4, gain: 0.26 * g, attack: 0.02 });
+    tone(240, t + 0.06, 0.07, { type: 'triangle', gain: 0.08 * g, slideTo: 140 });
+  },
   toss() {
     if (!ready()) return; const t = ctx.currentTime;
     noise(t, 0.18, { freq: 900, slideTo: 2200, q: 1.5, gain: 0.14, attack: 0.04 });

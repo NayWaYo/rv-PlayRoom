@@ -19,12 +19,21 @@ const WEAPONS = {
   rifle: { name: 'Fusil', cooldown: 0.11, mag: 24, reload: 2.0, spread: 0.03, aimSpread: 0.008, damage: 1, zoom: 1.7, auto: true, muzzle: -0.62, range: 30, kick: 0.6, climb: 0.006 },
   smg: { name: 'Mitraillette', cooldown: 0.065, mag: 32, reload: 1.7, spread: 0.05, aimSpread: 0.025, damage: 1, zoom: 1.25, auto: true, muzzle: -0.32, range: 20, kick: 0.45, climb: 0.004 },
   sniper: { name: 'Sniper', cooldown: 1.2, mag: 4, reload: 2.4, spread: 0.09, aimSpread: 0, damage: 4, zoom: 4, auto: false, muzzle: -0.86, range: 60, kick: 1.6, scope: true },
-  rocket: { name: 'Lance-roquettes', cooldown: 1.0, mag: 4, heavy: true, spread: 0.01, aimSpread: 0.004, damage: 0, zoom: 1.3, auto: false, muzzle: -0.55, range: 40, kick: 2, splash: 3, splashDmg: 6 },
-  railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 },
+  // (their reload only serves in the arms race, where they're a step of the ladder like any other)
+  rocket: { name: 'Lance-roquettes', cooldown: 1.0, mag: 4, reload: 2.6, heavy: true, spread: 0.01, aimSpread: 0.004, damage: 0, zoom: 1.3, auto: false, muzzle: -0.55, range: 40, kick: 2, splash: 3, splashDmg: 6 },
+  railgun: { name: 'Railgun', cooldown: 1.0, mag: 3, reload: 2.4, heavy: true, spread: 0.02, aimSpread: 0, damage: 99, zoom: 2.2, auto: false, muzzle: -0.75, range: 60, kick: 1.8, charge: 1 },
   // the traitor mode's: a spray of `pellets`, each one a point (two in the head); deadly up close
-  shotgun: { name: 'Fusil à pompe', cooldown: 0.85, mag: 5, reload: 2.2, spread: 0.075, aimSpread: 0.055, damage: 1, zoom: 1.2, auto: false, muzzle: -0.6, range: 16, kick: 2.2, pellets: 7 }
+  shotgun: { name: 'Fusil à pompe', cooldown: 0.85, mag: 5, reload: 2.2, spread: 0.075, aimSpread: 0.055, damage: 1, zoom: 1.2, auto: false, muzzle: -0.6, range: 16, kick: 2.2, pellets: 7 },
+  // a foam knife: a quick stab on its own key whatever is in your hands, the only weapon at the end of the arms race
+  knife: { name: 'Couteau', cooldown: 0.55, mag: 1, melee: true, spread: 0, aimSpread: 0, damage: 3, zoom: 1.1, auto: false, muzzle: -0.3, range: 1.9, kick: 0 }
 };
-const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun', 'shotgun'];
+const SLOTS = ['pistol', 'rifle', 'smg', 'sniper', 'rocket', 'railgun', 'shotgun', 'knife'];
+const KNIFE = SLOTS.indexOf('knife');
+const STAB = 0.4;     // how long a stab lasts (the knife in your hands, no shooting)
+const STAB_CONE = 0.5; // a stab finds someone this far (radians) off the crosshair: it's close, the aim is loose
+// the arms race: a few eliminations with each, from the basic pistol up, and the last one with the knife
+const LADDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'rocket', 'railgun', 'knife'];
+const STEP_GOALS = [1, 2, 3]; // eliminations per weapon
 // the traitor mode: nobody starts armed; these lie on the floor, each taken once (the same spots for
 // everyone, drawn from the round's id)
 const LOOT = ['pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'pistol', 'shotgun', 'shotgun', 'shotgun', 'shotgun', 'shotgun', 'sniper', 'sniper', 'sniper'];
@@ -50,10 +59,14 @@ const BOT_GUNS = {
   rifle: { burst: 4, gap: 0.13, pause: 1.2, spread: 0.09, drift: 0.007 },
   smg: { burst: 6, gap: 0.08, pause: 1.3, spread: 0.11, drift: 0.009 },
   sniper: { burst: 1, gap: 0, pause: 1.8, spread: 0.03, drift: 0.002 },   // the traitor mode's, picked up
-  shotgun: { burst: 1, gap: 0, pause: 1.1, spread: 0.075, drift: 0.003 }
+  shotgun: { burst: 1, gap: 0, pause: 1.1, spread: 0.075, drift: 0.003 },
+  // the arms race's
+  rocket: { burst: 1, gap: 0, pause: 1.6, spread: 0.04, drift: 0.003 },
+  railgun: { burst: 1, gap: 0, pause: 2, spread: 0.035, drift: 0.002 },
+  knife: { burst: 1, gap: 0, pause: 0.5, spread: 0.02, drift: 0 }
 };
 const BOT_ARMS = ['pistol', 'rifle', 'smg'];
-const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack', shotgun: 'boom' };
+const SHOT_SFX = { rocket: 'whoosh', railgun: 'zap', sniper: 'crack', shotgun: 'boom', knife: 'stab' };
 const PAD_COL = { health: '#ea6a4f', armor: '#5b9bd5', rocket: '#8fbf5a', railgun: '#7fe8ff' };
 // red and blue: a colour for the screen, a shirt (an index in CLOTH) for the avatars
 const TEAMS = [{ name: 'Rouges', one: 'rouge', col: '#e0474c', cloth: 11, dot: '🔴' }, { name: 'Bleus', one: 'bleu', col: '#4f7fe0', cloth: 10, dot: '🔵' }];
@@ -116,8 +129,9 @@ const CSS = `
 #cross.hit{width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--coral);box-shadow:0 0 0 3px rgba(0,0,0,.4)}
 #cross.hit.head{width:22px;height:22px;margin:-11px 0 0 -11px;background:var(--marigold);box-shadow:0 0 0 3px rgba(0,0,0,.4),0 0 16px 4px rgba(244,182,63,.7)}
 #fireBtn{pointer-events:auto;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(172px + env(safe-area-inset-bottom,0px));width:76px;height:76px;border-radius:50%;border:3px solid var(--cream);background:var(--coral);font-size:32px;touch-action:none;box-shadow:0 4px 0 rgba(0,0,0,.35)}
-#aimBtn,#swapBtn{pointer-events:auto;position:fixed;width:52px;height:52px;font-size:24px;touch-action:none}
+#aimBtn,#swapBtn,#knifeBtn{pointer-events:auto;position:fixed;width:52px;height:52px;font-size:24px;touch-action:none}
 #aimBtn{right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(184px + env(safe-area-inset-bottom,0px))}
+#knifeBtn{right:calc(100px + env(safe-area-inset-right,0px));bottom:calc(256px + env(safe-area-inset-bottom,0px))}
 #swapBtn{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(262px + env(safe-area-inset-bottom,0px))}
 #aimBtn[aria-pressed="true"]{border-color:var(--marigold);box-shadow:0 0 0 3px rgba(244,182,63,.45)}
 #fpsBoard .sub{display:flex;justify-content:space-between;gap:6px;margin:-2px 0 6px;color:var(--muted);font-size:12px;font-weight:700}
@@ -185,6 +199,8 @@ export function startFps(ctx) {
   // on a phone: aim (on/off) and switch weapons, next to the fire button
   const aimBtn = el('button', 'emote', '🔍'); aimBtn.id = 'aimBtn'; aimBtn.type = 'button'; aimBtn.setAttribute('aria-label', 'Viser'); aimBtn.setAttribute('aria-pressed', 'false');
   const swapBtn = el('button', 'emote', '🔁'); swapBtn.id = 'swapBtn'; swapBtn.type = 'button'; swapBtn.setAttribute('aria-label', 'Changer d\'arme');
+  const knifeBtn = el('button', 'emote', '🔪'); knifeBtn.id = 'knifeBtn'; knifeBtn.type = 'button'; knifeBtn.hidden = true; knifeBtn.setAttribute('aria-label', 'Coup de couteau');
+  knifeBtn.addEventListener('pointerdown', e => { e.preventDefault(); stab(); });
   aimBtn.addEventListener('pointerdown', e => { e.preventDefault(); aim(!aiming); });
   swapBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(1); });
   const teamEl = el('span', 'team'), clockEl = el('span', 'clock'); bar.prepend(teamEl); bar.append(clockEl);
@@ -205,7 +221,7 @@ export function startFps(ctx) {
   specEl.append(specName, nextBtn, joinBtn);
   // the window to set up a round
   const matchDlg = el('dialog'); matchDlg.id = 'fpsMatch'; matchDlg.setAttribute('aria-labelledby', 'fpsMatchTitle');
-  document.body.append(scopeEl, hurtEl, dirsEl, reloadEl, flagsEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, tabEl, endEl, matchDlg);
+  document.body.append(scopeEl, hurtEl, dirsEl, reloadEl, flagsEl, downEl, bar, specEl, feed, fireBtn, aimBtn, swapBtn, knifeBtn, tabEl, endEl, matchDlg);
   $('#scores').after(board); // top right, like the card game's scores
   fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); trigger(true); });
   fireBtn.addEventListener('pointerup', () => trigger(false));
@@ -266,6 +282,11 @@ export function startFps(ctx) {
   const found = new Map();           // bodies found: id -> role
   const huntOn = () => match.mode === 'traitor' && running();
   const prep = () => huntOn() && Date.now() < match.start + PREP * 1000;
+  // the arms race: everyone's weapon is the step of the ladder their eliminations have reached;
+  // the round is won with one elimination at the last step, the knife
+  const raceOn = () => match.mode === 'race' && running();
+  const stepOf = k => Math.min(LADDER.length - 1, Math.floor(k / Math.max(1, match.goal)));
+  const raceGoal = () => match.goal * (LADDER.length - 1) + 1;
   const teamsOn = () => match.mode === 'teams' || match.mode === 'ctf';
   const ctfOn = () => match.mode === 'ctf' && flags.length === 2; // capture the flag: teams, and a flag each
   const mates = (a, b) => teamsOn() && a >= 0 && a === b; // no friendly fire
@@ -297,7 +318,7 @@ export function startFps(ctx) {
   const gun = new THREE.Group();
   // held at half size, close to the eye, so it never pokes through a wall you stand against
   const orange = toon('#f08a3c'), blue = toon('#5b9bd5'), yellow = toon('#f4b63f'), grey = toon('#3a3340'), teal = toon('#4fb3a9');
-  const purple = toon('#8f73e3'), green = toon('#8fbf5a'), red = toon('#ea6a4f'), cyan = toon('#7fe8ff');
+  const purple = toon('#8f73e3'), green = toon('#8fbf5a'), red = toon('#ea6a4f'), cyan = toon('#7fe8ff'), cream = toon('#fbf3e4');
   // each blaster as blocks: size, colour, place, tilt; drawn in your hands and in everyone else's
   const PARTS = {
     pistol: [
@@ -331,6 +352,11 @@ export function startFps(ctx) {
       [0.1, 0.11, 0.34, red, 0, 0, 0], [0.07, 0.07, 0.5, grey, 0, 0.03, -0.38], [0.06, 0.05, 0.46, grey, 0, -0.03, -0.36],
       [0.09, 0.08, 0.18, yellow, 0, -0.04, -0.3], [0.085, 0.085, 0.03, orange, 0, 0.03, -0.64],
       [0.06, 0.15, 0.08, grey, 0, -0.12, 0.08, -0.25], [0.08, 0.12, 0.22, red, 0, -0.02, 0.27]
+    ],
+    // a toy: a chunky handle, a round guard, a thick foam blade with a blunt tip
+    knife: [
+      [0.06, 0.07, 0.17, purple, 0, 0, 0.06], [0.07, 0.08, 0.03, yellow, 0, 0, 0.16], [0.14, 0.05, 0.045, yellow, 0, 0, -0.04],
+      [0.035, 0.085, 0.24, orange, 0, 0.005, -0.18], [0.035, 0.055, 0.07, orange, 0, -0.008, -0.32], [0.038, 0.02, 0.2, cream, 0, 0.04, -0.17]
     ]
   };
   function model(kind, parent) {
@@ -343,8 +369,9 @@ export function startFps(ctx) {
   // long ones held a little further out than the pistol, so the stock stays out of your face
   models.rifle.position.z = -0.16; models.sniper.position.z = -0.22; models.railgun.position.z = -0.14; models.shotgun.position.z = -0.14;
   models.rocket.position.set(0.04, 0.03, -0.1); // on the shoulder
+  models.knife.position.set(-0.02, -0.04, -0.2); models.knife.rotation.set(0.75, 0.3, -0.25); // the blade up and in, seen from the side
   // a blaster in someone else's hands: grip in the right palm, barrel along the forearm
-  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08], shotgun: [-0.12, 0.08] };
+  const HELD = 0.75, GRIP = { pistol: [-0.11, 0.08], rifle: [-0.1, 0.12], smg: [-0.11, 0.07], sniper: [-0.11, 0.1], rocket: [-0.14, 0.02], railgun: [-0.13, 0.08], shotgun: [-0.12, 0.08], knife: [0, 0.06] };
   function holdGun(a, kind) {
     if (a.heldKind === kind) return;
     if (a.held) a.held.parent.remove(a.held);
@@ -368,6 +395,7 @@ export function startFps(ctx) {
   // a foam dart, a rocket (slow, bursts where it lands) or a railgun beam (there at once, then fades)
   function spawnDart(o, h, stuck, kind) {
     if (kind === 'railgun') { beam(o, h); return; }
+    if (kind === 'knife') return; // nothing flies
     const g = new THREE.Group(), rocket = kind === 'rocket';
     if (rocket) {
       g.add(new THREE.Mesh(rocketGeo, green));
@@ -483,8 +511,20 @@ export function startFps(ctx) {
   fillAmmo();
   const W = () => WEAPONS[SLOTS[slot]];
   const owned = new Set(); // the traitor mode: what you've picked up this round (nothing at first)
-  const has = i => huntOn() ? owned.has(SLOTS[i]) : i < BASIC || SLOTS[i] === heavy;
+  const has = i => huntOn() ? owned.has(SLOTS[i]) : raceOn() ? SLOTS[i] === LADDER[stepOf(kills)] : i < BASIC || SLOTS[i] === heavy;
   const armed = () => has(slot);
+  const limited = w => w.heavy && !raceOn(); // a picked-up weapon: no reload, thrown away once empty
+  let stabUntil = 0;
+  const stabbing = () => now() < stabUntil;
+  // the arms race: the weapon of my step straight into my hands, full
+  function raceArm() {
+    if (!raceOn()) return;
+    const k = LADDER[stepOf(kills)], i = SLOTS.indexOf(k);
+    ammo[k] = WEAPONS[k].mag;
+    if (i !== slot) { slot = i; switchUntil = now() + 0.35; }
+    reloadSeq++; reloadUntil = 0; chargeAt = 0; triggerDown = false; aiming = false;
+    renderBar(); pushMine();
+  }
   function trigger(down) {
     if (watching || ghost()) { if (down) watchIdx++; return; } // a spectator clicks to watch someone else
     if (coarse && down && reloadUntil > now()) { quickReload(); return; } // no R on a phone: the fire button does it
@@ -497,7 +537,8 @@ export function startFps(ctx) {
     if (!me.entered || !alive() || watching || match.over || ctx.blocked() || !armed()) return;
     const t = now(), w = W(), k = SLOTS[slot];
     if (prep()) { if (t > prepTold) { prepTold = t + 2; toast('Préparation : on ne tire pas encore, éparpillez-vous !', 1500); } return; }
-    if (t < nextShot || t < reloadUntil || t < switchUntil) return;
+    if (w.melee) { stab(); return; }
+    if (t < nextShot || t < reloadUntil || t < switchUntil || stabbing()) return;
     if (ammo[k] <= 0) { reload(); return; }
     if (w.charge && !charged) { if (!chargeAt) { chargeAt = t; sfx.charge(w.charge); renderBar(); } return; } // fires once charged, in update()
     chargeAt = 0;
@@ -530,10 +571,37 @@ export function startFps(ctx) {
       }
     }
     if (ammo[k] === 0) {
-      if (w.heavy) setTimeout(() => { if (heavy === k && ammo[k] === 0) dropHeavy(); }, 600); // empty: thrown away
+      if (limited(w)) setTimeout(() => { if (heavy === k && ammo[k] === 0) dropHeavy(); }, 600); // empty: thrown away
       else reload();
     }
     renderBar();
+  }
+  // a stab with the foam knife, whatever is in your hands (on its own key): whoever is right in
+  // front of you, or close to the crosshair if the dart-like ray misses; two stabs knock out
+  // (no bonus for the head: up close, the crosshair is always on it)
+  function stab() {
+    if (!me.entered || !alive() || watching || match.over || ctx.blocked() || huntOn()) return;
+    const t = now(), w = WEAPONS.knife;
+    if (prep() || t < stabUntil + w.cooldown - STAB || t < switchUntil) return;
+    stabUntil = t + STAB; aiming = false; chargeAt = 0;
+    camera.getWorldPosition(tmpO); camera.getWorldDirection(tmpD);
+    let res = { ...fire(tmpO, tmpD, ctx.myKey(), 0, w.range), head: false };
+    if (!res.target) {
+      const tf = teamOf(ctx.myKey()), to = new THREE.Vector3();
+      let best = w.range + 0.3;
+      for (const f of fighters()) {
+        if (f.self || !f.alive || mates(tf, f.team)) continue;
+        to.set(f.x, Math.max(f.base + 0.3, Math.min(f.neck, tmpO.y)), f.z).sub(tmpO);
+        const d = to.length();
+        if (d > best || to.normalize().dot(tmpD) < Math.cos(STAB_CONE) || !canSee(tmpO, f.x, f.base, f.z, f.height)) continue;
+        best = d; res = { h: tmpO.clone().addScaledVector(to, d), d: to.clone(), target: f.id, head: false, stuck: false };
+      }
+    }
+    sfx.stab();
+    sendDart(tmpO, res, ctx.myKey(), 'knife');
+    if (res.target) { hitMarker(false); damage(res.target, ctx.myKey(), w.damage, false); }
+    pushMine(); // the others see the knife in your hands
+    setTimeout(pushMine, STAB * 1000 + 50);
   }
   function dropHeavy() {
     const was = SLOTS[slot] === heavy;
@@ -547,7 +615,7 @@ export function startFps(ctx) {
   function reload() {
     const k = SLOTS[slot], w = W();
     if (reloadUntil > now()) { quickReload(); return; }
-    if (w.heavy || ammo[k] === w.mag || !alive() || !armed()) return;
+    if (limited(w) || w.melee || ammo[k] === w.mag || !alive() || !armed()) return;
     reloadLen = w.reload; reloadTry = 0; sfx.reload();
     finishReloadIn(w.reload);
     renderBar();
@@ -606,7 +674,7 @@ export function startFps(ctx) {
     const fm = match.id ? [match.id, match.mode, match.end, match.goal, match.start, match.over ? 1 : 0, match.by, match.det] : null;
     // the bodies found in this round, for whoever arrives: [round, id, role, id, role…]
     const ft = match.mode === 'traitor' && found.size ? [match.id, ...[...found].flat()] : null;
-    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, armed() ? slot : -1, team, watching ? 1 : 0], fm, fc: flagsPresence(), ft, fl: lootPresence() }).catch(() => {});
+    room.presence({ fp: [hp, kills, deaths, now() < shieldUntil ? 1 : 0, stabbing() ? KNIFE : armed() ? slot : -1, team, watching ? 1 : 0], fm, fc: flagsPresence(), ft, fl: lootPresence() }).catch(() => {});
   }
   // a dart landed on `target`, fired by `from` from `o`: only the target's owner applies it
   function damage(target, from, dmg, head, o) {
@@ -643,14 +711,25 @@ export function startFps(ctx) {
     pushMine(); renderBar();
   }
   function knockedOut(victim, by, head) {
-    if (by !== victim) { // knocking yourself out scores nothing
-      if (by === ctx.myKey()) kills++;
-      else { const b = bots.get(by); if (b) b.kills++; }
-    }
+    if (by !== victim) scored(by); // knocking yourself out scores nothing
     const room = ctx.room();
     if (room) room.emit('ko', { v: victim, k: by, h: head === FELL ? FELL : head ? 1 : 0 }).catch(() => {});
     witness(victim, by);
     announce(victim, by, head);
+  }
+  // an elimination for me or one of my bots; in the arms race, a step up the ladder now and then
+  function scored(by) {
+    const b = by === ctx.myKey() ? null : bots.get(by);
+    if (by !== ctx.myKey() && !b) return;
+    const was = stepOf(b ? b.kills : kills);
+    if (b) b.kills++; else kills++;
+    if (!raceOn()) return;
+    const step = stepOf(b ? b.kills : kills);
+    if (step === was) return;
+    if (b) { b.weapon = LADDER[step]; b.burst = 0; return; }
+    raceArm(); sfx.pickup();
+    toast(LADDER[step] === 'knife' ? 'Dernière étape : le couteau 🔪 ! Une élimination et tu gagnes.'
+      : `Arme suivante : ${WEAPONS[LADDER[step]].name} (${step + 1}/${LADDER.length})`, 2200);
   }
   function announce(victim, by, head) {
     const me_ = ctx.myKey();
@@ -689,6 +768,7 @@ export function startFps(ctx) {
     me.x = x; me.z = z; me.jy = y; me.jv = 0; me.fling = null; me.yaw = Math.atan2(x, z); me.pitch = -0.05;
     hp = MAX_HP; armor = 0; heavy = null; if (slot >= BASIC) slot = last; shieldUntil = now() + SHIELD; fillAmmo(); reloadUntil = 0; reloadSeq++;
     setTimeout(pushMine, SHIELD * 1000 + 50); // the shield ends even if this tab is in the background
+    raceArm(); // the arms race: back with the weapon of your step
     pushMine(); renderBar();
   }
 
@@ -773,11 +853,21 @@ export function startFps(ctx) {
       face = Math.atan2(-dx, -dz);
       b.pitch = Math.atan2(f.base + f.height * 0.6 - botO.y, d); // arms follow the aim
       if (t > b.strafeUntil) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeUntil = t + 0.8 + Math.random() * 1.4; }
-      const fwd = Math.abs(f.base - b.y) > 1 ? 0 : d > (b.weapon === 'shotgun' ? 4 : 7) ? 1 : d < (b.weapon === 'shotgun' ? 1.5 : 3) ? -1 : 0; // a shotgun closes in
-      mx = dx / d * fwd + (-dz / d) * b.strafe * 0.8; mz = dz / d * fwd + (dx / d) * b.strafe * 0.8;
-      // shoot when roughly facing them
+      // a shotgun closes in, a knife runs at them, a rocket keeps away from its own blast
+      const knife = b.weapon === 'knife', [near, far] = knife ? [0, 1.1] : b.weapon === 'shotgun' ? [1.5, 4] : b.weapon === 'rocket' ? [5, 9] : [3, 7];
+      const fwd = Math.abs(f.base - b.y) > 1 && !knife ? 0 : d > far ? 1 : d < near ? -1 : 0;
+      const side = knife ? 0.25 : 0.8;
+      mx = dx / d * fwd + (-dz / d) * b.strafe * side; mz = dz / d * fwd + (dx / d) * b.strafe * side;
+      // shoot when roughly facing them (a knife, once close enough)
       let dy = face - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      if (Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + L.react && !prep()) {
+      if (knife && Math.abs(dy) < 0.5 && d < WEAPONS.knife.range && t > b.nextShot && t > b.spotted + L.react) {
+        b.nextShot = t + WEAPONS.knife.cooldown + BOT_GUNS.knife.pause * L.pause * Math.random();
+        const dir = new THREE.Vector3(f.x - b.x, f.base + f.height * 0.6 - botO.y, f.z - b.z).normalize();
+        playNear(botO, 'stab');
+        const res = { ...fire(botO, dir, b.id, BOT_GUNS.knife.spread * L.spread, WEAPONS.knife.range + 0.4), head: false };
+        sendDart(botO, res, b.id, 'knife');
+        if (res.target) damage(res.target, b.id, WEAPONS.knife.damage, false, botO);
+      } else if (!knife && Math.abs(dy) < 0.25 && t > b.nextShot && t > b.spotted + L.react && !prep()) {
         const g = BOT_GUNS[b.weapon];
         // pistol bots take their time; the others fire short bursts, then pause
         if (--b.burst > 0) b.nextShot = t + g.gap;
@@ -788,9 +878,15 @@ export function startFps(ctx) {
         const o = botO.clone().addScaledVector(dir, 0.4);
         const w = WEAPONS[b.weapon];
         playNear(o, SHOT_SFX[b.weapon] || 'dart');
-        for (let p = 0; p < (w.pellets || 1); p++) {
+        if (b.weapon === 'rocket') { // it bursts where it lands, a moment later
+          const res = fire(o, dir, b.id, (g.spread + d * g.drift) * L.spread, w.range), id = b.id;
+          spawnDart(o, res.h, res.stuck, 'rocket');
+          sendDart(o, { ...res, target: null }, id, 'rocket');
+          const p = res.h.clone().addScaledVector(res.d, -0.15);
+          setTimeout(() => splash(p, id), o.distanceTo(res.h) / ROCKET_SPEED * 1000);
+        } else for (let p = 0; p < (w.pellets || 1); p++) {
           const res = fire(o, dir, b.id, (g.spread + d * g.drift) * L.spread, w.range);
-          spawnDart(o, res.h, res.stuck);
+          spawnDart(o, res.h, res.stuck, b.weapon === 'railgun' ? 'railgun' : undefined);
           sendDart(o, res, b.id, b.weapon, p > 0);
           if (res.target) damage(res.target, b.id, w.damage * (res.head ? 2 : 1), res.head, o);
         }
@@ -919,7 +1015,7 @@ export function startFps(ctx) {
   function updatePickups(dt) {
     const t = now();
     for (const p of pickups) {
-      p.g.visible = !(huntOn() && WEAPONS[p.kind]); // the traitor mode: no rocket launcher, no railgun
+      p.g.visible = !((huntOn() || raceOn()) && WEAPONS[p.kind]); // the traitor mode, the arms race: no rocket launcher, no railgun on the floor
       if (!p.g.visible) continue;
       const up = t >= p.back;
       p.item.visible = up; p.glow.material.opacity = up ? 0.55 : 0.12;
@@ -1349,7 +1445,8 @@ export function startFps(ctx) {
     if (o.distanceTo(h) > RANGE + 1) return;
     if (!Object.hasOwn(WEAPONS, d.w)) d.w = 'pistol';
     spawnDart(o, h, d.k === 1, d.w);
-    if (d.q !== 1) playNear(o, SHOT_SFX[d.w] || 'dart', d.w === 'railgun' || d.w === 'sniper' || d.w === 'shotgun' ? 30 : 12);
+    if (d.q !== 1) playNear(o, SHOT_SFX[d.w] || 'dart', d.w === 'railgun' || d.w === 'sniper' || d.w === 'shotgun' ? 30 : d.w === 'knife' ? 8 : 12);
+    if (d.w === 'knife' && o.distanceTo(h) > WEAPONS.knife.range + 1) return; // a knife doesn't reach that far
     if (typeof d.t === 'string' && shooter) damage(d.t, shooter, WEAPONS[d.w].damage * (d.hs === 1 ? 2 : 1), d.hs === 1, o);
   }
   function onKo(m) {
@@ -1357,8 +1454,8 @@ export function startFps(ctx) {
     const d = m.data || {};
     if (typeof d.v !== 'string' || typeof d.k !== 'string') return;
     if (d.v === d.k) { /* knocked themselves out: nobody scores */ }
-    else if (d.k === ctx.myKey()) { kills++; pushMine(); hitMarker(d.h === 1); }
-    else { const b = bots.get(d.k); if (b) b.kills++; }
+    else if (d.k === ctx.myKey()) { scored(d.k); pushMine(); hitMarker(d.h === 1); }
+    else scored(d.k);
     witness(d.v, d.k);
     announce(d.v, d.k, d.h === FELL ? FELL : d.h === 1);
   }
@@ -1384,8 +1481,9 @@ export function startFps(ctx) {
   // (the traitor mode always plays against the clock)
   function cleanMatch(d) {
     if (!d || typeof d.id !== 'string' || !d.id || d.id.length > 16) return null;
-    const mode = ['teams', 'ctf', 'traitor'].includes(d.mode) ? d.mode : 'ffa', end = mode === 'traitor' ? 'time' : ['score', 'time'].includes(d.end) ? d.end : 'free';
-    const goals = end === 'score' ? (mode === 'ctf' ? CAP_GOALS : SCORE_GOALS) : end === 'time' ? TIME_GOALS : [0];
+    // (the arms race ends with its knife elimination: its goal is the eliminations per weapon)
+    const mode = ['teams', 'ctf', 'traitor', 'race'].includes(d.mode) ? d.mode : 'ffa', end = mode === 'traitor' ? 'time' : mode === 'race' ? 'score' : ['score', 'time'].includes(d.end) ? d.end : 'free';
+    const goals = mode === 'race' ? STEP_GOALS : end === 'score' ? (mode === 'ctf' ? CAP_GOALS : SCORE_GOALS) : end === 'time' ? TIME_GOALS : [0];
     const start = +d.start;
     if (!Number.isFinite(start) || start <= 0) return null;
     const id = v => typeof v === 'string' && v.length < 80 ? v : '';
@@ -1436,12 +1534,12 @@ export function startFps(ctx) {
   if (room0) for (const [topic, fn] of [['dart', onDart], ['ko', onKo], ['bots', onBots], ['boom', onBoom], ['pick', onPick], ['match', onMatch], ['mend', onMend], ['flag', onFlag], ['cap', onCap], ['body', onBody], ['loot', onLoot]]) room0.on(topic, fn, () => {});
 
   /* ---------- rounds: starting, joining late, ending ---------- */
-  let setup = { mode: 'ffa', end: 'score', score: 15, caps: 3, time: 5 }; // what the round window shows
+  let setup = { mode: 'ffa', end: 'score', score: 15, caps: 3, time: 5, step: 2 }; // what the round window shows
   try { Object.assign(setup, JSON.parse(store.get('playroom-round')) || {}); } catch (e) {}
   if (setup.mode === 'ctf' && flags.length !== 2) setup.mode = 'teams'; // no flags on this map
   const inTeams = m => m.mode === 'teams' || m.mode === 'ctf';
   function startMatch(s) {
-    const goal = s.mode === 'traitor' || s.end === 'time' ? s.time : s.end === 'score' ? (s.mode === 'ctf' ? s.caps : s.score) : 0;
+    const goal = s.mode === 'race' ? s.step : s.mode === 'traitor' || s.end === 'time' ? s.time : s.end === 'score' ? (s.mode === 'ctf' ? s.caps : s.score) : 0;
     const m = cleanMatch({ id: Math.random().toString(36).slice(2, 10), mode: s.mode, end: s.end, goal, start: Math.max(Date.now(), match.start + 1), by: ctx.myKey() });
     if (m.mode === 'traitor') { startHunt(m); return; }
     // the teams: people first, one each side in a random order, then the bots to even things out
@@ -1529,7 +1627,7 @@ export function startFps(ctx) {
     if (fresh) {
       kills = deaths = 0;
       const t0 = now();
-      for (const b of bots.values()) { b.kills = b.deaths = 0; b.weapon = m.mode === 'traitor' ? null : b.arm; respawnBot(b, t0); }
+      for (const b of bots.values()) { b.kills = b.deaths = 0; b.weapon = m.mode === 'traitor' ? null : m.mode === 'race' ? LADDER[0] : b.arm; respawnBot(b, t0); }
       if (me.entered) { watching = false; respawnMe(); }
       sfx.whistle();
       const who = by && by !== ctx.myKey() ? nameOf(by) + ' lance' : 'Nouvelle manche :';
@@ -1543,6 +1641,7 @@ export function startFps(ctx) {
   }
   function describe(m) {
     if (m.mode === 'traitor') return `le Traître, ${m.goal} minutes`;
+    if (m.mode === 'race') return `course à l'armement, ${m.goal} élimination${m.goal > 1 ? 's' : ''} par arme`;
     const mode = m.mode === 'ctf' ? 'capture du drapeau' : m.mode === 'teams' ? 'Rouges contre Bleus' : 'chacun pour soi';
     const goal = m.mode === 'ctf' ? `${m.goal} capture${m.goal > 1 ? 's' : ''}` : m.goal;
     return m.end === 'score' ? `${mode}, premier à ${goal}` : m.end === 'time' ? `${mode}, ${m.goal} minutes` : `${mode}, sans fin`;
@@ -1575,7 +1674,7 @@ export function startFps(ctx) {
     if (match.end === 'score') {
       const rows = standings();
       const best = teamsOn() ? Math.max(...teamScores(rows)) : Math.max(0, ...rows.map(r => r.k));
-      if (best >= match.goal) finish(true);
+      if (best >= (match.mode === 'race' ? raceGoal() : match.goal)) finish(true);
     }
   }
   // the traitor mode's end: whoever started the round knows every role, so it judges. The others
@@ -1624,7 +1723,8 @@ export function startFps(ctx) {
       if (!a) title = 'Fin de la manche';
       else if (b && b.k === a.k && b.d === a.d) title = 'Égalité !';
       else { title = a.me ? 'Tu as gagné ! 🏆' : `${a.nick} gagne ! 🏆`; won = a.me; }
-      sub = a ? `${a.k} élimination${a.k > 1 ? 's' : ''} pour ${a.me ? 'toi' : a.nick}` : '';
+      sub = !a ? '' : match.mode === 'race' && a.k >= raceGoal() ? `${a.me ? 'Tu as' : a.nick + ' a'} fini au couteau 🔪`
+        : `${a.k} élimination${a.k > 1 ? 's' : ''} pour ${a.me ? 'toi' : a.nick}`;
     }
     sfx.whistle();
     setTimeout(() => (won ? sfx.fanfare() : sfx.wahwah()), 700);
@@ -1633,7 +1733,7 @@ export function startFps(ctx) {
     endEl.append(el('h2', null, title), el('p', 'muted', (sub ? sub + ' · ' : '') + describe(match)), match.mode === 'traitor' ? roleTable(rows) : table(rows, 8));
     const btns = el('div', 'btns');
     const again = el('button', 'btn', 'Revanche'); again.type = 'button';
-    again.addEventListener('click', () => startMatch({ mode: match.mode, end: match.end, score: match.goal, caps: match.goal, time: match.goal }));
+    again.addEventListener('click', () => startMatch({ mode: match.mode, end: match.end, score: match.goal, caps: match.goal, time: match.goal, step: match.goal }));
     const set = el('button', 'btn ghost', 'Régler la partie'); set.type = 'button';
     set.addEventListener('click', openSetup);
     btns.append(again, set); endEl.append(btns);
@@ -1659,12 +1759,15 @@ export function startFps(ctx) {
       body.textContent = '';
       body.append(el('p', 'muted', 'Tout le monde repart de zéro. En équipes, les tirs passent à travers les coéquipiers.'));
       // capture the flag only on a map with flags
-      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']].concat(flags.length === 2 ? [['ctf', 'Capture du drapeau']] : [], [['traitor', 'Le Traître (rôles secrets)']]), v => { setup.mode = v; });
+      select('Mode', setup.mode, [['ffa', 'Chacun pour soi'], ['teams', 'Rouges contre Bleus']].concat(flags.length === 2 ? [['ctf', 'Capture du drapeau']] : [], [['race', 'Course à l\'armement'], ['traitor', 'Le Traître (rôles secrets)']]), v => { setup.mode = v; });
       if (setup.mode === 'ctf') body.append(el('p', 'muted', 'Prends le drapeau adverse et ramène-le à ta base pendant que le tien y est. S\'il tombe, touche-le pour le ramener chez toi.'));
       if (setup.mode === 'traitor') {
         body.append(el('p', 'muted', 'Chacun reçoit un rôle secret. Les Traîtres (un sur quatre) se connaissent et doivent éliminer tous les autres. Les Innocents doivent les démasquer, ou tenir jusqu\'à la fin du temps. L\'Enquêteur (à partir de 5 joueurs) est connu de tous.'));
         body.append(el('p', 'muted', 'Personne n\'est armé au départ : pistolets, fusils à pompe et snipers sont à ramasser par terre. On ne réapparaît pas avant la fin. Approche-toi d\'un corps pour savoir qui c\'était. Les morts ne parlent plus aux vivants. Il faut au moins 3 joueurs, robots compris.'));
         select('Durée', setup.time, TIME_GOALS.map(n => [n, n + ' minutes']), v => { setup.time = +v; });
+      } else if (setup.mode === 'race') {
+        body.append(el('p', 'muted', `Chacun pour soi, tout le monde commence au pistolet. Quelques éliminations et on passe à l'arme suivante : ${LADDER.slice(1, -1).map(k => WEAPONS[k].name.toLowerCase()).join(', ')}. La dernière étape se joue au couteau : la première élimination au couteau gagne la manche.`));
+        select('Éliminations par arme', setup.step, STEP_GOALS.map(n => [n, String(n)]), v => { setup.step = +v; });
       } else {
         select('Fin de la manche', setup.end, [['score', 'Score à atteindre'], ['time', 'Chronomètre'], ['free', 'Sans fin']], v => { setup.end = v; });
         if (setup.end === 'score' && setup.mode === 'ctf') select('Captures', setup.caps, CAP_GOALS.map(n => [n, String(n)]), v => { setup.caps = +v; });
@@ -1736,9 +1839,10 @@ export function startFps(ctx) {
     for (let i = 0; i < MAX_HP / 2; i++) hearts += hp >= i * 2 + 2 ? '❤️' : hp === i * 2 + 1 ? '💔' : '🤍';
     hpEl.textContent = hearts + '🛡️'.repeat(Math.ceil(armor / 2));
     const reloading = now() < reloadUntil, w = W(), k = SLOTS[slot];
-    ammoEl.textContent = !armed() ? 'Mains vides · ramasse une arme' : `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : w.heavy ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
-    ammoEl.classList.toggle('heavy', !!w.heavy);
-    ammoEl.classList.toggle('low', !reloading && ammo[k] <= w.mag / 4);
+    ammoEl.textContent = !armed() ? 'Mains vides · ramasse une arme' : w.melee ? `${w.name} 🔪 · au corps à corps`
+      : `${w.name} · ` + (reloading ? 'recharge…' : chargeAt ? 'charge…' : limited(w) ? `${ammo[k]} restant${ammo[k] > 1 ? 's' : ''}` : `${ammo[k]}/${w.mag}`);
+    ammoEl.classList.toggle('heavy', !!w.heavy || !!w.melee);
+    ammoEl.classList.toggle('low', !reloading && !w.melee && ammo[k] <= w.mag / 4);
     teamEl.hidden = !(teamsOn() && team >= 0) && !(huntOn() && role);
     if (huntOn() && role) { teamEl.textContent = `${ROLES[role].dot} ${ROLES[role].name}`; teamEl.style.background = ROLES[role].col; }
     else if (!teamEl.hidden) { teamEl.textContent = TEAMS[team].name; teamEl.style.background = TEAMS[team].col; }
@@ -1754,6 +1858,10 @@ export function startFps(ctx) {
     if (prep()) return `Préparation ${Math.ceil((match.start + PREP * 1000 - Date.now()) / 1000)} s`;
     if (match.end === 'time') return '⏱ ' + mmss(timeLeft()) + (capsTxt ? ' · ' + capsTxt : '');
     if (capsTxt) return `${capsTxt} (sur ${match.goal})`;
+    if (match.mode === 'race') { // where I am on the ladder
+      const s = stepOf(kills);
+      return s === LADDER.length - 1 ? `🔪 ${s + 1}/${LADDER.length} au couteau !` : `🔫 ${s + 1}/${LADDER.length} · encore ${match.goal * (s + 1) - kills}`;
+    }
     const rows = standings(), best = teamsOn() ? Math.max(...teamScores(rows)) : Math.max(0, ...rows.map(r => r.k));
     return `🎯 ${best}/${match.goal}`;
   }
@@ -1853,6 +1961,10 @@ export function startFps(ctx) {
         const code = roleOf(r.id), rl = el('span', 'rl', code ? ROLES[code].dot : '');
         if (code) { rl.title = ROLES[code].name; rl.style.color = ROLES[code].col; }
         row.append(rl, el('span'));
+      } else if (match.mode === 'race' && running()) { // the arms race: the step each one has reached
+        const s = stepOf(r.k), st = el('span', 'rp', s === LADDER.length - 1 ? '🔪' : `${s + 1}/${LADDER.length}`);
+        st.title = WEAPONS[LADDER[s]].name;
+        row.append(st, el('span', 't', String(r.d)));
       } else row.append(el('span', 'rp', String(r.k)), el('span', 't', String(r.d)));
       board.append(row);
     };
@@ -1993,21 +2105,23 @@ export function startFps(ctx) {
     if (Math.abs(camera.fov - FOV / zoom) > 0.01) { camera.fov = FOV / zoom; camera.updateProjectionMatrix(); }
     const aimed = Math.max(0, Math.min(1, (zoom - 1) / (w.zoom - 1)));
     // the blaster: the one in your hands, recoil, a dip while reloading or switching
-    for (const k of SLOTS) models[k].visible = k === SLOTS[slot];
+    const stabbed = stabbing(), shown = stabbed ? 'knife' : SLOTS[slot]; // a stab: the knife for a moment
+    for (const k of SLOTS) models[k].visible = k === shown;
     kick = Math.max(0, kick - dt * 9);
-    const rl = t < reloadUntil ? Math.sin(Math.min(1, (reloadUntil - t) / reloadLen) * Math.PI) : 0;
+    const lunge = stabbed ? Math.sin(Math.min(1, 1 - (stabUntil - t) / STAB) * Math.PI) : 0;
+    const rl = t < reloadUntil && !stabbed ? Math.sin(Math.min(1, (reloadUntil - t) / reloadLen) * Math.PI) : 0;
     const sw = t < switchUntil ? (switchUntil - t) / 0.35 : 0;
     const scoped = !!w.scope && aimed > 0.85; // looking through the sniper's scope
     const playing = me.entered && alive() && !watching;
     scopeEl.classList.toggle('on', scoped && playing);
-    gun.visible = playing && !scoped && armed();
+    gun.visible = playing && !scoped && (armed() || stabbed);
     // bottom right of the view, whatever the screen shape (a phone held upright is narrow)
     const hh = -gunRest.z * Math.tan(FOV * Math.PI / 360), hw = hh * camera.aspect;
     const s = Math.min(1, camera.aspect * 1.3);
     gun.scale.setScalar(0.5 * s / zoom); // the zoom would make it look bigger: keep its apparent size
     const rx = Math.min(gunRest.x, hw * 0.6), ry = Math.max(gunRest.y, -hh * 0.75);
-    gun.position.set((rx + (gunAim.x - rx) * aimed) / zoom, (ry + (gunAim.y - ry) * aimed - rl * 0.06 - sw * 0.08) / zoom, gunRest.z + kick * 0.03);
-    gun.rotation.set(kick * 0.25 - rl * 0.6 - sw * 0.5, 0, rl * 0.3);
+    gun.position.set((rx + (gunAim.x - rx) * aimed - lunge * 0.05) / zoom, (ry + (gunAim.y - ry) * aimed - rl * 0.06 - sw * 0.08 + lunge * 0.03) / zoom, gunRest.z + kick * 0.03 - lunge * 0.1);
+    gun.rotation.set(kick * 0.25 - rl * 0.6 - sw * 0.5 - lunge * 0.35, lunge * 0.4, rl * 0.3);
     if (chargeAt) { // the railgun shakes as it charges, then fires by itself
       const c = Math.min(1, (t - chargeAt) / w.charge);
       gun.position.x += (Math.random() - 0.5) * 0.006 * c; gun.position.y += (Math.random() - 0.5) * 0.006 * c;
@@ -2024,11 +2138,12 @@ export function startFps(ctx) {
     if (!reloadEl.hidden) { reloadFill.style.width = Math.min(100, reloadDone() * 100).toFixed(1) + '%'; reloadEl.classList.toggle('miss', reloadTry < 0); }
     $('#cross').hidden = !playing || match.over || ctx.blocked();
     fireBtn.hidden = aimBtn.hidden = swapBtn.hidden = !(coarse && playing);
+    knifeBtn.hidden = !(coarse && playing) || huntOn() || W().melee; // no knife in the traitor mode; at the knife step, 🎯 stabs
     aimBtn.setAttribute('aria-pressed', String(aiming));
     if ((uiTick += dt) > 0.25) { uiTick = 0; readMatch(); readFlags(); readFound(); findBodies(); checkEnd(); renderBar(); renderBoard(); if (tabOpen) renderTab(); }
   }
   return {
-    update, syncAvatars, peerAvatar, dress, trigger, reload, aim, scores, join, fillMenu,
+    update, syncAvatars, peerAvatar, dress, trigger, reload, aim, scores, join, fillMenu, stab,
     select: i => select(huntOn() && i === 1 ? SLOTS.indexOf('shotgun') : i), // the traitor mode: 2 is the shotgun
     cycle, silenced,
     watching: () => watching,
